@@ -17,4 +17,4 @@ window.addEventListener("message", (event) => {
 });
 
 // ページが読み込まれたことを通知
-console.log("Image Fetcher: Content script loaded");
+console.log("image-fetcher: Content script loaded");
