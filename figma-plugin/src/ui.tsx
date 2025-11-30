@@ -21,6 +21,7 @@ interface ImageData {
   id?: string;
   type?: string;
   base64?: string;
+  service?: string;
 }
 
 // 暗号化キー（Chrome拡張機能と同じキー）
@@ -89,6 +90,101 @@ function isEncrypted(data: string): boolean {
     const base64Pattern = /^[A-Za-z0-9+/=]+$/;
     return base64Pattern.test(data.trim());
   }
+}
+
+// サービス名からロゴURLを取得する関数
+function getServiceLogoUrl(serviceName: string): string {
+  if (!serviceName || serviceName === "Unknown") {
+    return "";
+  }
+
+  // サービス名からドメインを推測
+  const serviceDomains: Record<string, string> = {
+    Netflix: "netflix.com",
+    YouTube: "youtube.com",
+    Amazon: "amazon.com",
+    "Prime Video": "primevideo.com",
+    "Amazon Music": "music.amazon.com",
+    Kindle: "kindle.amazon.com",
+    Audible: "audible.com",
+    "U-NEXT": "unext.jp",
+    "Twitter/X": "twitter.com",
+    Instagram: "instagram.com",
+    Facebook: "facebook.com",
+    LinkedIn: "linkedin.com",
+    GitHub: "github.com",
+    Spotify: "spotify.com",
+    Discord: "discord.com",
+    Reddit: "reddit.com",
+    Pinterest: "pinterest.com",
+    TikTok: "tiktok.com",
+    Twitch: "twitch.tv",
+    Vimeo: "vimeo.com",
+    Dribbble: "dribbble.com",
+    Behance: "behance.net",
+    Figma: "figma.com",
+    Notion: "notion.so",
+    Medium: "medium.com",
+    Dropbox: "dropbox.com",
+    Google: "google.com",
+    Apple: "apple.com",
+    Microsoft: "microsoft.com",
+    Adobe: "adobe.com",
+  };
+
+  const domain =
+    serviceDomains[serviceName] || serviceName.toLowerCase() + ".com";
+  // Google Favicon APIを使用
+  return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+}
+
+// サービスロゴコンポーネント（ロゴ + 名前を表示）
+function ServiceLogo({
+  serviceName,
+  size = 16,
+}: {
+  serviceName: string;
+  size?: number;
+}) {
+  const [logoError, setLogoError] = useState(false);
+  const logoUrl = getServiceLogoUrl(serviceName);
+
+  if (!serviceName || serviceName === "Unknown") {
+    return null;
+  }
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "6px",
+      }}
+    >
+      {logoUrl && !logoError && (
+        <img
+          src={logoUrl}
+          alt={serviceName}
+          style={{
+            width: `${size}px`,
+            height: `${size}px`,
+            borderRadius: "2px",
+            objectFit: "contain",
+          }}
+          onError={() => setLogoError(true)}
+        />
+      )}
+      <span
+        style={{
+          fontSize: `${size - 2}px`,
+          fontWeight: "500",
+          color: "var(--figma-color-text-secondary)",
+        }}
+      >
+        {serviceName}
+      </span>
+    </div>
+  );
 }
 
 function Plugin() {
@@ -424,8 +520,8 @@ function Plugin() {
       </div>
       <VerticalSpace space="small" />
 
-      <Container space="medium">
-        <div
+      <Container space="small">
+        {/* <div
           style={{
             padding: "12px",
             background: "#f9f9f9",
@@ -441,25 +537,162 @@ function Plugin() {
             <li>「データを読み込む」をクリック</li>
             <li>画像を選択してFigmaに適用</li>
           </ol>
-        </div>
+        </div> */}
 
-        <VerticalSpace space="medium" />
+        {/* <VerticalSpace space="medium" /> */}
 
-        <Text>画像データ:</Text>
-        <VerticalSpace space="extraSmall" />
-        <TextboxMultiline
-          value={jsonInput}
-          onValueInput={setJsonInput}
-          placeholder="データを貼り付けてください..."
-          rows={6}
-        />
+        {tabValue === "Top" && (
+          <>
+            <Text>画像データ:</Text>
+            <VerticalSpace space="extraSmall" />
+            <TextboxMultiline
+              value={jsonInput}
+              onValueInput={setJsonInput}
+              placeholder="データを貼り付けてください..."
+              rows={6}
+            />
 
-        <VerticalSpace space="small" />
-        <Button fullWidth onClick={handleLoadData}>
-          データを読み込む
-        </Button>
+            <VerticalSpace space="small" />
+            <Button fullWidth onClick={handleLoadData}>
+              データを読み込む
+            </Button>
+          </>
+        )}
 
-        {images.length > 0 && (
+        {tabValue === "Data" && images.length > 0 && (
+          <>
+            <VerticalSpace space="small" />
+            <Text>
+              <strong>サービス別画像 ({images.length}個)</strong>
+            </Text>
+            <VerticalSpace space="extraSmall" />
+            {(() => {
+              // サービスごとにグループ化
+              const groupedByService = images.reduce((acc, img, index) => {
+                const service = img.service || "Unknown";
+                if (!acc[service]) {
+                  acc[service] = [];
+                }
+                acc[service].push({ ...img, originalIndex: index });
+                return acc;
+              }, {} as Record<string, Array<ImageData & { originalIndex: number }>>);
+
+              return (
+                <div
+                  style={{
+                    maxHeight: "400px",
+                    overflowY: "auto",
+                    border: "1px solid #e0e0e0",
+                    borderRadius: "4px",
+                  }}
+                >
+                  {Object.entries(groupedByService).map(
+                    ([service, serviceImages]) => (
+                      <div key={service} style={{ marginBottom: "16px" }}>
+                        <div
+                          style={{
+                            padding: "8px 12px",
+                            background: "#f5f5f5",
+                            borderBottom: "1px solid #e0e0e0",
+                            fontWeight: "600",
+                            fontSize: "12px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "8px",
+                          }}
+                        >
+                          <ServiceLogo serviceName={service} size={16} />
+                          <span
+                            style={{
+                              fontSize: "10px",
+                              color: "#666",
+                              fontWeight: "400",
+                            }}
+                          >
+                            ({serviceImages.length}個)
+                          </span>
+                        </div>
+                        <div>
+                          {serviceImages.map((img) => (
+                            <div
+                              key={img.originalIndex}
+                              onClick={() =>
+                                handleSelectImage(img.originalIndex)
+                              }
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                padding: "8px 12px",
+                                borderBottom: "1px solid #f0f0f0",
+                                cursor: "pointer",
+                                background:
+                                  selectedImageIndex === img.originalIndex
+                                    ? "#e3f2fd"
+                                    : "transparent",
+                                borderLeft:
+                                  selectedImageIndex === img.originalIndex
+                                    ? "3px solid #18A0FB"
+                                    : "3px solid transparent",
+                              }}
+                            >
+                              <img
+                                src={img.src}
+                                alt={
+                                  img.alt || `Image ${img.originalIndex + 1}`
+                                }
+                                style={{
+                                  width: "40px",
+                                  height: "40px",
+                                  objectFit: "cover",
+                                  marginRight: "8px",
+                                  borderRadius: "3px",
+                                }}
+                                onError={(e) => {
+                                  e.currentTarget.style.display = "none";
+                                }}
+                              />
+                              <div style={{ flex: 1, overflow: "hidden" }}>
+                                <div style={{ fontSize: "11px" }}>
+                                  <strong>{img.originalIndex + 1}.</strong>{" "}
+                                  {img.alt || "No title"}
+                                </div>
+                                <div
+                                  style={{ fontSize: "10px", color: "#666" }}
+                                >
+                                  {img.width} × {img.height}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  )}
+                </div>
+              );
+            })()}
+            <VerticalSpace space="small" />
+            <Button
+              fullWidth
+              onClick={handleApplyImage}
+              disabled={selectedImageIndex === null}
+            >
+              選択ノードに画像を適用
+            </Button>
+
+            <VerticalSpace space="extraSmall" />
+            <Button
+              fullWidth
+              secondary
+              onClick={handleCreateRectangle}
+              disabled={selectedImageIndex === null}
+            >
+              新規レクタングルを作成
+            </Button>
+          </>
+        )}
+
+        {tabValue === "Top" && images.length > 0 && (
           <>
             <VerticalSpace space="medium" />
             <Text>
@@ -509,8 +742,26 @@ function Plugin() {
                     }}
                   />
                   <div style={{ flex: 1, overflow: "hidden" }}>
-                    <div style={{ fontSize: "11px" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        fontSize: "11px",
+                      }}
+                    >
                       <strong>{index + 1}.</strong> {img.alt || "No title"}
+                      {img.service && (
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                        >
+                          <ServiceLogo serviceName={img.service} size={14} />
+                        </div>
+                      )}
                     </div>
                     <div style={{ fontSize: "10px", color: "#666" }}>
                       {img.width} × {img.height}
