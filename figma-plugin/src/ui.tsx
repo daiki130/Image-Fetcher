@@ -320,153 +320,255 @@ function Plugin() {
     setStatusType(type);
   };
 
-  return (
-    <Container space="medium">
-      <VerticalSpace space="small" />
+  const [tabValue, setTabValue] = useState<string>("Top");
+  const tabOptions = [
+    {
+      text: "Top",
+      value: "Top",
+    },
+    {
+      text: "Data",
+      value: "Data",
+    },
+  ];
 
+  return (
+    <div>
+      {/* カスタムステータスタブ */}
       <div
         style={{
-          padding: "12px",
-          background: "#f9f9f9",
-          borderRadius: "4px",
-          fontSize: "11px",
-          lineHeight: "1.6",
+          overflowX: "auto",
+          whiteSpace: "nowrap",
+          padding: "0 var(--space-8)",
+          borderBottom: "1px solid var(--figma-color-border)",
         }}
       >
-        <strong>使い方:</strong>
-        <ol style={{ margin: "8px 0 0 0", paddingLeft: "20px" }}>
-          <li>画像データをコピー</li>
-          <li>下のテキストエリアに貼り付け</li>
-          <li>「データを読み込む」をクリック</li>
-          <li>画像を選択してFigmaに適用</li>
-        </ol>
-      </div>
-
-      <VerticalSpace space="medium" />
-
-      <Text>画像データ:</Text>
-      <VerticalSpace space="extraSmall" />
-      <TextboxMultiline
-        value={jsonInput}
-        onValueInput={setJsonInput}
-        placeholder="データを貼り付けてください..."
-        rows={6}
-      />
-
-      <VerticalSpace space="small" />
-      <Button fullWidth onClick={handleLoadData}>
-        データを読み込む
-      </Button>
-
-      {images.length > 0 && (
-        <>
-          <VerticalSpace space="medium" />
-          <Text>
-            <strong>{images.length}個の画像</strong>
-          </Text>
-          <VerticalSpace space="extraSmall" />
-
-          <div
-            style={{
-              maxHeight: "200px",
-              overflowY: "auto",
-              border: "1px solid #e0e0e0",
-              borderRadius: "4px",
-            }}
-          >
-            {images.map((img, index) => (
-              <div
-                key={index}
-                onClick={() => handleSelectImage(index)}
+        <div
+          style={{
+            display: "flex",
+            gap: "var(--space-4)",
+            height: "40px",
+            alignItems: "center",
+            minWidth: "fit-content",
+          }}
+        >
+          {tabOptions.map((option) => (
+            <button
+              key={option.value}
+              onClick={() => setTabValue(option.value)}
+              style={{
+                background:
+                  tabValue === option.value
+                    ? "var(--figma-color-bg-secondary)"
+                    : "transparent",
+                color:
+                  tabValue === option.value
+                    ? "var(--figma-color-text)"
+                    : "var(--figma-color-text-secondary)",
+                border: "none",
+                borderRadius: "var(--border-radius-6)",
+                padding: "0 var(--space-8)",
+                height: "24px",
+                fontSize: "11px",
+                fontWeight: "400",
+                transition: "all 0.2s ease",
+                whiteSpace: "nowrap",
+              }}
+              onMouseEnter={(e) => {
+                if (tabValue !== option.value) {
+                  e.currentTarget.style.background =
+                    "var(--figma-color-bg-hover)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (tabValue !== option.value) {
+                  e.currentTarget.style.background = "transparent";
+                }
+              }}
+            >
+              <span
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  padding: "8px",
-                  borderBottom:
-                    index < images.length - 1 ? "1px solid #f0f0f0" : "none",
-                  cursor: "pointer",
-                  background:
-                    selectedImageIndex === index ? "#e3f2fd" : "transparent",
-                  borderLeft:
-                    selectedImageIndex === index
-                      ? "3px solid #18A0FB"
-                      : "3px solid transparent",
+                  justifyContent: "center",
+                  gap: "var(--space-6)",
                 }}
               >
-                <img
-                  src={img.src}
-                  alt={img.alt || `Image ${index + 1}`}
+                {option.text}
+
+                {/* <span>
+                    <strong
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: "0 var(--space-4)",
+                        height: "16px",
+                        borderRadius: "var(--border-radius-4)",
+                        fontSize: "11px",
+                        fontWeight: "500",
+                        color:
+                          tabValue === option.value
+                            ? "var(--figma-color-text)"
+                            : "var(--figma-color-text-secondary)",
+                        border: "1px solid var(--figma-color-border)",
+                      }}
+                    >
+                      {getCommentCount(option.value)}
+                    </strong>
+                  </span> */}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+      <VerticalSpace space="small" />
+
+      <Container space="medium">
+        <div
+          style={{
+            padding: "12px",
+            background: "#f9f9f9",
+            borderRadius: "4px",
+            fontSize: "11px",
+            lineHeight: "1.6",
+          }}
+        >
+          <strong>使い方:</strong>
+          <ol style={{ margin: "8px 0 0 0", paddingLeft: "20px" }}>
+            <li>画像データをコピー</li>
+            <li>下のテキストエリアに貼り付け</li>
+            <li>「データを読み込む」をクリック</li>
+            <li>画像を選択してFigmaに適用</li>
+          </ol>
+        </div>
+
+        <VerticalSpace space="medium" />
+
+        <Text>画像データ:</Text>
+        <VerticalSpace space="extraSmall" />
+        <TextboxMultiline
+          value={jsonInput}
+          onValueInput={setJsonInput}
+          placeholder="データを貼り付けてください..."
+          rows={6}
+        />
+
+        <VerticalSpace space="small" />
+        <Button fullWidth onClick={handleLoadData}>
+          データを読み込む
+        </Button>
+
+        {images.length > 0 && (
+          <>
+            <VerticalSpace space="medium" />
+            <Text>
+              <strong>{images.length}個の画像</strong>
+            </Text>
+            <VerticalSpace space="extraSmall" />
+
+            <div
+              style={{
+                maxHeight: "200px",
+                overflowY: "auto",
+                border: "1px solid #e0e0e0",
+                borderRadius: "4px",
+              }}
+            >
+              {images.map((img, index) => (
+                <div
+                  key={index}
+                  onClick={() => handleSelectImage(index)}
                   style={{
-                    width: "40px",
-                    height: "40px",
-                    objectFit: "cover",
-                    marginRight: "8px",
-                    borderRadius: "3px",
+                    display: "flex",
+                    alignItems: "center",
+                    padding: "8px",
+                    borderBottom:
+                      index < images.length - 1 ? "1px solid #f0f0f0" : "none",
+                    cursor: "pointer",
+                    background:
+                      selectedImageIndex === index ? "#e3f2fd" : "transparent",
+                    borderLeft:
+                      selectedImageIndex === index
+                        ? "3px solid #18A0FB"
+                        : "3px solid transparent",
                   }}
-                  onError={(e) => {
-                    e.currentTarget.style.display = "none";
-                  }}
-                />
-                <div style={{ flex: 1, overflow: "hidden" }}>
-                  <div style={{ fontSize: "11px" }}>
-                    <strong>{index + 1}.</strong> {img.alt || "No title"}
-                  </div>
-                  <div style={{ fontSize: "10px", color: "#666" }}>
-                    {img.width} × {img.height}
+                >
+                  <img
+                    src={img.src}
+                    alt={img.alt || `Image ${index + 1}`}
+                    style={{
+                      width: "40px",
+                      height: "40px",
+                      objectFit: "cover",
+                      marginRight: "8px",
+                      borderRadius: "3px",
+                    }}
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                  <div style={{ flex: 1, overflow: "hidden" }}>
+                    <div style={{ fontSize: "11px" }}>
+                      <strong>{index + 1}.</strong> {img.alt || "No title"}
+                    </div>
+                    <div style={{ fontSize: "10px", color: "#666" }}>
+                      {img.width} × {img.height}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
 
-          <VerticalSpace space="small" />
-          <Button
-            fullWidth
-            onClick={handleApplyImage}
-            disabled={selectedImageIndex === null}
-          >
-            選択ノードに画像を適用
-          </Button>
+            <VerticalSpace space="small" />
+            <Button
+              fullWidth
+              onClick={handleApplyImage}
+              disabled={selectedImageIndex === null}
+            >
+              選択ノードに画像を適用
+            </Button>
 
-          <VerticalSpace space="extraSmall" />
-          <Button
-            fullWidth
-            secondary
-            onClick={handleCreateRectangle}
-            disabled={selectedImageIndex === null}
-          >
-            新規レクタングルを作成
-          </Button>
-        </>
-      )}
+            <VerticalSpace space="extraSmall" />
+            <Button
+              fullWidth
+              secondary
+              onClick={handleCreateRectangle}
+              disabled={selectedImageIndex === null}
+            >
+              新規レクタングルを作成
+            </Button>
+          </>
+        )}
 
-      {status && (
-        <>
-          <VerticalSpace space="small" />
-          <div
-            style={{
-              padding: "8px",
-              background:
-                statusType === "error"
-                  ? "#ffe0e0"
-                  : statusType === "success"
-                  ? "#e0f5e0"
-                  : "#f5f5f5",
-              color:
-                statusType === "error"
-                  ? "#d32f2f"
-                  : statusType === "success"
-                  ? "#388e3c"
-                  : "#333",
-              borderRadius: "4px",
-              fontSize: "11px",
-            }}
-          >
-            {status}
-          </div>
-        </>
-      )}
-    </Container>
+        {status && (
+          <>
+            <VerticalSpace space="small" />
+            <div
+              style={{
+                padding: "8px",
+                background:
+                  statusType === "error"
+                    ? "#ffe0e0"
+                    : statusType === "success"
+                    ? "#e0f5e0"
+                    : "#f5f5f5",
+                color:
+                  statusType === "error"
+                    ? "#d32f2f"
+                    : statusType === "success"
+                    ? "#388e3c"
+                    : "#333",
+                borderRadius: "4px",
+                fontSize: "11px",
+              }}
+            >
+              {status}
+            </div>
+          </>
+        )}
+      </Container>
+    </div>
   );
 }
 
