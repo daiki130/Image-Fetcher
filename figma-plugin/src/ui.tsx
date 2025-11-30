@@ -5,7 +5,6 @@ import {
   Text,
   VerticalSpace,
   Textbox,
-  TextboxMultiline,
 } from "@create-figma-plugin/ui";
 import { emit } from "@create-figma-plugin/utilities";
 import { h, Fragment } from "preact";
@@ -107,6 +106,8 @@ function getServiceLogoUrl(serviceName: string): string {
     "Amazon Music": "music.amazon.com",
     Kindle: "kindle.amazon.com",
     Audible: "audible.com",
+    "DMM TV": "tv.dmm.com",
+    DMM: "dmm.com",
     "U-NEXT": "unext.jp",
     "Twitter/X": "twitter.com",
     Instagram: "instagram.com",
@@ -219,7 +220,13 @@ function Plugin() {
             const parsed = JSON.parse(dataToParse);
             if (Array.isArray(parsed) && parsed.length > 0) {
               setImages(parsed);
-              showStatus(`${parsed.length}個の画像を読み込みました`, "success");
+              // 状態更新後にメッセージを表示
+              setTimeout(() => {
+                showStatus(
+                  `${parsed.length}個の画像を読み込みました`,
+                  "success"
+                );
+              }, 0);
               return;
             }
           } catch {
@@ -243,7 +250,10 @@ function Plugin() {
       }
 
       setImages(parsed);
-      showStatus(`${parsed.length}個の画像を読み込みました`, "success");
+      // 状態更新後にメッセージを表示
+      setTimeout(() => {
+        showStatus(`${parsed.length}個の画像を読み込みました`, "success");
+      }, 0);
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "不明なエラー";
@@ -518,7 +528,6 @@ function Plugin() {
           ))}
         </div>
       </div>
-      <VerticalSpace space="small" />
 
       <Container space="small">
         {/* <div
@@ -543,13 +552,21 @@ function Plugin() {
 
         {tabValue === "Top" && (
           <>
-            <Text>画像データ:</Text>
-            <VerticalSpace space="extraSmall" />
-            <TextboxMultiline
+            <div
+              style={{
+                fontSize: "11px",
+                fontWeight: "600",
+                height: "40px",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              Image Src
+            </div>
+            <Textbox
               value={jsonInput}
               onValueInput={setJsonInput}
               placeholder="データを貼り付けてください..."
-              rows={6}
             />
 
             <VerticalSpace space="small" />
@@ -751,7 +768,7 @@ function Plugin() {
                       }}
                     >
                       <strong>{index + 1}.</strong> {img.alt || "No title"}
-                      {img.service && (
+                      {/* {img.service && (
                         <div
                           style={{
                             display: "flex",
@@ -761,7 +778,7 @@ function Plugin() {
                         >
                           <ServiceLogo serviceName={img.service} size={14} />
                         </div>
-                      )}
+                      )} */}
                     </div>
                     <div style={{ fontSize: "10px", color: "#666" }}>
                       {img.width} × {img.height}

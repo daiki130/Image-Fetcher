@@ -11,7 +11,7 @@ export default function () {
     }
   })
 
-  showUI({ width: 400, height: 600 })
+  showUI({ width: 320, height: 600 })
 }
 
 // 選択ノードに画像データを適用
