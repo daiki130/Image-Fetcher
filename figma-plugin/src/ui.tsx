@@ -5,10 +5,11 @@ import {
   Text,
   VerticalSpace,
   Textbox,
+  TextboxMultiline,
 } from "@create-figma-plugin/ui";
 import { emit } from "@create-figma-plugin/utilities";
 import { h, Fragment } from "preact";
-import { useState } from "preact/hooks";
+import { useState, useEffect } from "preact/hooks";
 import CryptoJS from "crypto-js";
 
 interface ImageData {
@@ -21,6 +22,7 @@ interface ImageData {
   type?: string;
   base64?: string;
   service?: string;
+  addedAt?: string; // 追加日時
 }
 
 // 暗号化キー（Chrome拡張機能と同じキー）
@@ -175,7 +177,7 @@ function ServiceLogo({
           onError={() => setLogoError(true)}
         />
       )}
-      <span
+      {/* <span
         style={{
           fontSize: `${size - 2}px`,
           fontWeight: "500",
@@ -183,7 +185,7 @@ function ServiceLogo({
         }}
       >
         {serviceName}
-      </span>
+      </span> */}
     </div>
   );
 }
@@ -198,6 +200,9 @@ function Plugin() {
   const [statusType, setStatusType] = useState<"info" | "success" | "error">(
     "info"
   );
+  const [modalService, setModalService] = useState<string | null>(null); // モーダルで表示するサービス名
+  const [isEditing, setIsEditing] = useState(false); // 編集中かどうか
+  const [displayValue, setDisplayValue] = useState<string>(""); // 表示用の値
 
   // データ読み込み
   const handleLoadData = async () => {
@@ -438,8 +443,75 @@ function Plugin() {
     },
   ];
 
+  // 表示用の値を計算する関数（最初の値のみ表示、残りは「...」）
+  const getDisplayValue = (input: string): string => {
+    if (!input || !input.trim()) {
+      return "";
+    }
+
+    const trimmedInput = input.trim();
+
+    try {
+      // 暗号化されている場合はそのまま表示
+      if (isEncrypted(trimmedInput)) {
+        return trimmedInput;
+      }
+
+      const parsed = JSON.parse(trimmedInput);
+
+      // 配列の場合、最初の要素のみ表示
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const firstItem = parsed[0];
+
+        // 最初の要素をJSON文字列化（コンパクト形式）
+        let firstItemStr: string;
+        try {
+          firstItemStr = JSON.stringify(firstItem, null, 0);
+          // 空文字列の場合は代替表示
+          if (!firstItemStr || firstItemStr.trim() === "") {
+            firstItemStr = String(firstItem);
+          }
+        } catch {
+          firstItemStr = String(firstItem);
+        }
+
+        // nullやundefinedの場合は特別な表示
+        if (firstItem === null) {
+          firstItemStr = "null";
+        } else if (firstItem === undefined) {
+          firstItemStr = "undefined";
+        }
+
+        // 長すぎる場合は切り詰める
+        const maxLength = 150;
+        if (firstItemStr.length > maxLength) {
+          firstItemStr = firstItemStr.substring(0, maxLength) + "...";
+        }
+
+        // 複数要素がある場合は「...」を追加
+        return parsed.length > 1 ? `${firstItemStr} ...` : firstItemStr;
+      }
+
+      // 配列でない場合はそのまま表示
+      return trimmedInput;
+    } catch (error) {
+      // JSONとしてパースできない場合はそのまま表示
+      return trimmedInput;
+    }
+  };
+
+  // 表示用の値を更新
+  useEffect(() => {
+    if (!isEditing && jsonInput) {
+      const newDisplayValue = getDisplayValue(jsonInput);
+      setDisplayValue(newDisplayValue);
+    } else if (!isEditing && !jsonInput) {
+      setDisplayValue("");
+    }
+  }, [jsonInput, isEditing]);
+
   return (
-    <div>
+    <div style={{ position: "relative", height: "100%" }}>
       {/* カスタムステータスタブ */}
       <div
         style={{
@@ -563,7 +635,7 @@ function Plugin() {
             >
               Image Src
             </div>
-            <Textbox
+            <TextboxMultiline
               value={jsonInput}
               onValueInput={setJsonInput}
               placeholder="データを貼り付けてください..."
@@ -594,6 +666,41 @@ function Plugin() {
                 return acc;
               }, {} as Record<string, Array<ImageData & { originalIndex: number }>>);
 
+              // 各サービスの最新の追加日時を取得
+              const serviceList = Object.entries(groupedByService).map(
+                ([service, serviceImages]) => {
+                  const latestDate = serviceImages
+                    .map((img) => img.addedAt)
+                    .filter((date) => date)
+                    .sort()
+                    .reverse()[0];
+                  return {
+                    service,
+                    images: serviceImages,
+                    latestDate: latestDate || new Date().toISOString(),
+                    count: serviceImages.length,
+                  };
+                }
+              );
+
+              // 最新の追加日時でソート
+              serviceList.sort(
+                (a, b) =>
+                  new Date(b.latestDate).getTime() -
+                  new Date(a.latestDate).getTime()
+              );
+
+              // 日時をフォーマットする関数
+              const formatDate = (dateString: string) => {
+                const date = new Date(dateString);
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, "0");
+                const day = String(date.getDate()).padStart(2, "0");
+                const hours = String(date.getHours()).padStart(2, "0");
+                const minutes = String(date.getMinutes()).padStart(2, "0");
+                return `${year}/${month}/${day} ${hours}:${minutes}`;
+              };
+
               return (
                 <div
                   style={{
@@ -603,84 +710,56 @@ function Plugin() {
                     borderRadius: "4px",
                   }}
                 >
-                  {Object.entries(groupedByService).map(
-                    ([service, serviceImages]) => (
-                      <div key={service} style={{ marginBottom: "16px" }}>
-                        <div
-                          style={{
-                            padding: "8px 12px",
-                            background: "#f5f5f5",
-                            borderBottom: "1px solid #e0e0e0",
-                            fontWeight: "600",
-                            fontSize: "12px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                          }}
-                        >
-                          <ServiceLogo serviceName={service} size={16} />
-                          <span
+                  {serviceList.map(
+                    ({ service, images: serviceImages, latestDate, count }) => (
+                      <div
+                        key={service}
+                        onClick={() => setModalService(service)}
+                        style={{
+                          padding: "12px",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "12px",
+                          transition: "background 0.2s",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = "#f5f5f5";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = "transparent";
+                        }}
+                      >
+                        <ServiceLogo serviceName={service} size={20} />
+                        <div style={{ flex: 1 }}>
+                          <div
+                            style={{
+                              fontSize: "12px",
+                              fontWeight: "600",
+                              marginBottom: "4px",
+                            }}
+                          >
+                            {service}
+                          </div>
+                          <div
                             style={{
                               fontSize: "10px",
                               color: "#666",
-                              fontWeight: "400",
                             }}
                           >
-                            ({serviceImages.length}個)
-                          </span>
+                            {formatDate(latestDate)}
+                          </div>
                         </div>
-                        <div>
-                          {serviceImages.map((img) => (
-                            <div
-                              key={img.originalIndex}
-                              onClick={() =>
-                                handleSelectImage(img.originalIndex)
-                              }
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                padding: "8px 12px",
-                                borderBottom: "1px solid #f0f0f0",
-                                cursor: "pointer",
-                                background:
-                                  selectedImageIndex === img.originalIndex
-                                    ? "#e3f2fd"
-                                    : "transparent",
-                                borderLeft:
-                                  selectedImageIndex === img.originalIndex
-                                    ? "3px solid #18A0FB"
-                                    : "3px solid transparent",
-                              }}
-                            >
-                              <img
-                                src={img.src}
-                                alt={
-                                  img.alt || `Image ${img.originalIndex + 1}`
-                                }
-                                style={{
-                                  width: "40px",
-                                  height: "40px",
-                                  objectFit: "cover",
-                                  marginRight: "8px",
-                                  borderRadius: "3px",
-                                }}
-                                onError={(e) => {
-                                  e.currentTarget.style.display = "none";
-                                }}
-                              />
-                              <div style={{ flex: 1, overflow: "hidden" }}>
-                                <div style={{ fontSize: "11px" }}>
-                                  <strong>{img.originalIndex + 1}.</strong>{" "}
-                                  {img.alt || "No title"}
-                                </div>
-                                <div
-                                  style={{ fontSize: "10px", color: "#666" }}
-                                >
-                                  {img.width} × {img.height}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
+                        <div
+                          style={{
+                            fontSize: "10px",
+                            color: "#666",
+                            padding: "4px 8px",
+                            background: "#f0f0f0",
+                            borderRadius: "4px",
+                          }}
+                        >
+                          {count}個
                         </div>
                       </div>
                     )
@@ -688,24 +767,6 @@ function Plugin() {
                 </div>
               );
             })()}
-            <VerticalSpace space="small" />
-            <Button
-              fullWidth
-              onClick={handleApplyImage}
-              disabled={selectedImageIndex === null}
-            >
-              選択ノードに画像を適用
-            </Button>
-
-            <VerticalSpace space="extraSmall" />
-            <Button
-              fullWidth
-              secondary
-              onClick={handleCreateRectangle}
-              disabled={selectedImageIndex === null}
-            >
-              新規レクタングルを作成
-            </Button>
           </>
         )}
 
@@ -836,6 +897,180 @@ function Plugin() {
           </>
         )}
       </Container>
+
+      {/* 下部モーダル */}
+      {modalService && (
+        <>
+          {/* オーバーレイ */}
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: "rgba(0, 0, 0, 0.3)",
+              zIndex: 999,
+            }}
+            onClick={() => setModalService(null)}
+          />
+          {/* モーダル */}
+          <div
+            style={{
+              position: "fixed",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              background: "white",
+              borderTop: "1px solid #e0e0e0",
+              boxShadow: "0 -2px 8px rgba(0,0,0,0.1)",
+              maxHeight: "60vh",
+              display: "flex",
+              flexDirection: "column",
+              zIndex: 1000,
+            }}
+          >
+            <div
+              style={{
+                padding: "12px",
+                borderBottom: "1px solid #e0e0e0",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "8px" }}
+              >
+                {modalService && (
+                  <ServiceLogo serviceName={modalService} size={20} />
+                )}
+                <Text>
+                  <strong>{modalService}</strong>
+                </Text>
+              </div>
+              <button
+                onClick={() => setModalService(null)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  fontSize: "18px",
+                  cursor: "pointer",
+                  padding: "4px 8px",
+                  color: "#666",
+                }}
+              >
+                ×
+              </button>
+            </div>
+            <div
+              style={{
+                flex: 1,
+                overflowY: "auto",
+                padding: "8px",
+              }}
+            >
+              {(() => {
+                const serviceImages = images
+                  .map((img, index) => ({ ...img, originalIndex: index }))
+                  .filter((img) => (img.service || "Unknown") === modalService);
+
+                return (
+                  <div>
+                    {serviceImages.map((img) => (
+                      <div
+                        key={img.originalIndex}
+                        onClick={() => {
+                          handleSelectImage(img.originalIndex);
+                          setModalService(null);
+                        }}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          padding: "8px 12px",
+                          borderBottom: "1px solid #f0f0f0",
+                          cursor: "pointer",
+                          background:
+                            selectedImageIndex === img.originalIndex
+                              ? "#e3f2fd"
+                              : "transparent",
+                          borderLeft:
+                            selectedImageIndex === img.originalIndex
+                              ? "3px solid #18A0FB"
+                              : "3px solid transparent",
+                        }}
+                      >
+                        <img
+                          src={img.src}
+                          alt={img.alt || `Image ${img.originalIndex + 1}`}
+                          style={{
+                            width: "40px",
+                            height: "40px",
+                            objectFit: "cover",
+                            marginRight: "8px",
+                            borderRadius: "3px",
+                          }}
+                          onError={(e) => {
+                            e.currentTarget.style.display = "none";
+                          }}
+                        />
+                        <div style={{ flex: 1, overflow: "hidden" }}>
+                          <div style={{ fontSize: "11px" }}>
+                            <strong>{img.originalIndex + 1}.</strong>{" "}
+                            {img.alt || "No title"}
+                          </div>
+                          <div style={{ fontSize: "10px", color: "#666" }}>
+                            {img.width} × {img.height}
+                            {img.addedAt && (
+                              <span style={{ marginLeft: "8px" }}>
+                                {new Date(img.addedAt).toLocaleString("ja-JP")}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+            <div
+              style={{
+                padding: "12px",
+                borderTop: "1px solid #e0e0e0",
+                display: "flex",
+                gap: "8px",
+              }}
+            >
+              <Button
+                fullWidth
+                onClick={() => {
+                  if (selectedImageIndex !== null) {
+                    handleApplyImage();
+                    setModalService(null);
+                  }
+                }}
+                disabled={selectedImageIndex === null}
+              >
+                選択ノードに画像を適用
+              </Button>
+              <Button
+                fullWidth
+                secondary
+                onClick={() => {
+                  if (selectedImageIndex !== null) {
+                    handleCreateRectangle();
+                    setModalService(null);
+                  }
+                }}
+                disabled={selectedImageIndex === null}
+              >
+                新規レクタングルを作成
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
