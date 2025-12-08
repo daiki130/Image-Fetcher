@@ -672,26 +672,6 @@ function Plugin() {
       </div>
 
       <Container space="small">
-        {/* <div
-          style={{
-            padding: "12px",
-            background: "#f9f9f9",
-            borderRadius: "4px",
-            fontSize: "11px",
-            lineHeight: "1.6",
-          }}
-        >
-          <strong>使い方:</strong>
-          <ol style={{ margin: "8px 0 0 0", paddingLeft: "20px" }}>
-            <li>画像データをコピー</li>
-            <li>下のテキストエリアに貼り付け</li>
-            <li>「データを読み込む」をクリック</li>
-            <li>画像を選択してFigmaに適用</li>
-          </ol>
-        </div> */}
-
-        {/* <VerticalSpace space="medium" /> */}
-
         {tabValue === "Top" && (
           <>
             <div
@@ -717,7 +697,6 @@ function Plugin() {
             </Button>
           </>
         )}
-
         {tabValue === "Data" && images.length > 0 && (
           <>
             <VerticalSpace space="small" />
@@ -790,7 +769,6 @@ function Plugin() {
                           alignItems: "center",
                           gap: "12px",
                           transition: "background 0.2s",
-                          borderRadius: "var(--border-radius-6)",
                         }}
                         onMouseEnter={(e) => {
                           e.currentTarget.style.background = "#f5f5f5";
@@ -838,7 +816,6 @@ function Plugin() {
             })()}
           </>
         )}
-
         {tabValue === "Top" && images.length > 0 && (
           <>
             <VerticalSpace space="medium" />
