@@ -32,3 +32,13 @@ export interface ImagesLoadedHandler extends EventHandler {
   name: "IMAGES_LOADED";
   handler: (images: ImageData[]) => void;
 }
+
+export interface GetSavedImagesHandler extends EventHandler {
+  name: "GET_SAVED_IMAGES";
+  handler: () => void;
+}
+
+export interface SavedImagesRetrievedHandler extends EventHandler {
+  name: "SAVED_IMAGES_RETRIEVED";
+  handler: (images: ImageData[]) => void;
+}

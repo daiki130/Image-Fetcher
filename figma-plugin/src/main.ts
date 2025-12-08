@@ -1,6 +1,6 @@
 // Figma Plugin Main Code
 import { showUI, on, emit } from "@create-figma-plugin/utilities";
-import { ImageData, SaveImagesHandler, LoadImagesHandler } from "./types";
+import { ImageData } from "./types";
 
 const STORAGE_KEY = "savedImages";
 
@@ -58,6 +58,23 @@ export default function () {
         error instanceof Error ? error.message : String(error);
       figma.notify(`読み込みエラー: ${errorMessage}`, { error: true });
       emit("IMAGES_LOADED", []);
+    }
+  });
+
+  // UIから既存の保存データを取得するリクエストを受け取る
+  on("GET_SAVED_IMAGES", async () => {
+    try {
+      const images = (await figma.clientStorage.getAsync(STORAGE_KEY)) as
+        | ImageData[]
+        | undefined;
+      if (images && Array.isArray(images)) {
+        emit("SAVED_IMAGES_RETRIEVED", images);
+      } else {
+        emit("SAVED_IMAGES_RETRIEVED", []);
+      }
+    } catch (error) {
+      console.error("取得エラー:", error);
+      emit("SAVED_IMAGES_RETRIEVED", []);
     }
   });
 

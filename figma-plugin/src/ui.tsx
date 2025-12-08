@@ -214,6 +214,43 @@ function Plugin() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 画像の重複チェック（srcまたはidで判定）
+  const isDuplicateImage = (
+    existing: ImageData,
+    newImage: ImageData
+  ): boolean => {
+    // idが存在する場合はidで比較
+    if (existing.id && newImage.id && existing.id === newImage.id) {
+      return true;
+    }
+    // srcで比較
+    if (existing.src && newImage.src && existing.src === newImage.src) {
+      return true;
+    }
+    return false;
+  };
+
+  // 既存データと新規データをマージ
+  const mergeImages = (
+    existing: ImageData[],
+    newImages: ImageData[]
+  ): ImageData[] => {
+    const merged = [...existing];
+
+    for (const newImage of newImages) {
+      // 重複チェック
+      const isDuplicate = merged.some((existingImage) =>
+        isDuplicateImage(existingImage, newImage)
+      );
+
+      if (!isDuplicate) {
+        merged.push(newImage);
+      }
+    }
+
+    return merged;
+  };
+
   // データ読み込み
   const handleLoadData = async () => {
     if (!jsonInput.trim()) {
@@ -234,11 +271,16 @@ function Plugin() {
           try {
             const parsed = JSON.parse(dataToParse);
             if (Array.isArray(parsed) && parsed.length > 0) {
-              setImages(parsed);
+              // 既存データを取得してマージ
+              const existingImages = images.length > 0 ? images : [];
+              const merged = mergeImages(existingImages, parsed);
+              setImages(merged);
+              // 画像データを figmaClientStorage に保存
+              emit("SAVE_IMAGES", merged);
               // 状態更新後にメッセージを表示
               setTimeout(() => {
                 showStatus(
-                  `${parsed.length}個の画像を読み込みました`,
+                  `${parsed.length}個の画像を追加しました（合計: ${merged.length}個）`,
                   "success"
                 );
               }, 0);
@@ -264,12 +306,28 @@ function Plugin() {
         return;
       }
 
-      setImages(parsed);
+      // 既存データと新規データをマージ
+      // 既存の images ステートを使用（起動時に自動で読み込まれている）
+      const existingImages = images.length > 0 ? images : [];
+      const merged = mergeImages(existingImages, parsed);
+
+      setImages(merged);
       // 画像データを figmaClientStorage に保存
-      emit("SAVE_IMAGES", parsed);
+      emit("SAVE_IMAGES", merged);
       // 状態更新後にメッセージを表示
+      const addedCount = merged.length - existingImages.length;
       setTimeout(() => {
-        showStatus(`${parsed.length}個の画像を読み込みました`, "success");
+        if (addedCount > 0) {
+          showStatus(
+            `${addedCount}個の画像を追加しました（合計: ${merged.length}個）`,
+            "success"
+          );
+        } else {
+          showStatus(
+            `すべての画像は既に追加されています（合計: ${merged.length}個）`,
+            "info"
+          );
+        }
       }, 0);
     } catch (error) {
       const errorMessage =
@@ -718,8 +776,6 @@ function Plugin() {
                   style={{
                     maxHeight: "400px",
                     overflowY: "auto",
-                    border: "1px solid #e0e0e0",
-                    borderRadius: "4px",
                   }}
                 >
                   {serviceList.map(
@@ -734,6 +790,7 @@ function Plugin() {
                           alignItems: "center",
                           gap: "12px",
                           transition: "background 0.2s",
+                          borderRadius: "var(--border-radius-6)",
                         }}
                         onMouseEnter={(e) => {
                           e.currentTarget.style.background = "#f5f5f5";
