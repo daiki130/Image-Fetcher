@@ -7,23 +7,13 @@ import {
   Textbox,
   TextboxMultiline,
 } from "@create-figma-plugin/ui";
-import { emit } from "@create-figma-plugin/utilities";
+import { emit, on } from "@create-figma-plugin/utilities";
 import { h, Fragment } from "preact";
 import { useState, useEffect } from "preact/hooks";
 import CryptoJS from "crypto-js";
+import { ImageData, ImagesLoadedHandler } from "./types";
 
-interface ImageData {
-  src: string;
-  alt: string;
-  width: number;
-  height: number;
-  className?: string;
-  id?: string;
-  type?: string;
-  base64?: string;
-  service?: string;
-  addedAt?: string; // 追加日時
-}
+// ImageData は types.ts からインポート
 
 // 暗号化キー（Chrome拡張機能と同じキー）
 // Uint8Arrayを16進数文字列に変換（crypto-js用）
@@ -204,6 +194,26 @@ function Plugin() {
   const [isEditing, setIsEditing] = useState(false); // 編集中かどうか
   const [displayValue, setDisplayValue] = useState<string>(""); // 表示用の値
 
+  // 起動時に保存された画像データを読み込む
+  useEffect(() => {
+    emit("LOAD_IMAGES");
+  }, []);
+
+  // main.ts から画像データを受け取る
+  useEffect(() => {
+    const handler = (loadedImages: ImageData[]) => {
+      if (loadedImages && loadedImages.length > 0) {
+        setImages(loadedImages);
+        showStatus(
+          `${loadedImages.length}個の保存された画像を読み込みました`,
+          "success"
+        );
+      }
+    };
+    on("IMAGES_LOADED", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // データ読み込み
   const handleLoadData = async () => {
     if (!jsonInput.trim()) {
@@ -255,6 +265,8 @@ function Plugin() {
       }
 
       setImages(parsed);
+      // 画像データを figmaClientStorage に保存
+      emit("SAVE_IMAGES", parsed);
       // 状態更新後にメッセージを表示
       setTimeout(() => {
         showStatus(`${parsed.length}個の画像を読み込みました`, "success");
