@@ -135,12 +135,15 @@ function getServiceLogoUrl(serviceName: string): string {
 function ServiceLogo({
   serviceName,
   size = 16,
+  favicon,
 }: {
   serviceName: string;
   size?: number;
+  favicon?: string; // ページから取得したfaviconのURL（優先的に使用）
 }) {
   const [logoError, setLogoError] = useState(false);
-  const logoUrl = getServiceLogoUrl(serviceName);
+  // faviconが提供されている場合はそれを優先、なければGoogle Favicon APIを使用
+  const logoUrl = favicon || getServiceLogoUrl(serviceName);
 
   if (!serviceName || serviceName === "Unknown") {
     return null;
@@ -829,11 +832,16 @@ function Plugin() {
                     .filter((date) => date)
                     .sort()
                     .reverse()[0];
+                  // サービス内の最初の画像からfaviconを取得（存在する場合）
+                  const favicon = serviceImages.find(
+                    (img) => img.favicon
+                  )?.favicon;
                   return {
                     service,
                     images: serviceImages,
                     latestDate: latestDate || new Date().toISOString(),
                     count: serviceImages.length,
+                    favicon: favicon,
                   };
                 }
               );
@@ -864,7 +872,13 @@ function Plugin() {
                   }}
                 >
                   {serviceList.map(
-                    ({ service, images: serviceImages, latestDate, count }) => (
+                    ({
+                      service,
+                      images: serviceImages,
+                      latestDate,
+                      count,
+                      favicon,
+                    }) => (
                       <div
                         key={service}
                         onClick={() => setModalService(service)}
@@ -883,7 +897,11 @@ function Plugin() {
                           e.currentTarget.style.background = "transparent";
                         }}
                       >
-                        <ServiceLogo serviceName={service} size={20} />
+                        <ServiceLogo
+                          serviceName={service}
+                          size={20}
+                          favicon={favicon}
+                        />
                         <div style={{ flex: 1 }}>
                           <div
                             style={{
@@ -954,7 +972,8 @@ function Plugin() {
               display: "flex",
               flexDirection: "column",
               zIndex: 1000,
-              borderRadius: "var(--border-radius-12) var(--border-radius-12) 0 0",
+              borderRadius:
+                "var(--border-radius-12) var(--border-radius-12) 0 0",
             }}
           >
             <div
@@ -969,9 +988,23 @@ function Plugin() {
               <div
                 style={{ display: "flex", alignItems: "center", gap: "8px" }}
               >
-                {modalService && (
-                  <ServiceLogo serviceName={modalService} size={20} />
-                )}
+                {modalService &&
+                  (() => {
+                    // モーダル内の画像からfaviconを取得
+                    const modalImages = images.filter(
+                      (img) => (img.service || "Unknown") === modalService
+                    );
+                    const modalFavicon = modalImages.find(
+                      (img) => img.favicon
+                    )?.favicon;
+                    return (
+                      <ServiceLogo
+                        serviceName={modalService}
+                        size={20}
+                        favicon={modalFavicon}
+                      />
+                    );
+                  })()}
                 <Text>
                   <strong>{modalService}</strong>
                 </Text>

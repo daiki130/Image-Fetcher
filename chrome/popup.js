@@ -13,23 +13,27 @@ document.getElementById("collectBtn").addEventListener("click", async () => {
     });
 
     if (results && results[0] && results[0].result) {
-      let collectedImages = results[0].result;
+      const result = results[0].result;
+      let collectedImages = result.images || [];
+      const faviconUrl = result.favicon || null;
 
       // 現在のページURLを各画像に追加
       const currentPageUrl = tab.url || "";
       collectedImages = collectedImages.map((img) => ({
         ...img,
         pageUrl: currentPageUrl,
+        favicon: faviconUrl, // faviconも各画像に追加
       }));
 
       // URLが長すぎる画像を除外(データURL等)
       collectedImages = collectedImages.filter((img) => img.src.length < 500);
 
-      // 最小限のデータのみ保存
+      // 最小限のデータのみ保存（faviconも含める）
       const simplifiedImages = collectedImages.map((img) => ({
         src: img.src,
         w: img.width,
         h: img.height,
+        favicon: img.favicon || null, // faviconも保存
       }));
 
       try {
@@ -273,6 +277,7 @@ document.getElementById("copyBtn").addEventListener("click", async () => {
           alt: img.alt || "",
           base64: base64,
           service: serviceName,
+          favicon: img.favicon || null, // faviconも含める
         });
         successCount++;
       } catch (error) {
@@ -332,12 +337,13 @@ document.getElementById("clearBtn").addEventListener("click", async () => {
 // ページロード時に保存済みの画像を復元
 chrome.storage.local.get(["images"], (result) => {
   if (result.images && result.images.length > 0) {
-    // 短縮形式から復元
+    // 短縮形式から復元（faviconも含める）
     window.collectedImages = result.images.map((img) => ({
       src: img.src,
       width: img.w,
       height: img.h,
       alt: "",
+      favicon: img.favicon || null, // faviconも復元
     }));
     collectedImages = window.collectedImages;
     displayImages(window.collectedImages);
@@ -380,8 +386,44 @@ function displayImages(images) {
 
 // ページ内で実行される画像収集関数
 function collectImagesFromPage() {
+  // ページからfaviconを取得する関数（collectImagesFromPage内で定義）
+  function getFaviconFromPage() {
+    // 優先順位に従ってfaviconを探す
+    // 1. <link rel="icon"> または <link rel="shortcut icon">
+    const iconLinks = document.querySelectorAll(
+      'link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]'
+    );
+
+    for (const link of iconLinks) {
+      const href = link.getAttribute("href");
+      if (href) {
+        // 相対パスの場合は絶対URLに変換
+        try {
+          const url = new URL(href, window.location.href);
+          return url.href;
+        } catch (e) {
+          // URL解析に失敗した場合は相対パスをそのまま返す
+          return href.startsWith("http")
+            ? href
+            : new URL(href, window.location.href).href;
+        }
+      }
+    }
+
+    // 2. デフォルトの /favicon.ico を試す
+    try {
+      const defaultFavicon = new URL("/favicon.ico", window.location.href);
+      return defaultFavicon.href;
+    } catch (e) {
+      return null;
+    }
+  }
+
   const images = [];
   const imageElements = document.querySelectorAll("img");
+
+  // faviconも取得
+  const faviconUrl = getFaviconFromPage();
 
   // 画像形式をチェックする関数
   const isSupportedFormat = (url) => {
@@ -431,5 +473,8 @@ function collectImagesFromPage() {
     }
   }
 
-  return uniqueImages;
+  return {
+    images: uniqueImages,
+    favicon: faviconUrl,
+  };
 }

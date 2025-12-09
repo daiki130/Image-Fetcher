@@ -16,6 +16,7 @@ export interface ImageData {
   base64?: string;
   service?: string;
   addedAt?: string;
+  favicon?: string; // ページから取得したfaviconのURL
 }
 
 export interface SaveImagesHandler extends EventHandler {
