@@ -643,28 +643,6 @@ function Plugin() {
                 }}
               >
                 {option.text}
-
-                {/* <span>
-                    <strong
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        padding: "0 var(--space-4)",
-                        height: "16px",
-                        borderRadius: "var(--border-radius-4)",
-                        fontSize: "11px",
-                        fontWeight: "500",
-                        color:
-                          tabValue === option.value
-                            ? "var(--figma-color-text)"
-                            : "var(--figma-color-text-secondary)",
-                        border: "1px solid var(--figma-color-border)",
-                      }}
-                    >
-                      {getCommentCount(option.value)}
-                    </strong>
-                  </span> */}
               </span>
             </button>
           ))}
@@ -695,125 +673,6 @@ function Plugin() {
             <Button fullWidth onClick={handleLoadData}>
               データを読み込む
             </Button>
-          </>
-        )}
-        {tabValue === "Data" && images.length > 0 && (
-          <>
-            <VerticalSpace space="small" />
-            <Text>
-              <strong>サービス別画像 ({images.length}個)</strong>
-            </Text>
-            <VerticalSpace space="extraSmall" />
-            {(() => {
-              // サービスごとにグループ化
-              const groupedByService = images.reduce((acc, img, index) => {
-                const service = img.service || "Unknown";
-                if (!acc[service]) {
-                  acc[service] = [];
-                }
-                acc[service].push({ ...img, originalIndex: index });
-                return acc;
-              }, {} as Record<string, Array<ImageData & { originalIndex: number }>>);
-
-              // 各サービスの最新の追加日時を取得
-              const serviceList = Object.entries(groupedByService).map(
-                ([service, serviceImages]) => {
-                  const latestDate = serviceImages
-                    .map((img) => img.addedAt)
-                    .filter((date) => date)
-                    .sort()
-                    .reverse()[0];
-                  return {
-                    service,
-                    images: serviceImages,
-                    latestDate: latestDate || new Date().toISOString(),
-                    count: serviceImages.length,
-                  };
-                }
-              );
-
-              // 最新の追加日時でソート
-              serviceList.sort(
-                (a, b) =>
-                  new Date(b.latestDate).getTime() -
-                  new Date(a.latestDate).getTime()
-              );
-
-              // 日時をフォーマットする関数
-              const formatDate = (dateString: string) => {
-                const date = new Date(dateString);
-                const year = date.getFullYear();
-                const month = String(date.getMonth() + 1).padStart(2, "0");
-                const day = String(date.getDate()).padStart(2, "0");
-                const hours = String(date.getHours()).padStart(2, "0");
-                const minutes = String(date.getMinutes()).padStart(2, "0");
-                return `${year}/${month}/${day} ${hours}:${minutes}`;
-              };
-
-              return (
-                <div
-                  style={{
-                    maxHeight: "400px",
-                    overflowY: "auto",
-                  }}
-                >
-                  {serviceList.map(
-                    ({ service, images: serviceImages, latestDate, count }) => (
-                      <div
-                        key={service}
-                        onClick={() => setModalService(service)}
-                        style={{
-                          padding: "12px",
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "12px",
-                          transition: "background 0.2s",
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = "#f5f5f5";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = "transparent";
-                        }}
-                      >
-                        <ServiceLogo serviceName={service} size={20} />
-                        <div style={{ flex: 1 }}>
-                          <div
-                            style={{
-                              fontSize: "12px",
-                              fontWeight: "600",
-                              marginBottom: "4px",
-                            }}
-                          >
-                            {service}
-                          </div>
-                          <div
-                            style={{
-                              fontSize: "10px",
-                              color: "#666",
-                            }}
-                          >
-                            {formatDate(latestDate)}
-                          </div>
-                        </div>
-                        <div
-                          style={{
-                            fontSize: "10px",
-                            color: "#666",
-                            padding: "4px 8px",
-                            background: "#f0f0f0",
-                            borderRadius: "4px",
-                          }}
-                        >
-                          {count}個
-                        </div>
-                      </div>
-                    )
-                  )}
-                </div>
-              );
-            })()}
           </>
         )}
         {tabValue === "Top" && images.length > 0 && (
@@ -943,6 +802,127 @@ function Plugin() {
           </>
         )}
       </Container>
+      <div>
+        {tabValue === "Data" && images.length > 0 && (
+          <>
+            <VerticalSpace space="small" />
+            <Text>
+              <strong>サービス別画像 ({images.length}個)</strong>
+            </Text>
+            <VerticalSpace space="extraSmall" />
+            {(() => {
+              // サービスごとにグループ化
+              const groupedByService = images.reduce((acc, img, index) => {
+                const service = img.service || "Unknown";
+                if (!acc[service]) {
+                  acc[service] = [];
+                }
+                acc[service].push({ ...img, originalIndex: index });
+                return acc;
+              }, {} as Record<string, Array<ImageData & { originalIndex: number }>>);
+
+              // 各サービスの最新の追加日時を取得
+              const serviceList = Object.entries(groupedByService).map(
+                ([service, serviceImages]) => {
+                  const latestDate = serviceImages
+                    .map((img) => img.addedAt)
+                    .filter((date) => date)
+                    .sort()
+                    .reverse()[0];
+                  return {
+                    service,
+                    images: serviceImages,
+                    latestDate: latestDate || new Date().toISOString(),
+                    count: serviceImages.length,
+                  };
+                }
+              );
+
+              // 最新の追加日時でソート
+              serviceList.sort(
+                (a, b) =>
+                  new Date(b.latestDate).getTime() -
+                  new Date(a.latestDate).getTime()
+              );
+
+              // 日時をフォーマットする関数
+              const formatDate = (dateString: string) => {
+                const date = new Date(dateString);
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, "0");
+                const day = String(date.getDate()).padStart(2, "0");
+                const hours = String(date.getHours()).padStart(2, "0");
+                const minutes = String(date.getMinutes()).padStart(2, "0");
+                return `${year}/${month}/${day} ${hours}:${minutes}`;
+              };
+
+              return (
+                <div
+                  style={{
+                    maxHeight: "400px",
+                    overflowY: "auto",
+                  }}
+                >
+                  {serviceList.map(
+                    ({ service, images: serviceImages, latestDate, count }) => (
+                      <div
+                        key={service}
+                        onClick={() => setModalService(service)}
+                        style={{
+                          padding: "12px",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "12px",
+                          transition: "background 0.2s",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = "#f5f5f5";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = "transparent";
+                        }}
+                      >
+                        <ServiceLogo serviceName={service} size={20} />
+                        <div style={{ flex: 1 }}>
+                          <div
+                            style={{
+                              fontSize: "12px",
+                              fontWeight: "600",
+                              marginBottom: "4px",
+                            }}
+                          >
+                            {service}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "10px",
+                              color: "#666",
+                            }}
+                          >
+                            {formatDate(latestDate)}
+                          </div>
+                        </div>
+                        <div
+                          style={{
+                            fontSize: "10px",
+                            color: "#666",
+                            padding: "4px 8px",
+                            background: "#f0f0f0",
+                            borderRadius: "4px",
+                          }}
+                        >
+                          {count}個
+                        </div>
+                      </div>
+                    )
+                  )}
+                </div>
+              );
+            })()}
+          </>
+        )}
+      </div>
 
       {/* 下部モーダル */}
       {modalService && (
@@ -974,6 +954,7 @@ function Plugin() {
               display: "flex",
               flexDirection: "column",
               zIndex: 1000,
+              borderRadius: "var(--border-radius-12) var(--border-radius-12) 0 0",
             }}
           >
             <div
