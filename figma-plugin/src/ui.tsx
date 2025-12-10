@@ -778,7 +778,7 @@ function Plugin() {
           </>
         )}
 
-        {status && (
+        {tabValue === "Top" && status && (
           <>
             <VerticalSpace space="small" />
             <div
@@ -808,11 +808,6 @@ function Plugin() {
       <div>
         {tabValue === "Data" && images.length > 0 && (
           <>
-            <VerticalSpace space="small" />
-            <Text>
-              <strong>サービス別画像 ({images.length}個)</strong>
-            </Text>
-            <VerticalSpace space="extraSmall" />
             {(() => {
               // サービスごとにグループ化
               const groupedByService = images.reduce((acc, img, index) => {
