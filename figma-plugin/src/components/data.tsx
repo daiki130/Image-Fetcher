@@ -1,15 +1,7 @@
-import {
-  render,
-  Button,
-  Container,
-  Text,
-  VerticalSpace,
-  Textbox,
-  TextboxMultiline,
-} from "@create-figma-plugin/ui";
-import { emit, on } from "@create-figma-plugin/utilities";
+import { Button, Text } from "@create-figma-plugin/ui";
+import { emit } from "@create-figma-plugin/utilities";
 import { h, Fragment } from "preact";
-import { useState, useEffect } from "preact/hooks";
+import { useState } from "preact/hooks";
 import { ImageData } from "../types";
 
 interface DataProps {
@@ -17,7 +9,6 @@ interface DataProps {
 }
 
 export const Data = ({ images }: DataProps) => {
-  const [jsonInput, setJsonInput] = useState("");
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(
     null
   );
@@ -26,8 +17,6 @@ export const Data = ({ images }: DataProps) => {
     "info"
   );
   const [modalService, setModalService] = useState<string | null>(null); // モーダルで表示するサービス名
-  const [isEditing, setIsEditing] = useState(false); // 編集中かどうか
-  const [displayValue, setDisplayValue] = useState<string>(""); // 表示用の値
 
   // サービス名からロゴURLを取得する関数
   function getServiceLogoUrl(serviceName: string): string {
@@ -376,11 +365,13 @@ export const Data = ({ images }: DataProps) => {
                           gap: "12px",
                           transition: "background 0.2s",
                         }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = "#f5f5f5";
+                        onMouseEnter={(e: MouseEvent) => {
+                          (e.currentTarget as HTMLElement).style.background =
+                            "#f5f5f5";
                         }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = "transparent";
+                        onMouseLeave={(e: MouseEvent) => {
+                          (e.currentTarget as HTMLElement).style.background =
+                            "transparent";
                         }}
                       >
                         <ServiceLogo
@@ -492,7 +483,7 @@ export const Data = ({ images }: DataProps) => {
                     );
                   })()}
                 <Text>
-                  <strong>{modalService}</strong>
+                  <strong>{modalService || ""}</strong>
                 </Text>
               </div>
               <button
@@ -543,15 +534,16 @@ export const Data = ({ images }: DataProps) => {
                               ? "3px solid #18A0FB"
                               : "3px solid transparent",
                         }}
-                        onMouseEnter={(e) => {
+                        onMouseEnter={(e: MouseEvent) => {
                           if (selectedImageIndex !== img.originalIndex) {
-                            e.currentTarget.style.background =
+                            (e.currentTarget as HTMLElement).style.background =
                               "var(--figma-color-bg-hover)";
                           }
                         }}
-                        onMouseLeave={(e) => {
+                        onMouseLeave={(e: MouseEvent) => {
                           if (selectedImageIndex !== img.originalIndex) {
-                            e.currentTarget.style.background = "transparent";
+                            (e.currentTarget as HTMLElement).style.background =
+                              "transparent";
                           }
                         }}
                       >
@@ -565,8 +557,10 @@ export const Data = ({ images }: DataProps) => {
                             marginRight: "8px",
                             borderRadius: "3px",
                           }}
-                          onError={(e) => {
-                            e.currentTarget.style.display = "none";
+                          onError={(e: Event) => {
+                            (
+                              e.currentTarget as HTMLImageElement
+                            ).style.display = "none";
                           }}
                         />
                         <div style={{ flex: 1, overflow: "hidden" }}>
