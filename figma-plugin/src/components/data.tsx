@@ -325,15 +325,15 @@ export const Data = ({ images }: DataProps) => {
                   return {
                     service,
                     images: serviceImages,
-                    latestDate: latestDate || new Date().toISOString(),
+                    latestDate: latestDate || "1970-01-01T00:00:00.000Z", // デフォルト値を固定値に
                     count: serviceImages.length,
                     favicon: favicon,
                   };
                 }
               );
 
-              // 最新の追加日時でソート
-              serviceList.sort(
+              // 最新の追加日時でソート（新しい配列を作成してソート）
+              const sortedServiceList = [...serviceList].sort(
                 (a, b) =>
                   new Date(b.latestDate).getTime() -
                   new Date(a.latestDate).getTime()
@@ -357,7 +357,7 @@ export const Data = ({ images }: DataProps) => {
                     overflowY: "auto",
                   }}
                 >
-                  {serviceList.map(
+                  {sortedServiceList.map(
                     ({
                       service,
                       images: serviceImages,
@@ -393,19 +393,19 @@ export const Data = ({ images }: DataProps) => {
                             style={{
                               fontSize: "12px",
                               fontWeight: "600",
-                              marginBottom: "4px",
+                              // marginBottom: "4px",
                             }}
                           >
                             {service}
                           </div>
-                          <div
+                          {/* <div
                             style={{
                               fontSize: "10px",
                               color: "#666",
                             }}
                           >
                             {formatDate(latestDate)}
-                          </div>
+                          </div> */}
                         </div>
                         <div
                           style={{
