@@ -7,23 +7,14 @@ import {
   Textbox,
   TextboxMultiline,
 } from "@create-figma-plugin/ui";
-import { emit } from "@create-figma-plugin/utilities";
+import { emit, on } from "@create-figma-plugin/utilities";
 import { h, Fragment } from "preact";
 import { useState, useEffect } from "preact/hooks";
 import CryptoJS from "crypto-js";
+import { ImageData, ImagesLoadedHandler } from "./types";
+import { Data } from "./components/data";
 
-interface ImageData {
-  src: string;
-  alt: string;
-  width: number;
-  height: number;
-  className?: string;
-  id?: string;
-  type?: string;
-  base64?: string;
-  service?: string;
-  addedAt?: string; // 追加日時
-}
+// ImageData は types.ts からインポート
 
 // 暗号化キー（Chrome拡張機能と同じキー）
 // Uint8Arrayを16進数文字列に変換（crypto-js用）
@@ -145,12 +136,15 @@ function getServiceLogoUrl(serviceName: string): string {
 function ServiceLogo({
   serviceName,
   size = 16,
+  favicon,
 }: {
   serviceName: string;
   size?: number;
+  favicon?: string; // ページから取得したfaviconのURL（優先的に使用）
 }) {
   const [logoError, setLogoError] = useState(false);
-  const logoUrl = getServiceLogoUrl(serviceName);
+  // faviconが提供されている場合はそれを優先、なければGoogle Favicon APIを使用
+  const logoUrl = favicon || getServiceLogoUrl(serviceName);
 
   if (!serviceName || serviceName === "Unknown") {
     return null;
@@ -204,6 +198,63 @@ function Plugin() {
   const [isEditing, setIsEditing] = useState(false); // 編集中かどうか
   const [displayValue, setDisplayValue] = useState<string>(""); // 表示用の値
 
+  // 起動時に保存された画像データを読み込む
+  useEffect(() => {
+    emit("LOAD_IMAGES");
+  }, []);
+
+  // main.ts から画像データを受け取る
+  useEffect(() => {
+    const handler = (loadedImages: ImageData[]) => {
+      if (loadedImages && loadedImages.length > 0) {
+        setImages(loadedImages);
+        showStatus(
+          `${loadedImages.length}個の保存された画像を読み込みました`,
+          "success"
+        );
+      }
+    };
+    on("IMAGES_LOADED", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 画像の重複チェック（srcまたはidで判定）
+  const isDuplicateImage = (
+    existing: ImageData,
+    newImage: ImageData
+  ): boolean => {
+    // idが存在する場合はidで比較
+    if (existing.id && newImage.id && existing.id === newImage.id) {
+      return true;
+    }
+    // srcで比較
+    if (existing.src && newImage.src && existing.src === newImage.src) {
+      return true;
+    }
+    return false;
+  };
+
+  // 既存データと新規データをマージ
+  const mergeImages = (
+    existing: ImageData[],
+    newImages: ImageData[]
+  ): ImageData[] => {
+    const merged = [...existing];
+
+    for (const newImage of newImages) {
+      // 重複チェック
+      const isDuplicate = merged.some((existingImage) =>
+        isDuplicateImage(existingImage, newImage)
+      );
+
+      if (!isDuplicate) {
+        merged.push(newImage);
+      }
+    }
+
+    return merged;
+  };
+
   // データ読み込み
   const handleLoadData = async () => {
     if (!jsonInput.trim()) {
@@ -224,11 +275,16 @@ function Plugin() {
           try {
             const parsed = JSON.parse(dataToParse);
             if (Array.isArray(parsed) && parsed.length > 0) {
-              setImages(parsed);
+              // 既存データを取得してマージ
+              const existingImages = images.length > 0 ? images : [];
+              const merged = mergeImages(existingImages, parsed);
+              setImages(merged);
+              // 画像データを figmaClientStorage に保存
+              emit("SAVE_IMAGES", merged);
               // 状態更新後にメッセージを表示
               setTimeout(() => {
                 showStatus(
-                  `${parsed.length}個の画像を読み込みました`,
+                  `${parsed.length}個の画像を追加しました（合計: ${merged.length}個）`,
                   "success"
                 );
               }, 0);
@@ -254,10 +310,28 @@ function Plugin() {
         return;
       }
 
-      setImages(parsed);
+      // 既存データと新規データをマージ
+      // 既存の images ステートを使用（起動時に自動で読み込まれている）
+      const existingImages = images.length > 0 ? images : [];
+      const merged = mergeImages(existingImages, parsed);
+
+      setImages(merged);
+      // 画像データを figmaClientStorage に保存
+      emit("SAVE_IMAGES", merged);
       // 状態更新後にメッセージを表示
+      const addedCount = merged.length - existingImages.length;
       setTimeout(() => {
-        showStatus(`${parsed.length}個の画像を読み込みました`, "success");
+        if (addedCount > 0) {
+          showStatus(
+            `${addedCount}個の画像を追加しました（合計: ${merged.length}個）`,
+            "success"
+          );
+        } else {
+          showStatus(
+            `すべての画像は既に追加されています（合計: ${merged.length}個）`,
+            "info"
+          );
+        }
       }, 0);
     } catch (error) {
       const errorMessage =
@@ -573,28 +647,6 @@ function Plugin() {
                 }}
               >
                 {option.text}
-
-                {/* <span>
-                    <strong
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        padding: "0 var(--space-4)",
-                        height: "16px",
-                        borderRadius: "var(--border-radius-4)",
-                        fontSize: "11px",
-                        fontWeight: "500",
-                        color:
-                          tabValue === option.value
-                            ? "var(--figma-color-text)"
-                            : "var(--figma-color-text-secondary)",
-                        border: "1px solid var(--figma-color-border)",
-                      }}
-                    >
-                      {getCommentCount(option.value)}
-                    </strong>
-                  </span> */}
               </span>
             </button>
           ))}
@@ -602,26 +654,6 @@ function Plugin() {
       </div>
 
       <Container space="small">
-        {/* <div
-          style={{
-            padding: "12px",
-            background: "#f9f9f9",
-            borderRadius: "4px",
-            fontSize: "11px",
-            lineHeight: "1.6",
-          }}
-        >
-          <strong>使い方:</strong>
-          <ol style={{ margin: "8px 0 0 0", paddingLeft: "20px" }}>
-            <li>画像データをコピー</li>
-            <li>下のテキストエリアに貼り付け</li>
-            <li>「データを読み込む」をクリック</li>
-            <li>画像を選択してFigmaに適用</li>
-          </ol>
-        </div> */}
-
-        {/* <VerticalSpace space="medium" /> */}
-
         {tabValue === "Top" && (
           <>
             <div
@@ -647,129 +679,6 @@ function Plugin() {
             </Button>
           </>
         )}
-
-        {tabValue === "Data" && images.length > 0 && (
-          <>
-            <VerticalSpace space="small" />
-            <Text>
-              <strong>サービス別画像 ({images.length}個)</strong>
-            </Text>
-            <VerticalSpace space="extraSmall" />
-            {(() => {
-              // サービスごとにグループ化
-              const groupedByService = images.reduce((acc, img, index) => {
-                const service = img.service || "Unknown";
-                if (!acc[service]) {
-                  acc[service] = [];
-                }
-                acc[service].push({ ...img, originalIndex: index });
-                return acc;
-              }, {} as Record<string, Array<ImageData & { originalIndex: number }>>);
-
-              // 各サービスの最新の追加日時を取得
-              const serviceList = Object.entries(groupedByService).map(
-                ([service, serviceImages]) => {
-                  const latestDate = serviceImages
-                    .map((img) => img.addedAt)
-                    .filter((date) => date)
-                    .sort()
-                    .reverse()[0];
-                  return {
-                    service,
-                    images: serviceImages,
-                    latestDate: latestDate || new Date().toISOString(),
-                    count: serviceImages.length,
-                  };
-                }
-              );
-
-              // 最新の追加日時でソート
-              serviceList.sort(
-                (a, b) =>
-                  new Date(b.latestDate).getTime() -
-                  new Date(a.latestDate).getTime()
-              );
-
-              // 日時をフォーマットする関数
-              const formatDate = (dateString: string) => {
-                const date = new Date(dateString);
-                const year = date.getFullYear();
-                const month = String(date.getMonth() + 1).padStart(2, "0");
-                const day = String(date.getDate()).padStart(2, "0");
-                const hours = String(date.getHours()).padStart(2, "0");
-                const minutes = String(date.getMinutes()).padStart(2, "0");
-                return `${year}/${month}/${day} ${hours}:${minutes}`;
-              };
-
-              return (
-                <div
-                  style={{
-                    maxHeight: "400px",
-                    overflowY: "auto",
-                    border: "1px solid #e0e0e0",
-                    borderRadius: "4px",
-                  }}
-                >
-                  {serviceList.map(
-                    ({ service, images: serviceImages, latestDate, count }) => (
-                      <div
-                        key={service}
-                        onClick={() => setModalService(service)}
-                        style={{
-                          padding: "12px",
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "12px",
-                          transition: "background 0.2s",
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = "#f5f5f5";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = "transparent";
-                        }}
-                      >
-                        <ServiceLogo serviceName={service} size={20} />
-                        <div style={{ flex: 1 }}>
-                          <div
-                            style={{
-                              fontSize: "12px",
-                              fontWeight: "600",
-                              marginBottom: "4px",
-                            }}
-                          >
-                            {service}
-                          </div>
-                          <div
-                            style={{
-                              fontSize: "10px",
-                              color: "#666",
-                            }}
-                          >
-                            {formatDate(latestDate)}
-                          </div>
-                        </div>
-                        <div
-                          style={{
-                            fontSize: "10px",
-                            color: "#666",
-                            padding: "4px 8px",
-                            background: "#f0f0f0",
-                            borderRadius: "4px",
-                          }}
-                        >
-                          {count}個
-                        </div>
-                      </div>
-                    )
-                  )}
-                </div>
-              );
-            })()}
-          </>
-        )}
-
         {tabValue === "Top" && images.length > 0 && (
           <>
             <VerticalSpace space="medium" />
@@ -870,7 +779,7 @@ function Plugin() {
           </>
         )}
 
-        {status && (
+        {tabValue === "Top" && status && (
           <>
             <VerticalSpace space="small" />
             <div
@@ -897,180 +806,9 @@ function Plugin() {
           </>
         )}
       </Container>
-
-      {/* 下部モーダル */}
-      {modalService && (
-        <>
-          {/* オーバーレイ */}
-          <div
-            style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: "rgba(0, 0, 0, 0.3)",
-              zIndex: 999,
-            }}
-            onClick={() => setModalService(null)}
-          />
-          {/* モーダル */}
-          <div
-            style={{
-              position: "fixed",
-              bottom: 0,
-              left: 0,
-              right: 0,
-              background: "white",
-              borderTop: "1px solid #e0e0e0",
-              boxShadow: "0 -2px 8px rgba(0,0,0,0.1)",
-              maxHeight: "60vh",
-              display: "flex",
-              flexDirection: "column",
-              zIndex: 1000,
-            }}
-          >
-            <div
-              style={{
-                padding: "12px",
-                borderBottom: "1px solid #e0e0e0",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <div
-                style={{ display: "flex", alignItems: "center", gap: "8px" }}
-              >
-                {modalService && (
-                  <ServiceLogo serviceName={modalService} size={20} />
-                )}
-                <Text>
-                  <strong>{modalService}</strong>
-                </Text>
-              </div>
-              <button
-                onClick={() => setModalService(null)}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  fontSize: "18px",
-                  cursor: "pointer",
-                  padding: "4px 8px",
-                  color: "#666",
-                }}
-              >
-                ×
-              </button>
-            </div>
-            <div
-              style={{
-                flex: 1,
-                overflowY: "auto",
-                padding: "8px",
-              }}
-            >
-              {(() => {
-                const serviceImages = images
-                  .map((img, index) => ({ ...img, originalIndex: index }))
-                  .filter((img) => (img.service || "Unknown") === modalService);
-
-                return (
-                  <div>
-                    {serviceImages.map((img) => (
-                      <div
-                        key={img.originalIndex}
-                        onClick={() => {
-                          handleSelectImage(img.originalIndex);
-                          setModalService(null);
-                        }}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          padding: "8px 12px",
-                          borderBottom: "1px solid #f0f0f0",
-                          cursor: "pointer",
-                          background:
-                            selectedImageIndex === img.originalIndex
-                              ? "#e3f2fd"
-                              : "transparent",
-                          borderLeft:
-                            selectedImageIndex === img.originalIndex
-                              ? "3px solid #18A0FB"
-                              : "3px solid transparent",
-                        }}
-                      >
-                        <img
-                          src={img.src}
-                          alt={img.alt || `Image ${img.originalIndex + 1}`}
-                          style={{
-                            width: "40px",
-                            height: "40px",
-                            objectFit: "cover",
-                            marginRight: "8px",
-                            borderRadius: "3px",
-                          }}
-                          onError={(e) => {
-                            e.currentTarget.style.display = "none";
-                          }}
-                        />
-                        <div style={{ flex: 1, overflow: "hidden" }}>
-                          <div style={{ fontSize: "11px" }}>
-                            <strong>{img.originalIndex + 1}.</strong>{" "}
-                            {img.alt || "No title"}
-                          </div>
-                          <div style={{ fontSize: "10px", color: "#666" }}>
-                            {img.width} × {img.height}
-                            {img.addedAt && (
-                              <span style={{ marginLeft: "8px" }}>
-                                {new Date(img.addedAt).toLocaleString("ja-JP")}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                );
-              })()}
-            </div>
-            <div
-              style={{
-                padding: "12px",
-                borderTop: "1px solid #e0e0e0",
-                display: "flex",
-                gap: "8px",
-              }}
-            >
-              <Button
-                fullWidth
-                onClick={() => {
-                  if (selectedImageIndex !== null) {
-                    handleApplyImage();
-                    setModalService(null);
-                  }
-                }}
-                disabled={selectedImageIndex === null}
-              >
-                選択ノードに画像を適用
-              </Button>
-              <Button
-                fullWidth
-                secondary
-                onClick={() => {
-                  if (selectedImageIndex !== null) {
-                    handleCreateRectangle();
-                    setModalService(null);
-                  }
-                }}
-                disabled={selectedImageIndex === null}
-              >
-                新規レクタングルを作成
-              </Button>
-            </div>
-          </div>
-        </>
-      )}
+      <div>
+        {tabValue === "Data" && <Data images={images} />}
+      </div>
     </div>
   );
 }
