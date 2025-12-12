@@ -1,4 +1,4 @@
-import { Button, Text } from "@create-figma-plugin/ui";
+import { Button, Text, IconButton, IconTrash24 } from "@create-figma-plugin/ui";
 import { emit } from "@create-figma-plugin/utilities";
 import { h, Fragment } from "preact";
 import { useState } from "preact/hooks";
@@ -6,9 +6,10 @@ import { ImageData } from "../types";
 
 interface DataProps {
   images: ImageData[];
+  onDeleteService: (service: string) => void;
 }
 
-export const Data = ({ images }: DataProps) => {
+export const Data = ({ images, onDeleteService }: DataProps) => {
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(
     null
   );
@@ -17,6 +18,10 @@ export const Data = ({ images }: DataProps) => {
     "info"
   );
   const [modalService, setModalService] = useState<string | null>(null); // モーダルで表示するサービス名
+
+  const [mouseEnterServices, setMouseEnterServices] = useState<
+    Record<string, boolean>
+  >({});
 
   // サービス名からロゴURLを取得する関数
   function getServiceLogoUrl(serviceName: string): string {
@@ -283,6 +288,10 @@ export const Data = ({ images }: DataProps) => {
     }
   };
 
+  const handleDeleteService = (service: string) => {
+    onDeleteService(service);
+  };
+
   return (
     <>
       <div>
@@ -361,54 +370,84 @@ export const Data = ({ images }: DataProps) => {
                           padding: "12px",
                           cursor: "pointer",
                           display: "flex",
-                          alignItems: "center",
-                          gap: "12px",
+                          flexDirection: "row",
                           transition: "background 0.2s",
+                          height: "48px",
                         }}
                         onMouseEnter={(e: MouseEvent) => {
+                          setMouseEnterServices((prev) => ({
+                            ...prev,
+                            [service]: true,
+                          }));
                           (e.currentTarget as HTMLElement).style.background =
                             "#f5f5f5";
                         }}
                         onMouseLeave={(e: MouseEvent) => {
+                          setMouseEnterServices((prev) => ({
+                            ...prev,
+                            [service]: false,
+                          }));
                           (e.currentTarget as HTMLElement).style.background =
                             "transparent";
                         }}
                       >
-                        <ServiceLogo
-                          serviceName={service}
-                          size={20}
-                          favicon={favicon}
-                        />
-                        <div style={{ flex: 1 }}>
-                          <div
-                            style={{
-                              fontSize: "12px",
-                              fontWeight: "600",
-                              // marginBottom: "4px",
-                            }}
-                          >
-                            {service}
-                          </div>
-                          {/* <div
-                            style={{
-                              fontSize: "10px",
-                              color: "#666",
-                            }}
-                          >
-                            {formatDate(latestDate)}
-                          </div> */}
-                        </div>
                         <div
                           style={{
-                            fontSize: "10px",
-                            color: "#666",
-                            padding: "4px 8px",
-                            background: "#f0f0f0",
-                            borderRadius: "4px",
+                            display: "flex",
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: "8px",
+                            flex: 1,
                           }}
                         >
-                          {count}個
+                          <ServiceLogo
+                            serviceName={service}
+                            size={20}
+                            favicon={favicon}
+                          />
+                          <div>
+                            <div
+                              style={{
+                                fontSize: "12px",
+                                fontWeight: "600",
+                              }}
+                            >
+                              {service}
+                            </div>
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "11px",
+                              color: "#666",
+                              padding: "0px 4px",
+                              borderRadius: "4px",
+                              border: "1px solid var(--figma-color-border)",
+                            }}
+                          >
+                            {count}
+                          </div>
                         </div>
+                        {mouseEnterServices[service] && (
+                          <IconButton
+                            onClick={(e: MouseEvent) => {
+                              e.stopPropagation();
+                              handleDeleteService(service);
+                            }}
+                            onMouseEnter={(e: MouseEvent) => {
+                              (
+                                e.currentTarget as HTMLElement
+                              ).style.background =
+                                "var(--figma-color-bg-disabled)";
+                            }}
+                            onMouseLeave={(e: MouseEvent) => {
+                              (
+                                e.currentTarget as HTMLElement
+                              ).style.background = "transparent";
+                            }}
+                          >
+                            <IconTrash24 />
+                          </IconButton>
+                        )}
                       </div>
                     )
                   )}

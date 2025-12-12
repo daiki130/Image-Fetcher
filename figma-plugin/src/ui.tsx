@@ -505,6 +505,25 @@ function Plugin() {
     setStatusType(type);
   };
 
+  // サービスを削除
+  const handleDeleteService = (serviceName: string) => {
+    const filteredImages = images.filter(
+      (img) => (img.service || "Unknown") !== serviceName
+    );
+    const deletedCount = images.length - filteredImages.length;
+
+    if (deletedCount > 0) {
+      setImages(filteredImages);
+      emit("SAVE_IMAGES", filteredImages);
+      showStatus(
+        `${serviceName}の${deletedCount}個の画像を削除しました`,
+        "success"
+      );
+    } else {
+      showStatus("削除する画像が見つかりませんでした", "error");
+    }
+  };
+
   const [tabValue, setTabValue] = useState<string>("Top");
   const tabOptions = [
     {
@@ -807,7 +826,9 @@ function Plugin() {
         )}
       </Container>
       <div>
-        {tabValue === "Data" && <Data images={images} />}
+        {tabValue === "Data" && (
+          <Data images={images} onDeleteService={handleDeleteService} />
+        )}
       </div>
     </div>
   );
