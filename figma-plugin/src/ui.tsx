@@ -187,6 +187,7 @@ function ServiceLogo({
 function Plugin() {
   const [jsonInput, setJsonInput] = useState("");
   const [images, setImages] = useState<ImageData[]>([]);
+  const [displayImages, setDisplayImages] = useState<ImageData[]>([]); // Topタブで表示する画像（「データを読み込む」で追加したもののみ）
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(
     null
   );
@@ -279,6 +280,17 @@ function Plugin() {
               const existingImages = images.length > 0 ? images : [];
               const merged = mergeImages(existingImages, parsed);
               setImages(merged);
+              // 表示用画像を新しいデータに置き換え（parsed内の重複を排除）
+              const uniqueParsed: ImageData[] = [];
+              for (const newImage of parsed) {
+                const isDuplicate = uniqueParsed.some((existingImage) =>
+                  isDuplicateImage(existingImage, newImage)
+                );
+                if (!isDuplicate) {
+                  uniqueParsed.push(newImage);
+                }
+              }
+              setDisplayImages(uniqueParsed);
               // 画像データを figmaClientStorage に保存
               emit("SAVE_IMAGES", merged);
               // 状態更新後にメッセージを表示
@@ -316,6 +328,17 @@ function Plugin() {
       const merged = mergeImages(existingImages, parsed);
 
       setImages(merged);
+      // 表示用画像を新しいデータに置き換え（parsed内の重複を排除）
+      const uniqueParsed: ImageData[] = [];
+      for (const newImage of parsed) {
+        const isDuplicate = uniqueParsed.some((existingImage) =>
+          isDuplicateImage(existingImage, newImage)
+        );
+        if (!isDuplicate) {
+          uniqueParsed.push(newImage);
+        }
+      }
+      setDisplayImages(uniqueParsed);
       // 画像データを figmaClientStorage に保存
       emit("SAVE_IMAGES", merged);
       // 状態更新後にメッセージを表示
@@ -340,9 +363,26 @@ function Plugin() {
     }
   };
 
-  // 画像選択
-  const handleSelectImage = (index: number) => {
-    setSelectedImageIndex(index);
+  // 画像選択（Topタブ用：displayImagesのインデックスからimages全体のインデックスを計算）
+  const handleSelectImage = (index: number, isTopTab: boolean = false) => {
+    if (isTopTab && displayImages[index]) {
+      // displayImagesの画像をimages全体から探す
+      const selectedImage = displayImages[index];
+      const globalIndex = images.findIndex((img) => {
+        if (img.id && selectedImage.id && img.id === selectedImage.id) {
+          return true;
+        }
+        if (img.src && selectedImage.src && img.src === selectedImage.src) {
+          return true;
+        }
+        return false;
+      });
+      if (globalIndex !== -1) {
+        setSelectedImageIndex(globalIndex);
+      }
+    } else {
+      setSelectedImageIndex(index);
+    }
   };
 
   // 選択ノードに適用
@@ -510,10 +550,14 @@ function Plugin() {
     const filteredImages = images.filter(
       (img) => (img.service || "Unknown") !== serviceName
     );
+    const filteredDisplayImages = displayImages.filter(
+      (img) => (img.service || "Unknown") !== serviceName
+    );
     const deletedCount = images.length - filteredImages.length;
 
     if (deletedCount > 0) {
       setImages(filteredImages);
+      setDisplayImages(filteredDisplayImages);
       emit("SAVE_IMAGES", filteredImages);
       showStatus(
         `${serviceName}の${deletedCount}個の画像を削除しました`,
@@ -698,11 +742,11 @@ function Plugin() {
             </Button>
           </>
         )}
-        {tabValue === "Top" && images.length > 0 && (
+        {tabValue === "Top" && displayImages.length > 0 && (
           <>
             <VerticalSpace space="medium" />
             <Text>
-              <strong>{images.length}個の画像</strong>
+              <strong>{displayImages.length}個の画像</strong>
             </Text>
             <VerticalSpace space="extraSmall" />
 
@@ -714,50 +758,63 @@ function Plugin() {
                 borderRadius: "4px",
               }}
             >
-              {images.map((img, index) => (
-                <div
-                  key={index}
-                  onClick={() => handleSelectImage(index)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    padding: "8px",
-                    borderBottom:
-                      index < images.length - 1 ? "1px solid #f0f0f0" : "none",
-                    cursor: "pointer",
-                    background:
-                      selectedImageIndex === index ? "#e3f2fd" : "transparent",
-                    borderLeft:
-                      selectedImageIndex === index
+              {displayImages.map((img, index) => {
+                // images全体でのインデックスを計算
+                const globalIndex = images.findIndex((globalImg) => {
+                  if (globalImg.id && img.id && globalImg.id === img.id) {
+                    return true;
+                  }
+                  if (globalImg.src && img.src && globalImg.src === img.src) {
+                    return true;
+                  }
+                  return false;
+                });
+                const isSelected =
+                  globalIndex !== -1 && selectedImageIndex === globalIndex;
+                return (
+                  <div
+                    key={index}
+                    onClick={() => handleSelectImage(index, true)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      padding: "8px",
+                      borderBottom:
+                        index < displayImages.length - 1
+                          ? "1px solid #f0f0f0"
+                          : "none",
+                      cursor: "pointer",
+                      background: isSelected ? "#e3f2fd" : "transparent",
+                      borderLeft: isSelected
                         ? "3px solid #18A0FB"
                         : "3px solid transparent",
-                  }}
-                >
-                  <img
-                    src={img.src}
-                    alt={img.alt || `Image ${index + 1}`}
-                    style={{
-                      width: "40px",
-                      height: "40px",
-                      objectFit: "cover",
-                      marginRight: "8px",
-                      borderRadius: "3px",
                     }}
-                    onError={(e) => {
-                      e.currentTarget.style.display = "none";
-                    }}
-                  />
-                  <div style={{ flex: 1, overflow: "hidden" }}>
-                    <div
+                  >
+                    <img
+                      src={img.src}
+                      alt={img.alt || `Image ${index + 1}`}
                       style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        fontSize: "11px",
+                        width: "40px",
+                        height: "40px",
+                        objectFit: "cover",
+                        marginRight: "8px",
+                        borderRadius: "3px",
                       }}
-                    >
-                      <strong>{index + 1}.</strong> {img.alt || "No title"}
-                      {/* {img.service && (
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none";
+                      }}
+                    />
+                    <div style={{ flex: 1, overflow: "hidden" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "6px",
+                          fontSize: "11px",
+                        }}
+                      >
+                        <strong>{index + 1}.</strong> {img.alt || "No title"}
+                        {/* {img.service && (
                         <div
                           style={{
                             display: "flex",
@@ -768,13 +825,14 @@ function Plugin() {
                           <ServiceLogo serviceName={img.service} size={14} />
                         </div>
                       )} */}
-                    </div>
-                    <div style={{ fontSize: "10px", color: "#666" }}>
-                      {img.width} × {img.height}
+                      </div>
+                      <div style={{ fontSize: "10px", color: "#666" }}>
+                        {img.width} × {img.height}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <VerticalSpace space="small" />
