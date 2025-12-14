@@ -6,6 +6,8 @@ import {
   VerticalSpace,
   Textbox,
   TextboxMultiline,
+  FileUploadDropzone,
+  Muted,
 } from "@create-figma-plugin/ui";
 import { emit, on } from "@create-figma-plugin/utilities";
 import { h, Fragment } from "preact";
@@ -256,15 +258,16 @@ function Plugin() {
     return merged;
   };
 
-  // データ読み込み
-  const handleLoadData = async () => {
-    if (!jsonInput.trim()) {
+  // データ読み込み（引数でデータを直接渡すことも可能）
+  const handleLoadData = async (data?: string) => {
+    const dataToProcess = data || jsonInput;
+    if (!dataToProcess.trim()) {
       showStatus("データを入力してください", "error");
       return;
     }
 
     try {
-      let dataToParse = jsonInput.trim();
+      let dataToParse = dataToProcess.trim();
 
       // 暗号化されている場合は復号化
       if (isEncrypted(dataToParse)) {
@@ -679,6 +682,29 @@ function Plugin() {
     }
   }, [jsonInput, isEditing]);
 
+  async function handleSelectedFiles(files: Array<File>) {
+    if (files.length === 0) {
+      return;
+    }
+
+    const file = files[0];
+    try {
+      showStatus("ファイルを読み込み中...", "info");
+      const text = await file.text();
+      // ファイルの内容をそのまま設定（表示用）
+      setJsonInput(text);
+      // データを直接渡して読み込む（setJsonInputの状態更新を待たない）
+      await handleLoadData(text);
+    } catch (error) {
+      showStatus(
+        `ファイルの読み込みに失敗しました: ${
+          error instanceof Error ? error.message : "不明なエラー"
+        }`,
+        "error"
+      );
+    }
+  }
+
   return (
     <div style={{ position: "relative", height: "100%" }}>
       {/* カスタムステータスタブ */}
@@ -749,9 +775,15 @@ function Plugin() {
       </div>
 
       <Container space="small">
+        <VerticalSpace space="medium" />
         {tabValue === "Top" && (
           <>
-            <div
+            <FileUploadDropzone onSelectedFiles={handleSelectedFiles}>
+              <Text align="center">
+                <Muted>File Upload</Muted>
+              </Text>
+            </FileUploadDropzone>
+            {/* <div
               style={{
                 fontSize: "11px",
                 fontWeight: "600",
@@ -768,8 +800,8 @@ function Plugin() {
               placeholder="データを貼り付けてください..."
             />
 
-            <VerticalSpace space="small" />
-            <div style={{ display: "flex", gap: "8px" }}>
+            <VerticalSpace space="small" /> */}
+            {/* <div style={{ display: "flex", gap: "8px" }}>
               <Button fullWidth onClick={handleLoadData}>
                 データを読み込む
               </Button>
@@ -784,13 +816,12 @@ function Plugin() {
                     const file = (e.target as HTMLInputElement).files?.[0];
                     if (file) {
                       try {
+                        showStatus("ファイルを読み込み中...", "info");
                         const text = await file.text();
-                        // ファイルの内容をそのまま設定（暗号化されているかどうかはhandleLoadDataで判定）
+                        // ファイルの内容をそのまま設定（表示用）
                         setJsonInput(text);
-                        // 自動的に読み込む
-                        setTimeout(() => {
-                          handleLoadData();
-                        }, 100);
+                        // データを直接渡して読み込む（setJsonInputの状態更新を待たない）
+                        await handleLoadData(text);
                       } catch (error) {
                         showStatus(
                           `ファイルの読み込みに失敗しました: ${
@@ -808,7 +839,7 @@ function Plugin() {
               >
                 ファイルから読み込む
               </Button>
-            </div>
+            </div> */}
           </>
         )}
         {tabValue === "Top" && displayImages.length > 0 && (
