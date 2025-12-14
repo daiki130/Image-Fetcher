@@ -276,13 +276,29 @@ function Plugin() {
           try {
             const parsed = JSON.parse(dataToParse);
             if (Array.isArray(parsed) && parsed.length > 0) {
+              // Chrome拡張機能の短縮形式（w, h）を通常形式（width, height, alt）に変換
+              let convertedParsed = parsed.map((img: any) => {
+                // 既に通常形式の場合はそのまま返す
+                if (img.width && img.height) {
+                  return img;
+                }
+                // 短縮形式の場合は変換
+                return {
+                  src: img.src,
+                  alt: img.alt || "",
+                  width: img.w || img.width || 0,
+                  height: img.h || img.height || 0,
+                  favicon: img.favicon || null,
+                };
+              });
+
               // 既存データを取得してマージ
               const existingImages = images.length > 0 ? images : [];
-              const merged = mergeImages(existingImages, parsed);
+              const merged = mergeImages(existingImages, convertedParsed);
               setImages(merged);
-              // 表示用画像を新しいデータに置き換え（parsed内の重複を排除）
+              // 表示用画像を新しいデータに置き換え（convertedParsed内の重複を排除）
               const uniqueParsed: ImageData[] = [];
-              for (const newImage of parsed) {
+              for (const newImage of convertedParsed) {
                 const isDuplicate = uniqueParsed.some((existingImage) =>
                   isDuplicateImage(existingImage, newImage)
                 );
@@ -315,12 +331,28 @@ function Plugin() {
         dataToParse = decrypted;
       }
 
-      const parsed = JSON.parse(dataToParse);
+      let parsed = JSON.parse(dataToParse);
 
       if (!Array.isArray(parsed) || parsed.length === 0) {
         showStatus("有効な画像配列を入力してください", "error");
         return;
       }
+
+      // Chrome拡張機能の短縮形式（w, h）を通常形式（width, height, alt）に変換
+      parsed = parsed.map((img: any) => {
+        // 既に通常形式の場合はそのまま返す
+        if (img.width && img.height) {
+          return img;
+        }
+        // 短縮形式の場合は変換
+        return {
+          src: img.src,
+          alt: img.alt || "",
+          width: img.w || img.width || 0,
+          height: img.h || img.height || 0,
+          favicon: img.favicon || null,
+        };
+      });
 
       // 既存データと新規データをマージ
       // 既存の images ステートを使用（起動時に自動で読み込まれている）
@@ -737,9 +769,46 @@ function Plugin() {
             />
 
             <VerticalSpace space="small" />
-            <Button fullWidth onClick={handleLoadData}>
-              データを読み込む
-            </Button>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <Button fullWidth onClick={handleLoadData}>
+                データを読み込む
+              </Button>
+              <Button
+                fullWidth
+                secondary
+                onClick={() => {
+                  const input = document.createElement("input");
+                  input.type = "file";
+                  // 拡張子の制限を緩和（すべてのファイルを受け付ける）
+                  input.onchange = async (e: Event) => {
+                    const file = (e.target as HTMLInputElement).files?.[0];
+                    if (file) {
+                      try {
+                        const text = await file.text();
+                        // ファイルの内容をそのまま設定（暗号化されているかどうかはhandleLoadDataで判定）
+                        setJsonInput(text);
+                        // 自動的に読み込む
+                        setTimeout(() => {
+                          handleLoadData();
+                        }, 100);
+                      } catch (error) {
+                        showStatus(
+                          `ファイルの読み込みに失敗しました: ${
+                            error instanceof Error
+                              ? error.message
+                              : "不明なエラー"
+                          }`,
+                          "error"
+                        );
+                      }
+                    }
+                  };
+                  input.click();
+                }}
+              >
+                ファイルから読み込む
+              </Button>
+            </div>
           </>
         )}
         {tabValue === "Top" && displayImages.length > 0 && (
