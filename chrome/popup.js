@@ -53,9 +53,6 @@ document.getElementById("collectBtn").addEventListener("click", async () => {
         );
         displayImages(collectedImages);
         document.getElementById("copyBtn").disabled = false;
-
-        // ファイルをダウンロード（base64変換を含む）
-        await downloadImageData(collectedImages, currentPageUrl);
       } catch (storageError) {
         console.error("Storage error:", storageError);
         // ストレージに保存できない場合でもメモリ上には保持
@@ -68,9 +65,6 @@ document.getElementById("collectBtn").addEventListener("click", async () => {
         );
         displayImages(collectedImages);
         document.getElementById("copyBtn").disabled = false;
-
-        // ファイルをダウンロード（base64変換を含む）
-        await downloadImageData(collectedImages, currentPageUrl);
       }
     } else {
       updateStatus("画像が見つかりませんでした", "error");
@@ -328,97 +322,6 @@ async function fetchImageAsBase64(url) {
     reader.onerror = reject;
     reader.readAsDataURL(blob);
   });
-}
-
-// 画像データをファイルとしてダウンロード（コピー機能と同じ形式）
-async function downloadImageData(images, pageUrl) {
-  try {
-    if (images.length === 0) {
-      return;
-    }
-
-    updateStatus(`${images.length}個の画像を変換中...`, "loading");
-
-    const imagesWithBase64 = [];
-    let successCount = 0;
-    let failCount = 0;
-
-    for (let i = 0; i < images.length; i++) {
-      const img = images[i];
-      try {
-        updateStatus(`画像を変換中... (${i + 1}/${images.length})`, "loading");
-        const base64 = await fetchImageAsBase64(img.src);
-        // ページURLからサービス名を取得（画像URLが相対パスの場合に対応）
-        const serviceName = extractServiceName(img.src, img.pageUrl);
-        imagesWithBase64.push({
-          src: img.src,
-          width: img.width,
-          height: img.height,
-          alt: img.alt || "",
-          base64: base64,
-          service: serviceName,
-          favicon: img.favicon || null, // faviconも含める
-        });
-        successCount++;
-      } catch (error) {
-        console.error("Failed to fetch:", img.src, error);
-        failCount++;
-        // エラーが出てもスキップして続行
-      }
-    }
-
-    if (imagesWithBase64.length > 0) {
-      // JSON文字列を暗号化（コピー機能と同じ）
-      const jsonString = JSON.stringify(imagesWithBase64, null, 2);
-      const encryptedData = await encryptData(jsonString);
-
-      // ファイル名を生成（ページURLからドメイン名を取得、またはタイムスタンプ）
-      let filename = "images";
-      if (pageUrl) {
-        try {
-          const url = new URL(pageUrl);
-          const hostname = url.hostname.replace(/^www\./, "");
-          filename = hostname.split(".")[0] || "images";
-        } catch (e) {
-          // URL解析に失敗した場合はデフォルト名を使用
-        }
-      }
-      const timestamp = new Date()
-        .toISOString()
-        .replace(/[:.]/g, "-")
-        .slice(0, 19);
-      filename = `${filename}_${timestamp}.imagefetcher`;
-
-      // Blobを作成（暗号化されたデータ）
-      // application/octet-streamを使用して、ブラウザに拡張子を推測させない
-      const blob = new Blob([encryptedData], {
-        type: "application/octet-stream",
-      });
-      const url = URL.createObjectURL(blob);
-
-      // ダウンロード（filenameで拡張子を明示的に指定）
-      await chrome.downloads.download({
-        url: url,
-        filename: filename, // .imagefetcher拡張子を明示的に指定
-        saveAs: false, // デフォルトのダウンロードフォルダに保存
-      });
-
-      // URLを解放
-      setTimeout(() => URL.revokeObjectURL(url), 100);
-
-      updateStatus(
-        `✅ ${successCount}個の画像をダウンロードしました!${
-          failCount > 0 ? ` (${failCount}個失敗)` : ""
-        }`,
-        "success"
-      );
-    } else {
-      updateStatus("❌ 全ての画像取得に失敗しました", "error");
-    }
-  } catch (error) {
-    console.error("Download error:", error);
-    updateStatus(`❌ ダウンロードに失敗しました: ${error.message}`, "error");
-  }
 }
 
 // ページロード時に保存済みの画像を復元

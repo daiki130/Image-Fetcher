@@ -786,70 +786,11 @@ function Plugin() {
         <VerticalSpace space="medium" />
         {tabValue === "Top" && (
           <>
-            <div
-              style={{
-                border: "2px dashed var(--figma-color-border)",
-                borderRadius: "8px",
-                padding: "24px",
-                textAlign: "center",
-                cursor: "pointer",
-                background: "var(--figma-color-bg-secondary)",
-                transition: "background 0.2s",
-              }}
-              onMouseEnter={(e: MouseEvent) => {
-                (e.currentTarget as HTMLElement).style.background =
-                  "var(--figma-color-bg-hover)";
-              }}
-              onMouseLeave={(e: MouseEvent) => {
-                (e.currentTarget as HTMLElement).style.background =
-                  "var(--figma-color-bg-secondary)";
-              }}
-              onClick={() => {
-                const input = document.createElement("input");
-                input.type = "file";
-                input.accept = ".imagefetcher";
-                input.onchange = async (e: Event) => {
-                  const file = (e.target as HTMLInputElement).files?.[0];
-                  if (file) {
-                    await handleSelectedFiles([file]);
-                  }
-                };
-                input.click();
-              }}
-              onDragOver={(e: DragEvent) => {
-                e.preventDefault();
-                e.stopPropagation();
-                (e.currentTarget as HTMLElement).style.borderColor =
-                  "var(--figma-color-border-selected)";
-              }}
-              onDragLeave={(e: DragEvent) => {
-                e.preventDefault();
-                e.stopPropagation();
-                (e.currentTarget as HTMLElement).style.borderColor =
-                  "var(--figma-color-border)";
-              }}
-              onDrop={async (e: DragEvent) => {
-                e.preventDefault();
-                e.stopPropagation();
-                (e.currentTarget as HTMLElement).style.borderColor =
-                  "var(--figma-color-border)";
-
-                const files = Array.from(e.dataTransfer?.files || []);
-                const imagefetcherFiles = files.filter((file) =>
-                  file.name.toLowerCase().endsWith(".imagefetcher")
-                );
-
-                if (imagefetcherFiles.length > 0) {
-                  await handleSelectedFiles(imagefetcherFiles);
-                } else if (files.length > 0) {
-                  showStatus(".imagefetcherファイルのみ読み込めます", "error");
-                }
-              }}
-            >
+            <FileUploadDropzone onSelectedFiles={handleSelectedFiles}>
               <Text align="center">
-                <Muted>.imagefetcherファイルをドロップまたはクリック</Muted>
+                <Muted>.imagefetcherファイルをドロップ</Muted>
               </Text>
-            </div>
+            </FileUploadDropzone>
             {/* <div
               style={{
                 fontSize: "11px",
