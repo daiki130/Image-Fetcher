@@ -53,6 +53,9 @@ document.getElementById("collectBtn").addEventListener("click", async () => {
         );
         displayImages(collectedImages);
         document.getElementById("copyBtn").disabled = false;
+
+        // 画像収集完了後、自動的に.imagefetcherファイルとしてダウンロード
+        await exportToImageFetcherFile(collectedImages);
       } catch (storageError) {
         console.error("Storage error:", storageError);
         // ストレージに保存できない場合でもメモリ上には保持
@@ -65,6 +68,9 @@ document.getElementById("collectBtn").addEventListener("click", async () => {
         );
         displayImages(collectedImages);
         document.getElementById("copyBtn").disabled = false;
+
+        // 画像収集完了後、自動的に.imagefetcherファイルとしてダウンロード
+        await exportToImageFetcherFile(collectedImages);
       }
     } else {
       updateStatus("画像が見つかりませんでした", "error");
@@ -244,6 +250,91 @@ async function encryptData(data) {
   } catch (error) {
     console.error("Encryption error:", error);
     throw error;
+  }
+}
+
+// 画像を.imagefetcherファイルとしてエクスポートする関数
+async function exportToImageFetcherFile(images) {
+  if (!images || images.length === 0) {
+    return;
+  }
+
+  updateStatus(`${images.length}個の画像を変換中...`, "loading");
+
+  try {
+    const imagesWithBase64 = [];
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < images.length; i++) {
+      const img = images[i];
+      try {
+        updateStatus(`画像を変換中... (${i + 1}/${images.length})`, "loading");
+        const base64 = await fetchImageAsBase64(img.src);
+        // ページURLからサービス名を取得（画像URLが相対パスの場合に対応）
+        const serviceName = extractServiceName(img.src, img.pageUrl);
+        imagesWithBase64.push({
+          src: img.src,
+          width: img.width,
+          height: img.height,
+          alt: img.alt || "",
+          base64: base64,
+          service: serviceName,
+          favicon: img.favicon || null, // faviconも含める
+        });
+        successCount++;
+      } catch (error) {
+        console.error("Failed to fetch:", img.src, error);
+        failCount++;
+        // エラーが出てもスキップして続行
+      }
+    }
+
+    if (imagesWithBase64.length > 0) {
+      // JSON文字列を暗号化
+      const jsonString = JSON.stringify(imagesWithBase64, null, 2);
+      const encryptedData = await encryptData(jsonString);
+
+      // ファイル名を生成（タイムスタンプを含める）
+      const timestamp = new Date()
+        .toISOString()
+        .replace(/[:.]/g, "-")
+        .slice(0, -5);
+      const filename = `images_${timestamp}.imagefetcher`;
+
+      // Blobを作成してファイルとしてダウンロード
+      const blob = new Blob([encryptedData], { type: "text/plain" });
+      const blobUrl = URL.createObjectURL(blob);
+
+      try {
+        // 一時的なaタグを作成してダウンロード
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(blobUrl);
+
+        updateStatus(
+          `✅ ${successCount}個の画像を.imagefetcherファイルに保存しました!${
+            failCount > 0 ? ` (${failCount}個失敗)` : ""
+          }`,
+          "success"
+        );
+      } catch (downloadError) {
+        console.error("Download error:", downloadError);
+        updateStatus(
+          `❌ ファイルのダウンロードに失敗しました: ${downloadError.message}`,
+          "error"
+        );
+      }
+    } else {
+      updateStatus("❌ 全ての画像取得に失敗しました", "error");
+    }
+  } catch (error) {
+    console.error("Export error:", error);
+    updateStatus(`❌ エクスポートに失敗しました: ${error.message}`, "error");
   }
 }
 

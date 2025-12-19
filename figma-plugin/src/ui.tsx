@@ -31,7 +31,19 @@ const ENCRYPTION_KEY = CryptoJS.lib.WordArray.create(ENCRYPTION_KEY_BYTES);
 function decryptData(encryptedBase64: string): string | null {
   try {
     // Base64デコードしてバイナリデータを取得
-    const binaryString = atob(encryptedBase64);
+    if (!encryptedBase64 || encryptedBase64.trim().length === 0) {
+      console.error("Decryption error: Empty input");
+      return null;
+    }
+
+    const trimmedInput = encryptedBase64.trim();
+    const binaryString = atob(trimmedInput);
+
+    if (binaryString.length < 16) {
+      console.error("Decryption error: Data too short (less than 16 bytes)");
+      return null;
+    }
+
     const combined = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
       combined[i] = binaryString.charCodeAt(i);
@@ -40,6 +52,11 @@ function decryptData(encryptedBase64: string): string | null {
     // IV（16バイト）と暗号化データを分離（AES-CBC用）
     const ivBytes = combined.slice(0, 16);
     const encryptedBytes = combined.slice(16);
+
+    if (encryptedBytes.length === 0) {
+      console.error("Decryption error: No encrypted data after IV");
+      return null;
+    }
 
     // crypto-js用に変換
     const iv = CryptoJS.lib.WordArray.create(ivBytes);
@@ -63,9 +80,19 @@ function decryptData(encryptedBase64: string): string | null {
     );
 
     const decryptedString = decrypted.toString(CryptoJS.enc.Utf8);
-    return decryptedString || null;
+
+    if (!decryptedString || decryptedString.length === 0) {
+      console.error("Decryption error: Decrypted string is empty");
+      return null;
+    }
+
+    return decryptedString;
   } catch (error) {
     console.error("Decryption error:", error);
+    if (error instanceof Error) {
+      console.error("Error message:", error.message);
+      console.error("Error stack:", error.stack);
+    }
     return null;
   }
 }
@@ -271,67 +298,90 @@ function Plugin() {
 
       // 暗号化されている場合は復号化
       if (isEncrypted(dataToParse)) {
-        showStatus("データを処理中...", "info");
-        const decrypted = await decryptData(dataToParse);
+        showStatus("データを復号化中...", "info");
+        console.log("Attempting to decrypt data, length:", dataToParse.length);
 
-        if (!decrypted) {
-          // 復号化に失敗した場合、元のデータでJSONパースを試みる
-          try {
-            const parsed = JSON.parse(dataToParse);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              // Chrome拡張機能の短縮形式（w, h）を通常形式（width, height, alt）に変換
-              let convertedParsed = parsed.map((img: any) => {
-                // 既に通常形式の場合はそのまま返す
-                if (img.width && img.height) {
-                  return img;
-                }
-                // 短縮形式の場合は変換
-                return {
-                  src: img.src,
-                  alt: img.alt || "",
-                  width: img.w || img.width || 0,
-                  height: img.h || img.height || 0,
-                  favicon: img.favicon || null,
-                };
-              });
+        try {
+          const decrypted = decryptData(dataToParse);
 
-              // 既存データを取得してマージ
-              const existingImages = images.length > 0 ? images : [];
-              const merged = mergeImages(existingImages, convertedParsed);
-              setImages(merged);
-              // 表示用画像を新しいデータに置き換え（convertedParsed内の重複を排除）
-              const uniqueParsed: ImageData[] = [];
-              for (const newImage of convertedParsed) {
-                const isDuplicate = uniqueParsed.some((existingImage) =>
-                  isDuplicateImage(existingImage, newImage)
-                );
-                if (!isDuplicate) {
-                  uniqueParsed.push(newImage);
+          if (!decrypted) {
+            console.error("Decryption returned null or empty string");
+            // 復号化に失敗した場合、元のデータでJSONパースを試みる
+            try {
+              const parsed = JSON.parse(dataToParse);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                // Chrome拡張機能の短縮形式（w, h）を通常形式（width, height, alt）に変換
+                let convertedParsed = parsed.map((img: any) => {
+                  // 既に通常形式の場合はそのまま返す
+                  if (img.width && img.height) {
+                    return img;
+                  }
+                  // 短縮形式の場合は変換
+                  return {
+                    src: img.src,
+                    alt: img.alt || "",
+                    width: img.w || img.width || 0,
+                    height: img.h || img.height || 0,
+                    favicon: img.favicon || null,
+                  };
+                });
+
+                // 既存データを取得してマージ
+                const existingImages = images.length > 0 ? images : [];
+                const merged = mergeImages(existingImages, convertedParsed);
+                setImages(merged);
+                // 表示用画像を新しいデータに置き換え（convertedParsed内の重複を排除）
+                const uniqueParsed: ImageData[] = [];
+                for (const newImage of convertedParsed) {
+                  const isDuplicate = uniqueParsed.some((existingImage) =>
+                    isDuplicateImage(existingImage, newImage)
+                  );
+                  if (!isDuplicate) {
+                    uniqueParsed.push(newImage);
+                  }
                 }
+                setDisplayImages(uniqueParsed);
+                // 画像データを figmaClientStorage に保存
+                emit("SAVE_IMAGES", merged);
+                // 状態更新後にメッセージを表示
+                setTimeout(() => {
+                  showStatus(
+                    `${parsed.length}個の画像を追加しました（合計: ${merged.length}個）`,
+                    "success"
+                  );
+                }, 0);
+                return;
               }
-              setDisplayImages(uniqueParsed);
-              // 画像データを figmaClientStorage に保存
-              emit("SAVE_IMAGES", merged);
-              // 状態更新後にメッセージを表示
-              setTimeout(() => {
-                showStatus(
-                  `${parsed.length}個の画像を追加しました（合計: ${merged.length}個）`,
-                  "success"
-                );
-              }, 0);
-              return;
+            } catch (parseError) {
+              console.error(
+                "JSON parse error after decryption failure:",
+                parseError
+              );
             }
-          } catch {
-            // JSONパースも失敗した場合
+            showStatus(
+              "データの復号化に失敗しました。ファイルが正しい形式か確認してください",
+              "error"
+            );
+            return;
           }
+
+          console.log(
+            "Decryption successful, decrypted length:",
+            decrypted.length
+          );
+          dataToParse = decrypted;
+        } catch (decryptError) {
+          console.error("Decryption error:", decryptError);
           showStatus(
-            "データの読み込みに失敗しました。正しいデータを入力してください",
+            `復号化エラー: ${
+              decryptError instanceof Error
+                ? decryptError.message
+                : "不明なエラー"
+            }`,
             "error"
           );
           return;
         }
-
-        dataToParse = decrypted;
       }
 
       let parsed = JSON.parse(dataToParse);
@@ -699,11 +749,25 @@ function Plugin() {
     try {
       showStatus("ファイルを読み込み中...", "info");
       const text = await file.text();
+
+      // ファイルの内容を確認（デバッグ用）
+      console.log("File content length:", text.length);
+      console.log("File content preview:", text.substring(0, 100));
+
+      // BOMを削除（UTF-8 BOM: \uFEFF）
+      const cleanedText = text.replace(/^\uFEFF/, "").trim();
+
+      if (!cleanedText || cleanedText.length === 0) {
+        showStatus("ファイルが空です", "error");
+        return;
+      }
+
       // ファイルの内容をそのまま設定（表示用）
-      setJsonInput(text);
+      setJsonInput(cleanedText);
       // データを直接渡して読み込む（setJsonInputの状態更新を待たない）
-      await handleLoadData(text);
+      await handleLoadData(cleanedText);
     } catch (error) {
+      console.error("File read error:", error);
       showStatus(
         `ファイルの読み込みに失敗しました: ${
           error instanceof Error ? error.message : "不明なエラー"
