@@ -312,16 +312,22 @@ function Plugin() {
               if (Array.isArray(parsed) && parsed.length > 0) {
                 // Chrome拡張機能の短縮形式（w, h）を通常形式（width, height, alt）に変換
                 let convertedParsed = parsed.map((img: any) => {
-                  // 既に通常形式の場合はそのまま返す
+                  // 既に通常形式の場合はそのまま返す（base64やserviceなどのフィールドも保持）
                   if (img.width && img.height) {
-                    return img;
+                    return {
+                      ...img,
+                      alt: img.alt || "",
+                      favicon: img.favicon || null,
+                    };
                   }
-                  // 短縮形式の場合は変換
+                  // 短縮形式の場合は変換（base64やserviceなどのフィールドも保持）
                   return {
                     src: img.src,
                     alt: img.alt || "",
                     width: img.w || img.width || 0,
                     height: img.h || img.height || 0,
+                    base64: img.base64 || null, // base64データを保持
+                    service: img.service || null, // serviceを保持
                     favicon: img.favicon || null,
                   };
                 });
@@ -393,16 +399,22 @@ function Plugin() {
 
       // Chrome拡張機能の短縮形式（w, h）を通常形式（width, height, alt）に変換
       parsed = parsed.map((img: any) => {
-        // 既に通常形式の場合はそのまま返す
+        // 既に通常形式の場合はそのまま返す（base64やserviceなどのフィールドも保持）
         if (img.width && img.height) {
-          return img;
+          return {
+            ...img,
+            alt: img.alt || "",
+            favicon: img.favicon || null,
+          };
         }
-        // 短縮形式の場合は変換
+        // 短縮形式の場合は変換（base64やserviceなどのフィールドも保持）
         return {
           src: img.src,
           alt: img.alt || "",
           width: img.w || img.width || 0,
           height: img.h || img.height || 0,
+          base64: img.base64 || null, // base64データを保持
+          service: img.service || null, // serviceを保持
           favicon: img.favicon || null,
         };
       });
