@@ -481,7 +481,7 @@ export const Data = ({ images, onDeleteService }: DataProps) => {
               bottom: 0,
               left: 0,
               right: 0,
-              background: "black",
+              background: "var(--figma-color-bg)",
               boxShadow: "0 -2px 8px rgba(0,0,0,0.1)",
               maxHeight: "60vh",
               display: "flex",
