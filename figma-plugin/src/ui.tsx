@@ -862,11 +862,57 @@ function Plugin() {
         <VerticalSpace space="medium" />
         {tabValue === "Top" && (
           <>
-            <FileUploadDropzone onSelectedFiles={handleSelectedFiles}>
+            <div
+              style={{
+                border: "2px dashed var(--figma-color-border)",
+                borderRadius: "4px",
+                padding: "40px 20px",
+                textAlign: "center",
+                cursor: "pointer",
+                position: "relative",
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                (e.currentTarget as HTMLElement).style.borderColor =
+                  "var(--figma-color-border-selected)";
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                (e.currentTarget as HTMLElement).style.borderColor =
+                  "var(--figma-color-border)";
+              }}
+              onDrop={(e: DragEvent) => {
+                e.preventDefault();
+                e.stopPropagation();
+                (e.currentTarget as HTMLElement).style.borderColor =
+                  "var(--figma-color-border)";
+                const dataTransfer = e.dataTransfer;
+                if (dataTransfer && dataTransfer.files) {
+                  const files = Array.from(dataTransfer.files);
+                  if (files.length > 0) {
+                    handleSelectedFiles(files);
+                  }
+                }
+              }}
+              onClick={() => {
+                const input = document.createElement("input");
+                input.type = "file";
+                input.accept = ".imagefetcher";
+                input.onchange = async (e: Event) => {
+                  const files = (e.target as HTMLInputElement).files;
+                  if (files && files.length > 0) {
+                    handleSelectedFiles(Array.from(files));
+                  }
+                };
+                input.click();
+              }}
+            >
               <Text align="center">
-                <Muted>.imagefetcherファイルをドロップ</Muted>
+                <Muted>.imagefetcherファイルをドロップまたはクリック</Muted>
               </Text>
-            </FileUploadDropzone>
+            </div>
             {/* <div
               style={{
                 fontSize: "11px",
