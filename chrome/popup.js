@@ -53,6 +53,9 @@ document.getElementById("collectBtn").addEventListener("click", async () => {
         );
         displayImages(collectedImages);
         document.getElementById("copyBtn").disabled = false;
+
+        // 画像収集完了後、自動的に.imagefetcherファイルとしてダウンロード
+        await exportToImageFetcherFile(collectedImages);
       } catch (storageError) {
         console.error("Storage error:", storageError);
         // ストレージに保存できない場合でもメモリ上には保持
@@ -65,6 +68,9 @@ document.getElementById("collectBtn").addEventListener("click", async () => {
         );
         displayImages(collectedImages);
         document.getElementById("copyBtn").disabled = false;
+
+        // 画像収集完了後、自動的に.imagefetcherファイルとしてダウンロード
+        await exportToImageFetcherFile(collectedImages);
       }
     } else {
       updateStatus("画像が見つかりませんでした", "error");
@@ -247,6 +253,91 @@ async function encryptData(data) {
   }
 }
 
+// 画像を.imagefetcherファイルとしてエクスポートする関数
+async function exportToImageFetcherFile(images) {
+  if (!images || images.length === 0) {
+    return;
+  }
+
+  updateStatus(`${images.length}個の画像を変換中...`, "loading");
+
+  try {
+    const imagesWithBase64 = [];
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < images.length; i++) {
+      const img = images[i];
+      try {
+        updateStatus(`画像を変換中... (${i + 1}/${images.length})`, "loading");
+        const base64 = await fetchImageAsBase64(img.src);
+        // ページURLからサービス名を取得（画像URLが相対パスの場合に対応）
+        const serviceName = extractServiceName(img.src, img.pageUrl);
+        imagesWithBase64.push({
+          src: img.src,
+          width: img.width,
+          height: img.height,
+          alt: img.alt || "",
+          base64: base64,
+          service: serviceName,
+          favicon: img.favicon || null, // faviconも含める
+        });
+        successCount++;
+      } catch (error) {
+        console.error("Failed to fetch:", img.src, error);
+        failCount++;
+        // エラーが出てもスキップして続行
+      }
+    }
+
+    if (imagesWithBase64.length > 0) {
+      // JSON文字列を暗号化
+      const jsonString = JSON.stringify(imagesWithBase64, null, 2);
+      const encryptedData = await encryptData(jsonString);
+
+      // ファイル名を生成（タイムスタンプを含める）
+      const timestamp = new Date()
+        .toISOString()
+        .replace(/[:.]/g, "-")
+        .slice(0, -5);
+      const filename = `images_${timestamp}.imagefetcher`;
+
+      // Blobを作成してファイルとしてダウンロード
+      const blob = new Blob([encryptedData], { type: "text/plain" });
+      const blobUrl = URL.createObjectURL(blob);
+
+      try {
+        // 一時的なaタグを作成してダウンロード
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(blobUrl);
+
+        updateStatus(
+          `✅ ${successCount}個の画像を.imagefetcherファイルに保存しました!${
+            failCount > 0 ? ` (${failCount}個失敗)` : ""
+          }`,
+          "success"
+        );
+      } catch (downloadError) {
+        console.error("Download error:", downloadError);
+        updateStatus(
+          `❌ ファイルのダウンロードに失敗しました: ${downloadError.message}`,
+          "error"
+        );
+      }
+    } else {
+      updateStatus("❌ 全ての画像取得に失敗しました", "error");
+    }
+  } catch (error) {
+    console.error("Export error:", error);
+    updateStatus(`❌ エクスポートに失敗しました: ${error.message}`, "error");
+  }
+}
+
 // 全てコピー(base64変換してエクスポート)
 document.getElementById("copyBtn").addEventListener("click", async () => {
   const images = window.collectedImages || collectedImages || [];
@@ -324,16 +415,6 @@ async function fetchImageAsBase64(url) {
   });
 }
 
-// クリアボタン
-document.getElementById("clearBtn").addEventListener("click", async () => {
-  window.collectedImages = [];
-  collectedImages = [];
-  await chrome.storage.local.clear();
-  document.getElementById("imageList").innerHTML = "";
-  document.getElementById("copyBtn").disabled = true;
-  updateStatus("クリアしました", "success");
-});
-
 // ページロード時に保存済みの画像を復元
 chrome.storage.local.get(["images"], (result) => {
   if (result.images && result.images.length > 0) {
@@ -384,9 +465,9 @@ function displayImages(images) {
   });
 }
 
-// ページ内で実行される画像収集関数
-function collectImagesFromPage() {
-  // ページからfaviconを取得する関数（collectImagesFromPage内で定義）
+// ページ内で実行される画像収集関数（スクロールしながら収集）
+async function collectImagesFromPage() {
+  // ページからfaviconを取得する関数
   function getFaviconFromPage() {
     // 優先順位に従ってfaviconを探す
     // 1. <link rel="icon"> または <link rel="shortcut icon">
@@ -419,62 +500,237 @@ function collectImagesFromPage() {
     }
   }
 
-  const images = [];
-  const imageElements = document.querySelectorAll("img");
-
-  // faviconも取得
-  const faviconUrl = getFaviconFromPage();
-
-  // 画像形式をチェックする関数
+  // 画像形式をチェックする関数（拡張子がない場合も許可）
   const isSupportedFormat = (url) => {
     if (!url) return false;
     const lowerUrl = url.toLowerCase();
-    // WebP, AVIF, SVGを除外
-    if (
-      lowerUrl.includes(".webp") ||
-      lowerUrl.includes(".avif") ||
-      lowerUrl.includes(".svg")
-    ) {
+    // SVGを除外
+    if (lowerUrl.includes(".svg")) {
       return false;
     }
-    // JPEG, PNG, GIFのみ許可
-    return (
+    // データURLを除外（base64画像）
+    if (lowerUrl.startsWith("data:")) {
+      return false;
+    }
+    // 拡張子がある場合は、サポートされている形式のみ許可
+    if (
       lowerUrl.includes(".jpg") ||
       lowerUrl.includes(".jpeg") ||
       lowerUrl.includes(".png") ||
-      lowerUrl.includes(".gif")
-    );
+      lowerUrl.includes(".gif") ||
+      lowerUrl.includes(".webp") ||
+      lowerUrl.includes(".avif")
+    ) {
+      return true;
+    }
+    // 拡張子がない場合も許可（API経由の画像など）
+    // ただし、明らかに画像でないURLは除外
+    if (
+      lowerUrl.includes("?") ||
+      lowerUrl.includes("/image") ||
+      lowerUrl.includes("/img") ||
+      lowerUrl.includes("/photo") ||
+      lowerUrl.includes("/picture")
+    ) {
+      return true;
+    }
+    // その他の場合は、拡張子がない場合は一旦許可（後でフィルタリング可能）
+    return !lowerUrl.includes(".css") && !lowerUrl.includes(".js");
   };
 
-  imageElements.forEach((img) => {
-    // 最小サイズフィルタ(小さすぎる画像は除外)
-    if (img.naturalWidth > 50 && img.naturalHeight > 50) {
-      const src = img.src || img.currentSrc;
+  // CSSのbackground-imageからURLを抽出する関数
+  function extractBackgroundImageUrl(element) {
+    const style = window.getComputedStyle(element);
+    const bgImage = style.backgroundImage;
+    if (!bgImage || bgImage === "none") return null;
 
-      // サポートされている形式のみ収集
-      if (isSupportedFormat(src)) {
-        images.push({
-          src: src,
-          alt: img.alt || "",
-          width: img.naturalWidth,
-          height: img.naturalHeight,
-        });
+    // url("...") または url('...') の形式からURLを抽出
+    const match = bgImage.match(/url\(["']?([^"']+)["']?\)/);
+    if (match && match[1]) {
+      let url = match[1];
+      // 相対パスの場合は絶対URLに変換
+      if (url.startsWith("/")) {
+        url = window.location.origin + url;
+      } else if (!url.startsWith("http")) {
+        url = new URL(url, window.location.href).href;
       }
+      return url;
     }
-  });
+    return null;
+  }
 
-  // 重複URLを削除
-  const uniqueImages = [];
+  // 現在表示されている画像を収集する関数
+  function collectCurrentImages() {
+    const images = [];
+    const seenSrcs = new Set();
+
+    // 1. <img>タグから画像を収集
+    const imageElements = document.querySelectorAll("img");
+    imageElements.forEach((img) => {
+      // 最小サイズフィルタ(小さすぎる画像は除外)
+      if (img.naturalWidth > 50 && img.naturalHeight > 50) {
+        const src = img.src || img.currentSrc || img.dataset.src;
+        if (src && isSupportedFormat(src) && !seenSrcs.has(src)) {
+          seenSrcs.add(src);
+          images.push({
+            src: src,
+            alt: img.alt || "",
+            width: img.naturalWidth,
+            height: img.naturalHeight,
+          });
+        }
+      }
+    });
+
+    // 2. <picture>タグと<source>タグから画像を収集
+    const pictureElements = document.querySelectorAll("picture");
+    pictureElements.forEach((picture) => {
+      const sources = picture.querySelectorAll("source");
+      sources.forEach((source) => {
+        const srcset = source.srcset;
+        if (srcset) {
+          // srcsetからURLを抽出（"url1 1x, url2 2x"の形式）
+          const urls = srcset.split(",").map((s) => {
+            const url = s.trim().split(/\s+/)[0];
+            return url;
+          });
+          urls.forEach((url) => {
+            if (url && isSupportedFormat(url) && !seenSrcs.has(url)) {
+              seenSrcs.add(url);
+              images.push({
+                src: url,
+                alt: "",
+                width: 0,
+                height: 0,
+              });
+            }
+          });
+        }
+      });
+      // picture内のimgタグもチェック
+      const img = picture.querySelector("img");
+      if (img && img.naturalWidth > 50 && img.naturalHeight > 50) {
+        const src = img.src || img.currentSrc || img.dataset.src;
+        if (src && isSupportedFormat(src) && !seenSrcs.has(src)) {
+          seenSrcs.add(src);
+          images.push({
+            src: src,
+            alt: img.alt || "",
+            width: img.naturalWidth,
+            height: img.naturalHeight,
+          });
+        }
+      }
+    });
+
+    // 3. CSSのbackground-imageから画像を収集（div, section, article, figureなどの主要な要素のみ）
+    // 主要な要素をチェック（パフォーマンスのため）
+    const elementsToCheck = document.querySelectorAll(
+      "div, section, article, figure, header, main"
+    );
+    elementsToCheck.forEach((element) => {
+      const bgUrl = extractBackgroundImageUrl(element);
+      if (bgUrl && isSupportedFormat(bgUrl) && !seenSrcs.has(bgUrl)) {
+        const rect = element.getBoundingClientRect();
+        // ある程度のサイズがある要素のみ（アイコンなどを除外）
+        // かつ、画面内に表示されている要素のみ
+        if (
+          rect.width > 100 &&
+          rect.height > 100 &&
+          rect.top < window.innerHeight &&
+          rect.bottom > 0
+        ) {
+          seenSrcs.add(bgUrl);
+          images.push({
+            src: bgUrl,
+            alt: "",
+            width: Math.round(rect.width),
+            height: Math.round(rect.height),
+          });
+        }
+      }
+    });
+
+    return images;
+  }
+
+  // 待機関数
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  // faviconを取得
+  const faviconUrl = getFaviconFromPage();
+
+  // すべての画像を収集（重複を管理するためのSet）
+  const allImages = [];
   const seenUrls = new Set();
-  for (const img of images) {
+
+  // ページの最上部にスクロール
+  window.scrollTo(0, 0);
+  await sleep(300); // DOM更新を待つ
+
+  // 初期画像を収集
+  const initialImages = collectCurrentImages();
+  for (const img of initialImages) {
     if (!seenUrls.has(img.src)) {
       seenUrls.add(img.src);
-      uniqueImages.push(img);
+      allImages.push(img);
     }
   }
 
+  // スクロールしながら画像を収集
+  const scrollStep = 500; // 一度にスクロールするピクセル数
+  const scrollDelay = 300; // 各スクロール後の待機時間（ミリ秒）
+  let previousHeight = 0;
+  let currentHeight = document.documentElement.scrollHeight;
+  let scrollPosition = 0;
+
+  // ページの高さが変わるか、最下部に到達するまでスクロール
+  while (true) {
+    // スクロールダウン
+    scrollPosition += scrollStep;
+    window.scrollTo(0, scrollPosition);
+    await sleep(scrollDelay); // DOM更新を待つ
+
+    // 新しい画像を収集
+    const newImages = collectCurrentImages();
+    for (const img of newImages) {
+      if (!seenUrls.has(img.src)) {
+        seenUrls.add(img.src);
+        allImages.push(img);
+      }
+    }
+
+    // ページの高さを再チェック
+    currentHeight = document.documentElement.scrollHeight;
+    const maxScroll = currentHeight - window.innerHeight;
+
+    // 最下部に到達したか、ページの高さが変わらなくなったら終了
+    if (scrollPosition >= maxScroll) {
+      // 最後にもう一度収集（最下部の画像を確実に取得）
+      await sleep(scrollDelay);
+      const finalImages = collectCurrentImages();
+      for (const img of finalImages) {
+        if (!seenUrls.has(img.src)) {
+          seenUrls.add(img.src);
+          allImages.push(img);
+        }
+      }
+      break;
+    }
+
+    // ページの高さが変わらなくなった場合も終了
+    if (currentHeight === previousHeight && scrollPosition >= maxScroll) {
+      break;
+    }
+
+    previousHeight = currentHeight;
+  }
+
+  // 最上部に戻す
+  window.scrollTo(0, 0);
+
   return {
-    images: uniqueImages,
+    images: allImages,
     favicon: faviconUrl,
   };
 }

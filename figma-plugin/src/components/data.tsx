@@ -380,7 +380,7 @@ export const Data = ({ images, onDeleteService }: DataProps) => {
                             [service]: true,
                           }));
                           (e.currentTarget as HTMLElement).style.background =
-                            "#f5f5f5";
+                            "var(--figma-color-bg-hover)";
                         }}
                         onMouseLeave={(e: MouseEvent) => {
                           setMouseEnterServices((prev) => ({
@@ -481,8 +481,7 @@ export const Data = ({ images, onDeleteService }: DataProps) => {
               bottom: 0,
               left: 0,
               right: 0,
-              background: "white",
-              borderTop: "1px solid #e0e0e0",
+              background: "var(--figma-color-bg)",
               boxShadow: "0 -2px 8px rgba(0,0,0,0.1)",
               maxHeight: "60vh",
               display: "flex",
@@ -495,7 +494,7 @@ export const Data = ({ images, onDeleteService }: DataProps) => {
             <div
               style={{
                 padding: "12px",
-                borderBottom: "1px solid #e0e0e0",
+                borderBottom: "1px solid var(--figma-color-border)",
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
@@ -562,7 +561,7 @@ export const Data = ({ images, onDeleteService }: DataProps) => {
                           display: "flex",
                           alignItems: "center",
                           padding: "8px 12px",
-                          borderBottom: "1px solid #f0f0f0",
+                          borderBottom: "1px solid var(--figma-color-border)",
                           cursor: "pointer",
                           background:
                             selectedImageIndex === img.originalIndex
@@ -625,7 +624,7 @@ export const Data = ({ images, onDeleteService }: DataProps) => {
             <div
               style={{
                 padding: "12px",
-                borderTop: "1px solid #e0e0e0",
+                borderTop: "1px solid var(--figma-color-border)",
                 display: "flex",
                 gap: "8px",
               }}
