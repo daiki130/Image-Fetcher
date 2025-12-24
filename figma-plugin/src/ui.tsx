@@ -531,6 +531,56 @@ function Plugin() {
     }
   };
 
+  // フレーム内にすべての画像を自動配置
+  const handlePlaceAllImagesInFrame = async () => {
+    if (displayImages.length === 0) {
+      showStatus("配置する画像がありません", "error");
+      return;
+    }
+
+    showStatus("画像を処理中...", "info");
+
+    try {
+      const imagesToPlace: Array<{
+        imageData: Uint8Array;
+        width: number;
+        height: number;
+      }> = [];
+
+      // すべての画像を変換
+      for (let i = 0; i < displayImages.length; i++) {
+        const img = displayImages[i];
+        showStatus(
+          `画像を処理中... (${i + 1}/${displayImages.length})`,
+          "info"
+        );
+
+        const imageData = await downloadAndConvertImage(img);
+        if (imageData) {
+          imagesToPlace.push({
+            imageData,
+            width: img.width || 200,
+            height: img.height || 200,
+          });
+        }
+      }
+
+      if (imagesToPlace.length > 0) {
+        emit("PLACE_IMAGES_IN_FRAME", { images: imagesToPlace });
+        showStatus(
+          `${imagesToPlace.length}個の画像をフレーム内に配置しました`,
+          "success"
+        );
+      } else {
+        showStatus("配置できる画像がありませんでした", "error");
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "不明なエラー";
+      showStatus(`エラー: ${errorMessage}`, "error");
+    }
+  };
+
   // 画像をダウンロードして変換
   const downloadAndConvertImage = async (
     image: ImageData
@@ -1066,6 +1116,15 @@ function Plugin() {
             </div>
 
             <VerticalSpace space="small" />
+            <Button
+              fullWidth
+              onClick={handlePlaceAllImagesInFrame}
+              disabled={displayImages.length === 0}
+            >
+              フレーム内に自動配置
+            </Button>
+
+            <VerticalSpace space="extraSmall" />
             <Button
               fullWidth
               onClick={handleApplyImage}
