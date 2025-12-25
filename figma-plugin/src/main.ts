@@ -490,14 +490,14 @@ async function placeImagesInFrame(
         return;
       }
 
-      // プレースホルダーも既存の画像ノードも見つからない場合は、グリッドレイアウトで配置
+      // プレースホルダーも既存の画像ノードも見つからない場合
       figma.notify(
-        "画像プレースホルダーが見つかりません。グリッドレイアウトで配置します。",
-        { timeout: 2000 }
+        "画像を適用できる要素が見つかりませんでした。画像プレースホルダー（img、画像などの名前が含まれる要素）を用意してください。",
+        { error: true }
       );
+      return;
     }
 
-    const placedRects: RectangleNode[] = [];
     const updatedNodes: SceneNode[] = [];
 
     // プレースホルダーが見つかった場合
@@ -509,7 +509,7 @@ async function placeImagesInFrame(
         const img = pair.image;
         const placeholder = pair.placeholder;
 
-        // 既存のノードに直接画像を適用
+        // 既存のノードに直接画像を適用（新しいRectangleは作成しない）
         if (
           "fills" in placeholder.node &&
           placeholder.node.fills !== figma.mixed
@@ -523,276 +523,26 @@ async function placeImagesInFrame(
             },
           ];
           updatedNodes.push(placeholder.node);
-        } else {
-          // ノードに画像を適用できない場合は、新しいRectangleを作成
-          const rect = figma.createRectangle();
-          rect.resize(placeholder.width, placeholder.height);
-          rect.x = placeholder.x;
-          rect.y = placeholder.y;
-
-          const imageHash = figma.createImage(img.imageData).hash;
-          rect.fills = [
-            {
-              type: "IMAGE",
-              imageHash: imageHash,
-              scaleMode: "FIT",
-            },
-          ];
-
-          targetFrame.appendChild(rect);
-          placedRects.push(rect);
         }
       }
 
-      // 残りの画像がある場合は、グリッドレイアウトで配置
-      if (images.length > placeholders.length) {
-        const remainingImages = images.slice(placeholders.length);
-        const frameWidth = targetFrame.width;
-        const frameHeight = targetFrame.height;
-        const padding = 20;
-        const gap = 16;
-
-        // 既存要素の位置を記録
-        const occupiedAreas: Array<{
-          x: number;
-          y: number;
-          width: number;
-          height: number;
-        }> = [];
-
-        targetFrame.children.forEach((child) => {
-          occupiedAreas.push({
-            x: child.x,
-            y: child.y,
-            width: child.width,
-            height: child.height,
-          });
-        });
-
-        const availableWidth = frameWidth - padding * 2;
-        const availableHeight = frameHeight - padding * 2;
-        const avgWidth =
-          remainingImages.reduce((sum, img) => sum + img.width, 0) /
-          remainingImages.length;
-        const avgHeight =
-          remainingImages.reduce((sum, img) => sum + img.height, 0) /
-          remainingImages.length;
-
-        const cols = Math.max(
-          1,
-          Math.floor((availableWidth + gap) / (avgWidth + gap))
-        );
-        const rows = Math.ceil(remainingImages.length / cols);
-        const cellWidth = (availableWidth - gap * (cols - 1)) / cols;
-        const cellHeight = (availableHeight - gap * (rows - 1)) / rows;
-
-        for (let i = 0; i < remainingImages.length; i++) {
-          const img = remainingImages[i];
-          const row = Math.floor(i / cols);
-          const col = i % cols;
-
-          const aspectRatio = img.width / img.height;
-          let finalWidth = cellWidth;
-          let finalHeight = cellHeight;
-
-          if (aspectRatio > 1) {
-            finalHeight = cellWidth / aspectRatio;
-            if (finalHeight > cellHeight) {
-              finalHeight = cellHeight;
-              finalWidth = cellHeight * aspectRatio;
-            }
-          } else {
-            finalWidth = cellHeight * aspectRatio;
-            if (finalWidth > cellWidth) {
-              finalWidth = cellWidth;
-              finalHeight = cellWidth / aspectRatio;
-            }
-          }
-
-          let x =
-            padding + col * (cellWidth + gap) + (cellWidth - finalWidth) / 2;
-          let y =
-            padding + row * (cellHeight + gap) + (cellHeight - finalHeight) / 2;
-
-          // 衝突チェック
-          let hasCollision = false;
-          for (const area of occupiedAreas) {
-            if (
-              x < area.x + area.width &&
-              x + finalWidth > area.x &&
-              y < area.y + area.height &&
-              y + finalHeight > area.y
-            ) {
-              hasCollision = true;
-              break;
-            }
-          }
-
-          if (hasCollision) {
-            x += finalWidth + gap;
-            if (x + finalWidth > frameWidth - padding) {
-              x = padding;
-              y += finalHeight + gap;
-            }
-          }
-
-          const rect = figma.createRectangle();
-          rect.resize(finalWidth, finalHeight);
-          rect.x = x;
-          rect.y = y;
-
-          const imageHash = figma.createImage(img.imageData).hash;
-          rect.fills = [
-            {
-              type: "IMAGE",
-              imageHash: imageHash,
-              scaleMode: "FIT",
-            },
-          ];
-
-          targetFrame.appendChild(rect);
-          placedRects.push(rect);
-          occupiedAreas.push({
-            x: rect.x,
-            y: rect.y,
-            width: rect.width,
-            height: rect.height,
-          });
-        }
-      }
-
-      const totalPlaced = updatedNodes.length + placedRects.length;
-      if (totalPlaced > 0) {
-        const nodesToSelect = [...updatedNodes, ...placedRects];
-        figma.currentPage.selection = nodesToSelect;
-        figma.viewport.scrollAndZoomIntoView(nodesToSelect);
+      if (updatedNodes.length > 0) {
+        figma.currentPage.selection = updatedNodes;
+        figma.viewport.scrollAndZoomIntoView(updatedNodes);
         figma.notify(
-          `${totalPlaced}個の画像を配置しました（${updatedNodes.length}個は既存ノードに適用、${placedRects.length}個は新規作成）`
+          `${updatedNodes.length}個の画像を既存の要素に適用しました`
         );
+      } else {
+        figma.notify("画像を適用できる要素が見つかりませんでした", {
+          error: true,
+        });
       }
     } else {
-      // プレースホルダーが見つからない場合のグリッドレイアウト（既存のコード）
-      const frameWidth = targetFrame.width;
-      const frameHeight = targetFrame.height;
-      const padding = 20;
-      const gap = 16;
-
-      const existingChildren = targetFrame.children.filter(
-        (child) => child.type !== "FRAME" || child !== targetFrame
+      // プレースホルダーが見つからない場合
+      figma.notify(
+        "画像プレースホルダーが見つかりません。画像を適用できる要素（img、画像などの名前が含まれる要素）を用意してください。",
+        { error: true }
       );
-
-      const occupiedAreas: Array<{
-        x: number;
-        y: number;
-        width: number;
-        height: number;
-      }> = [];
-
-      existingChildren.forEach((child) => {
-        occupiedAreas.push({
-          x: child.x,
-          y: child.y,
-          width: child.width,
-          height: child.height,
-        });
-      });
-
-      const availableWidth = frameWidth - padding * 2;
-      const availableHeight = frameHeight - padding * 2;
-
-      const avgWidth =
-        images.reduce((sum, img) => sum + img.width, 0) / images.length;
-      const avgHeight =
-        images.reduce((sum, img) => sum + img.height, 0) / images.length;
-
-      const cols = Math.max(
-        1,
-        Math.floor((availableWidth + gap) / (avgWidth + gap))
-      );
-      const rows = Math.ceil(images.length / cols);
-
-      const cellWidth = (availableWidth - gap * (cols - 1)) / cols;
-      const cellHeight = (availableHeight - gap * (rows - 1)) / rows;
-
-      for (let i = 0; i < images.length; i++) {
-        const img = images[i];
-        const row = Math.floor(i / cols);
-        const col = i % cols;
-
-        const aspectRatio = img.width / img.height;
-        let finalWidth = cellWidth;
-        let finalHeight = cellHeight;
-
-        if (aspectRatio > 1) {
-          finalHeight = cellWidth / aspectRatio;
-          if (finalHeight > cellHeight) {
-            finalHeight = cellHeight;
-            finalWidth = cellHeight * aspectRatio;
-          }
-        } else {
-          finalWidth = cellHeight * aspectRatio;
-          if (finalWidth > cellWidth) {
-            finalWidth = cellWidth;
-            finalHeight = cellWidth / aspectRatio;
-          }
-        }
-
-        let x =
-          padding + col * (cellWidth + gap) + (cellWidth - finalWidth) / 2;
-        let y =
-          padding + row * (cellHeight + gap) + (cellHeight - finalHeight) / 2;
-
-        let hasCollision = false;
-        for (const area of occupiedAreas) {
-          if (
-            x < area.x + area.width &&
-            x + finalWidth > area.x &&
-            y < area.y + area.height &&
-            y + finalHeight > area.y
-          ) {
-            hasCollision = true;
-            break;
-          }
-        }
-
-        if (hasCollision) {
-          x += finalWidth + gap;
-          if (x + finalWidth > frameWidth - padding) {
-            x = padding;
-            y += finalHeight + gap;
-          }
-        }
-
-        const rect = figma.createRectangle();
-        rect.resize(finalWidth, finalHeight);
-        rect.x = x;
-        rect.y = y;
-
-        const imageHash = figma.createImage(img.imageData).hash;
-        rect.fills = [
-          {
-            type: "IMAGE",
-            imageHash: imageHash,
-            scaleMode: "FIT",
-          },
-        ];
-
-        targetFrame.appendChild(rect);
-        placedRects.push(rect);
-
-        occupiedAreas.push({
-          x: rect.x,
-          y: rect.y,
-          width: rect.width,
-          height: rect.height,
-        });
-      }
-
-      if (placedRects.length > 0) {
-        figma.currentPage.selection = placedRects;
-        figma.viewport.scrollAndZoomIntoView(placedRects);
-        figma.notify(`${placedRects.length}個の画像をフレーム内に配置しました`);
-      }
     }
   } catch (error) {
     const errorMessage =
