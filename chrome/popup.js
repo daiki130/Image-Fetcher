@@ -164,7 +164,8 @@ function getServiceNameFromHostname(hostname) {
     },
     { pattern: /youtube\.com|youtu\.be|ytimg\.com/i, name: "YouTube" },
     { pattern: /amazon\.(com|co\.jp|jp)/i, name: "Amazon" },
-    { pattern: /dmm\.com/i, name: "DMM" },
+    { pattern: /dmm\.(com|co\.jp)/i, name: "DMM" },
+    { pattern: /video\.dmm\.co\.jp/i, name: "DMM" },
     { pattern: /unext\.jp/i, name: "U-NEXT" },
     { pattern: /twitter\.com|x\.com/i, name: "Twitter/X" },
     { pattern: /instagram\.com/i, name: "Instagram" },
@@ -206,9 +207,23 @@ function getServiceNameFromHostname(hostname) {
   }
 
   // ドメイン名から推測（例: example.com -> Example）
+  // .co.jp, .com.au などの2段階TLDを考慮
+  const twoPartTlds = ["co", "com", "net", "org", "edu", "gov", "ac", "ne"];
   if (domainParts.length >= 2) {
-    const mainDomain = domainParts[domainParts.length - 2];
-    return mainDomain.charAt(0).toUpperCase() + mainDomain.slice(1);
+    let mainDomainIndex = domainParts.length - 2;
+
+    // 2段階TLDの場合は1つ前のドメインを取得
+    if (
+      domainParts.length >= 3 &&
+      twoPartTlds.includes(domainParts[domainParts.length - 2].toLowerCase())
+    ) {
+      mainDomainIndex = domainParts.length - 3;
+    }
+
+    if (mainDomainIndex >= 0 && mainDomainIndex < domainParts.length) {
+      const mainDomain = domainParts[mainDomainIndex];
+      return mainDomain.charAt(0).toUpperCase() + mainDomain.slice(1);
+    }
   }
 
   return "Unknown";
@@ -295,12 +310,32 @@ async function exportToImageFetcherFile(images) {
       const jsonString = JSON.stringify(imagesWithBase64, null, 2);
       const encryptedData = await encryptData(jsonString);
 
-      // ファイル名を生成（タイムスタンプを含める）
+      // サービス名を取得（最初の画像のサービス名を使用、複数のサービスが混在している場合は"mixed"）
+      const services = new Set(
+        imagesWithBase64.map((img) => img.service).filter(Boolean)
+      );
+      let serviceName = "";
+      if (services.size === 1) {
+        // 1つのサービスのみの場合
+        serviceName = Array.from(services)[0]
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, "_");
+      } else if (services.size > 1) {
+        // 複数のサービスが混在している場合
+        serviceName = "mixed";
+      } else {
+        // サービス名が取得できない場合
+        serviceName = "unknown";
+      }
+
+      // ファイル名を生成（サービス名とタイムスタンプを含める）
       const timestamp = new Date()
         .toISOString()
         .replace(/[:.]/g, "-")
         .slice(0, -5);
-      const filename = `images_${timestamp}.imagefetcher`;
+      const filename = serviceName
+        ? `${serviceName}_${timestamp}.imagefetcher`
+        : `images_${timestamp}.imagefetcher`;
 
       // Blobを作成してファイルとしてダウンロード
       const blob = new Blob([encryptedData], { type: "text/plain" });
