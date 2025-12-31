@@ -1,4 +1,5 @@
 import { h } from "preact";
+import { useState } from "preact/hooks";
 import { ImageData } from "../types";
 
 interface CardProps {
@@ -16,27 +17,27 @@ export const Card = ({
   isSelected = false,
   onClick,
 }: CardProps) => {
+  const [isHovered, setIsHovered] = useState(false);
+
   if (image) {
     // 画像カード
     return (
       <div
         onClick={onClick}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
         style={{
           cursor: "pointer",
           borderRadius: "4px",
-          overflow: "hidden",
+          overflow: "visible",
           background: isSelected ? "#e3f2fd" : "#fff",
-          transition: "all 0.2s ease",
-        }}
-        onMouseEnter={(e) => {
-          if (!isSelected) {
-            e.currentTarget.style.borderColor = "#18A0FB";
-          }
-        }}
-        onMouseLeave={(e) => {
-          if (!isSelected) {
-            e.currentTarget.style.borderColor = "#e0e0e0";
-          }
+          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+          transform: isHovered ? "scale(1.3)" : "scale(1)",
+          boxShadow: isHovered ? "0 8px 24px rgba(0, 0, 0, 0.7)" : "none",
+          zIndex: isHovered ? 10 : 1,
+          position: "relative",
+          width: "100%",
+          minWidth: 0,
         }}
       >
         <div
@@ -45,6 +46,7 @@ export const Card = ({
             aspectRatio: "1",
             overflow: "hidden",
             background: "#f5f5f5",
+            borderRadius: "4px 4px 0 0",
           }}
         >
           <img
@@ -54,6 +56,8 @@ export const Card = ({
               width: "100%",
               height: "100%",
               objectFit: "cover",
+              transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+              transform: isHovered ? "scale(1.1)" : "scale(1)",
             }}
             onError={(e) => {
               e.currentTarget.style.display = "none";
