@@ -853,7 +853,6 @@ function Plugin() {
         style={{
           overflowX: "auto",
           whiteSpace: "nowrap",
-          padding: "0 var(--space-8)",
           borderBottom: "1px solid var(--figma-color-border)",
         }}
       >
@@ -915,10 +914,10 @@ function Plugin() {
         </div>
       </div>
 
-      <Container space="small">
+      <div>
         <VerticalSpace space="medium" />
         {tabValue === "Top" && (
-          <>
+          <div style={{ padding: "0 var(--space-small)" }}>
             <div
               style={{
                 border: "2px dashed var(--figma-color-border)",
@@ -1027,7 +1026,7 @@ function Plugin() {
                 ファイルから読み込む
               </Button>
             </div> */}
-          </>
+          </div>
         )}
         {tabValue === "Top" && displayImages.length > 0 && (
           <>
@@ -1039,8 +1038,9 @@ function Plugin() {
 
             <div
               style={{
-                maxHeight: "400px",
-                overflowY: "auto",
+                maxHeight: "530px",
+                // overflowY: "auto",
+                padding: "0 var(--space-small)",
               }}
             >
               <div
@@ -1084,6 +1084,8 @@ function Plugin() {
                 left: "0",
                 right: "0",
                 padding: "12px 12px ",
+                zIndex: 99,
+                background: "#141414",
               }}
             >
               <Button
@@ -1142,7 +1144,7 @@ function Plugin() {
             </div>
           </>
         )} */}
-      </Container>
+      </div>
       <div>
         {tabValue === "Data" && (
           <Data images={images} onDeleteService={handleDeleteService} />
