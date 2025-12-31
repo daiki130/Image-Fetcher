@@ -15,6 +15,7 @@ import { useState, useEffect } from "preact/hooks";
 import CryptoJS from "crypto-js";
 import { ImageData, ImagesLoadedHandler } from "./types";
 import { Data } from "./components/data";
+import { Card } from "./components/card";
 
 // ImageData は types.ts からインポート
 
@@ -840,7 +841,13 @@ function Plugin() {
   }
 
   return (
-    <div style={{ position: "relative", height: "100%" }}>
+    <div
+      style={{
+        position: "relative",
+        height: "100%",
+        backgroundColor: "#141414",
+      }}
+    >
       {/* カスタムステータスタブ */}
       <div
         style={{
@@ -1032,120 +1039,83 @@ function Plugin() {
 
             <div
               style={{
-                maxHeight: "200px",
+                maxHeight: "400px",
                 overflowY: "auto",
-                border: "1px solid #e0e0e0",
-                borderRadius: "4px",
               }}
             >
-              {displayImages.map((img, index) => {
-                // images全体でのインデックスを計算
-                const globalIndex = images.findIndex((globalImg) => {
-                  if (globalImg.id && img.id && globalImg.id === img.id) {
-                    return true;
-                  }
-                  if (globalImg.src && img.src && globalImg.src === img.src) {
-                    return true;
-                  }
-                  return false;
-                });
-                const isSelected =
-                  globalIndex !== -1 && selectedImageIndex === globalIndex;
-                return (
-                  <div
-                    key={index}
-                    onClick={() => handleSelectImage(index, true)}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      padding: "8px",
-                      borderBottom:
-                        index < displayImages.length - 1
-                          ? "1px solid #f0f0f0"
-                          : "none",
-                      cursor: "pointer",
-                      background: isSelected ? "#e3f2fd" : "transparent",
-                      borderLeft: isSelected
-                        ? "3px solid #18A0FB"
-                        : "3px solid transparent",
-                    }}
-                  >
-                    <img
-                      src={img.src}
-                      alt={img.alt || `Image ${index + 1}`}
-                      style={{
-                        width: "40px",
-                        height: "40px",
-                        objectFit: "cover",
-                        marginRight: "8px",
-                        borderRadius: "3px",
-                      }}
-                      onError={(e) => {
-                        e.currentTarget.style.display = "none";
-                      }}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, 1fr)",
+                  gap: "8px",
+                }}
+              >
+                {displayImages.map((img, index) => {
+                  // images全体でのインデックスを計算
+                  const globalIndex = images.findIndex((globalImg) => {
+                    if (globalImg.id && img.id && globalImg.id === img.id) {
+                      return true;
+                    }
+                    if (globalImg.src && img.src && globalImg.src === img.src) {
+                      return true;
+                    }
+                    return false;
+                  });
+                  const isSelected =
+                    globalIndex !== -1 && selectedImageIndex === globalIndex;
+                  return (
+                    <Card
+                      key={index}
+                      image={img}
+                      isSelected={isSelected}
+                      onClick={() => handleSelectImage(index, true)}
                     />
-                    <div style={{ flex: 1, overflow: "hidden" }}>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "6px",
-                          fontSize: "11px",
-                        }}
-                      >
-                        <strong>{index + 1}.</strong> {img.alt || "No title"}
-                        {/* {img.service && (
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "4px",
-                          }}
-                        >
-                          <ServiceLogo serviceName={img.service} size={14} />
-                        </div>
-                      )} */}
-                      </div>
-                      <div style={{ fontSize: "10px", color: "#666" }}>
-                        {img.width} × {img.height}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
 
             <VerticalSpace space="small" />
-            <Button
-              fullWidth
-              onClick={handlePlaceAllImagesInFrame}
-              disabled={displayImages.length === 0}
+            <div
+              style={{
+                position: "fixed",
+                bottom: "0",
+                left: "0",
+                right: "0",
+                padding: "12px 12px ",
+              }}
             >
-              フレーム内に自動配置
-            </Button>
+              <Button
+                fullWidth
+                onClick={handlePlaceAllImagesInFrame}
+                disabled={displayImages.length === 0}
+              >
+                フレーム内に自動配置
+              </Button>
 
-            <VerticalSpace space="extraSmall" />
-            <Button
-              fullWidth
-              onClick={handleApplyImage}
-              disabled={selectedImageIndex === null}
-            >
-              選択ノードに画像を適用
-            </Button>
+              <VerticalSpace space="extraSmall" />
+              <Button
+                fullWidth
+                onClick={handleApplyImage}
+                disabled={selectedImageIndex === null}
+              >
+                選択ノードに画像を適用
+              </Button>
 
-            <VerticalSpace space="extraSmall" />
-            <Button
-              fullWidth
-              secondary
-              onClick={handleCreateRectangle}
-              disabled={selectedImageIndex === null}
-            >
-              新規レクタングルを作成
-            </Button>
+              <VerticalSpace space="extraSmall" />
+              <Button
+                fullWidth
+                secondary
+                onClick={handleCreateRectangle}
+                disabled={selectedImageIndex === null}
+              >
+                新規レクタングルを作成
+              </Button>
+            </div>
           </>
         )}
 
-        {tabValue === "Top" && status && (
+        {/* {tabValue === "Top" && status && (
           <>
             <VerticalSpace space="small" />
             <div
@@ -1170,7 +1140,7 @@ function Plugin() {
               {status}
             </div>
           </>
-        )}
+        )} */}
       </Container>
       <div>
         {tabValue === "Data" && (
