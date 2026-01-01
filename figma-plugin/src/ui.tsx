@@ -4,18 +4,18 @@ import {
   Container,
   Text,
   VerticalSpace,
-  Textbox,
-  TextboxMultiline,
-  FileUploadDropzone,
-  Muted,
+  IconSizeSmall24,
+  IconToggleButton,
 } from "@create-figma-plugin/ui";
 import { emit, on } from "@create-figma-plugin/utilities";
-import { h, Fragment } from "preact";
-import { useState, useEffect } from "preact/hooks";
+import { h, Fragment, JSX } from "preact";
+import { useState, useEffect, useRef } from "preact/hooks";
 import CryptoJS from "crypto-js";
 import { ImageData, ImagesLoadedHandler } from "./types";
 import { Data } from "./components/data";
 import { Card } from "./components/card";
+import { Tooltip } from "./components/Tooltip";
+import { SettingsMenu } from "./components/SettingsMenu";
 import "./styles.css";
 
 // ImageData は types.ts からインポート
@@ -857,6 +857,127 @@ function Plugin() {
     }
   }
 
+  const [isOpen, setIsOpen] = useState<boolean>(false);
+  const settingsMenuRef = useRef<HTMLDivElement>(null);
+
+  function handleClick(event: JSX.TargetedEvent<HTMLInputElement>) {
+    const newValue = event.currentTarget.checked;
+    setIsOpen(newValue);
+  }
+
+  const [tooltipStates, setTooltipStates] = useState<{
+    [key: string]: boolean;
+  }>({});
+
+  const showTooltip = (key: string) => {
+    setTooltipStates((prev) => ({ ...prev, [key]: true }));
+  };
+
+  const hideTooltip = (key: string) => {
+    setTooltipStates((prev) => ({ ...prev, [key]: false }));
+  };
+
+  const isTooltipVisible = (key: string) => tooltipStates[key] || false;
+
+  // 画像サイズフィルター用の状態
+  // 画像サイズを文字列として管理（例："319×240"）
+  // 特別な値 "__ALL__" は「すべて」を表す
+  const [selectedImageSizes, setSelectedImageSizes] = useState<Set<string>>(
+    new Set(["__ALL__"])
+  );
+
+  // 利用可能な画像サイズのリストを取得
+  const availableImageSizes = (() => {
+    const sizeSet = new Set<string>();
+    displayImages.forEach((img) => {
+      const width = img.width || 0;
+      const height = img.height || 0;
+      if (width > 0 && height > 0) {
+        sizeSet.add(`${width}×${height}`);
+      }
+    });
+    // サイズでソート（幅×高さの順）
+    return Array.from(sizeSet).sort((a, b) => {
+      const [aWidth, aHeight] = a.split("×").map(Number);
+      const [bWidth, bHeight] = b.split("×").map(Number);
+      if (aWidth !== bWidth) return aWidth - bWidth;
+      return aHeight - bHeight;
+    });
+  })();
+
+  // 画像サイズフィルター用のハンドラー
+  const handleImageSizeFilterChange = (size: string) => {
+    setSelectedImageSizes((prev) => {
+      const newSet = new Set(prev);
+
+      if (size === "__ALL__") {
+        // 「すべて」が選択された場合
+        if (newSet.has("__ALL__")) {
+          // 既に選択されている場合は解除しない（常に1つは選択されている必要がある）
+          return prev;
+        } else {
+          // 「すべて」を選択し、個別のサイズをすべて解除
+          return new Set(["__ALL__"]);
+        }
+      } else {
+        // 個別のサイズが選択された場合
+        if (newSet.has(size)) {
+          // 選択解除
+          newSet.delete(size);
+        } else {
+          // 選択追加
+          newSet.add(size);
+          // 「すべて」を解除
+          newSet.delete("__ALL__");
+        }
+
+        // 個別のサイズがすべて外れた場合、「すべて」を自動選択
+        const hasAnySize = Array.from(newSet).some((s) => s !== "__ALL__");
+        if (!hasAnySize) {
+          return new Set(["__ALL__"]);
+        }
+
+        return newSet;
+      }
+    });
+  };
+
+  // 既存のソート/フィルター用の状態（ダミー実装）
+  const [sortHighEnabled] = useState<boolean>(false);
+  const [sortLowEnabled] = useState<boolean>(false);
+  const [sortLabelEnabled] = useState<boolean>(false);
+  const [showWithDueDate] = useState<boolean>(false);
+  const [showWithoutDueDate] = useState<boolean>(false);
+  const [availableLabels] = useState<string[]>([]);
+  const [selectedLabels] = useState<string[]>([]);
+
+  // 既存のソート/フィルター用のハンドラー（ダミー実装）
+  const handleSortHighChange = (_enabled: boolean) => {};
+  const handleSortLowChange = (_enabled: boolean) => {};
+  const handleSortLabelChange = (_enabled: boolean) => {};
+  const handleDueDateFilterChange = (
+    _withDueDate: boolean,
+    _withoutDueDate: boolean
+  ) => {};
+  const handleLabelFilterChange = (_label: string) => {};
+
+  // 画像サイズでフィルターするロジック
+  const imagesToDisplay = (() => {
+    // 「すべて」が選択されている場合はすべて表示
+    if (selectedImageSizes.has("__ALL__")) {
+      return displayImages;
+    }
+
+    // 選択されたサイズの画像のみ表示
+    return displayImages.filter((img) => {
+      const width = img.width || 0;
+      const height = img.height || 0;
+      if (width === 0 || height === 0) return false;
+      const sizeStr = `${width}×${height}`;
+      return selectedImageSizes.has(sizeStr);
+    });
+  })();
+
   return (
     <div
       style={{
@@ -1047,10 +1168,76 @@ function Plugin() {
         {tabValue === "Top" && displayImages.length > 0 && (
           <>
             <VerticalSpace space="medium" />
-            <Text>
-              <strong>{displayImages.length}個の画像</strong>
-            </Text>
-            <VerticalSpace space="extraSmall" />
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <Text>
+                <strong>{displayImages.length}個の画像</strong>
+              </Text>
+              <VerticalSpace space="extraSmall" />
+
+              <div
+                ref={settingsMenuRef}
+                style={{ position: "relative", display: "inline-block" }}
+                onMouseEnter={() => showTooltip("sort")}
+                onMouseLeave={() => hideTooltip("sort")}
+              >
+                <IconToggleButton onChange={handleClick} value={isOpen}>
+                  <IconSizeSmall24 />
+                </IconToggleButton>
+                {/* Tooltip */}
+                {isTooltipVisible("sort") && !isOpen && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "24px",
+                      right: "-4px",
+                      zIndex: 1000,
+                    }}
+                  >
+                    <Tooltip
+                      message="表示設定"
+                      arrowPosition="top"
+                      arrowOffset="74%"
+                    />
+                  </div>
+                )}
+
+                {/* Settings Menu */}
+                {isOpen && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "28px",
+                      right: "-3px",
+                      zIndex: 1001,
+                    }}
+                  >
+                    <SettingsMenu
+                      sortHighEnabled={sortHighEnabled}
+                      sortLowEnabled={sortLowEnabled}
+                      sortLabelEnabled={sortLabelEnabled}
+                      availableImageSizes={availableImageSizes}
+                      selectedImageSizes={Array.from(selectedImageSizes)}
+                      showWithDueDate={showWithDueDate}
+                      showWithoutDueDate={showWithoutDueDate}
+                      availableLabels={availableLabels}
+                      selectedLabels={selectedLabels}
+                      onSortHighChange={handleSortHighChange}
+                      onSortLowChange={handleSortLowChange}
+                      onSortLabelChange={handleSortLabelChange}
+                      onImageSizeFilterChange={handleImageSizeFilterChange}
+                      onDueDateFilterChange={handleDueDateFilterChange}
+                      onLabelFilterChange={handleLabelFilterChange}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
 
             <div
               style={{
@@ -1067,7 +1254,7 @@ function Plugin() {
                   width: "100%",
                 }}
               >
-                {displayImages.map((img, index) => {
+                {imagesToDisplay.map((img, index) => {
                   // images全体でのインデックスを計算
                   const globalIndex = images.findIndex((globalImg) => {
                     if (globalImg.id && img.id && globalImg.id === img.id) {
@@ -1139,7 +1326,7 @@ function Plugin() {
                 style={{
                   backgroundColor: "var(--color-background-secondary)",
                   color: "var(--color-text-tertiary)",
-                  height: "32px"
+                  height: "32px",
                 }}
               >
                 選択ノードに画像を適用
@@ -1151,7 +1338,7 @@ function Plugin() {
                 style={{
                   backgroundColor: "var(--color-brand-primary)",
                   color: "var(--color-text-primary)",
-                  height: "32px"
+                  height: "32px",
                 }}
               >
                 フレーム内に自動配置
