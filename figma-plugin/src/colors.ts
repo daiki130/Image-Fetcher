@@ -2,26 +2,26 @@
 export const colors = {
   // 背景色
   background: {
-    primary: "#141414",
-    secondary: "#fff",
-    card: "#fff",
-    cardSelected: "#e3f2fd",
-    imagePlaceholder: "#f5f5f5",
+    primary: "var(--color-background-primary)",
+    secondary: "var(--color-background-secondary)",
+    card: "var(--color-background-card)",
+    cardSelected: "var(--color-background-card-selected)",
+    imagePlaceholder: "var(--color-background-image-placeholder)",
   },
 
   // テキスト色
   text: {
-    primary: "#fff",
-    secondary: "#666",
-    tertiary: "#999",
-    disabled: "#999",
+    primary: "var(--color-text-primary)",
+    secondary: "var(--color-text-secondary)",
+    tertiary: "var(--color-text-tertiary)",
+    disabled: "var(--color-text-disabled)",
   },
 
   // ボーダー色
   border: {
-    default: "#e0e0e0",
-    selected: "#18A0FB",
-    hover: "#18A0FB",
+    default: "var(--color-border-default)",
+    selected: "var(--color-border-selected)",
+    hover: "var(--color-border-hover)",
   },
 
   // 影
@@ -33,8 +33,8 @@ export const colors = {
 
   // アクセントカラー
   accent: {
-    primary: "#18A0FB",
-    hover: "#18A0FB",
+    primary: "#DE5C32",
+    hover: "#DE5C32",
   },
 
   // フォント
@@ -62,4 +62,3 @@ export const colorVars = {
   shadowDefault: "var(--color-shadow-default)",
   accentPrimary: "var(--color-accent-primary)",
 } as const;
-

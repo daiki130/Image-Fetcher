@@ -166,6 +166,9 @@ export const Card = ({
             : isHovered
             ? colors.shadow.hover
             : colors.shadow.none,
+          outline: isSelected
+            ? "px solid var(--color-border-selected)"
+            : "none",
           zIndex: isDragging ? 100 : isHovered ? 10 : 1,
           position: "relative",
           width: "100%",
