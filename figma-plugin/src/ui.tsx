@@ -549,33 +549,6 @@ function Plugin() {
     }
   };
 
-  // 新規レクタングル作成
-  const handleCreateRectangle = async () => {
-    if (selectedImageIndex === null) {
-      showStatus("画像を選択してください", "error");
-      return;
-    }
-
-    const selectedImage = images[selectedImageIndex];
-
-    const imageData = await downloadAndConvertImage(selectedImage);
-
-    if (imageData) {
-      emit("APPLY_IMAGE_DATA", {
-        imageData,
-        isNewRect: true,
-        width: selectedImage.width,
-        height: selectedImage.height,
-      });
-      showStatus("レクタングルを作成しました", "success");
-    } else {
-      showStatus(
-        "画像の処理に失敗しました。画像データを確認してください",
-        "error"
-      );
-    }
-  };
-
   // フレーム内にすべての画像を自動配置
   const handlePlaceAllImagesInFrame = async () => {
     if (displayImages.length === 0) {
@@ -1155,33 +1128,33 @@ function Plugin() {
                 padding: "12px 12px ",
                 zIndex: 99,
                 background: "#141414",
+                display: "flex",
+                gap: "4px",
               }}
             >
               <Button
                 fullWidth
-                onClick={handlePlaceAllImagesInFrame}
-                disabled={displayImages.length === 0}
-              >
-                フレーム内に自動配置
-              </Button>
-
-              <VerticalSpace space="extraSmall" />
-              <Button
-                fullWidth
                 onClick={handleApplyImage}
                 disabled={selectedImageIndex === null}
+                style={{
+                  backgroundColor: "var(--color-background-secondary)",
+                  color: "var(--color-text-tertiary)",
+                  height: "32px"
+                }}
               >
                 選択ノードに画像を適用
               </Button>
-
-              <VerticalSpace space="extraSmall" />
               <Button
                 fullWidth
-                secondary
-                onClick={handleCreateRectangle}
-                disabled={selectedImageIndex === null}
+                onClick={handlePlaceAllImagesInFrame}
+                disabled={displayImages.length === 0}
+                style={{
+                  backgroundColor: "var(--color-brand-primary)",
+                  color: "var(--color-text-primary)",
+                  height: "32px"
+                }}
               >
-                新規レクタングルを作成
+                フレーム内に自動配置
               </Button>
             </div>
           </>
