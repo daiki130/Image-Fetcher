@@ -16,6 +16,7 @@ import CryptoJS from "crypto-js";
 import { ImageData, ImagesLoadedHandler } from "./types";
 import { Data } from "./components/data";
 import { Card } from "./components/card";
+import "./styles.css";
 
 // ImageData は types.ts からインポート
 
@@ -920,12 +921,13 @@ function Plugin() {
           <div style={{ padding: "0 var(--space-small)" }}>
             <div
               style={{
-                border: "2px dashed var(--figma-color-border)",
+                border: `2px dashed var(--color-border-default)`,
                 borderRadius: "4px",
                 padding: "40px 20px",
                 textAlign: "center",
                 cursor: "pointer",
                 position: "relative",
+                color: "var(--color-text-primary)",
               }}
               onDragOver={(e) => {
                 e.preventDefault();
@@ -965,9 +967,7 @@ function Plugin() {
                 input.click();
               }}
             >
-              <Text align="center">
-                <Muted>.imagefetcherファイルをドロップまたはクリック</Muted>
-              </Text>
+              .imagefetcherファイルをドロップまたはクリック
             </div>
             {/* <div
               style={{

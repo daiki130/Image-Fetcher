@@ -1,6 +1,8 @@
 import { h } from "preact";
 import { useState } from "preact/hooks";
 import { ImageData } from "../types";
+import { colors } from "../colors";
+import "../styles.css";
 
 interface CardProps {
   serviceName?: string;
@@ -30,10 +32,12 @@ export const Card = ({
           cursor: "pointer",
           borderRadius: "4px",
           overflow: "visible",
-          background: isSelected ? "#e3f2fd" : "#fff",
+          background: isSelected
+            ? colors.background.cardSelected
+            : colors.background.card,
           transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
           transform: isHovered ? "scale(1.3)" : "scale(1)",
-          boxShadow: isHovered ? "0 8px 24px rgba(0, 0, 0, 0.9)" : "none",
+          boxShadow: isHovered ? colors.shadow.hover : colors.shadow.none,
           zIndex: isHovered ? 10 : 1,
           position: "relative",
           width: "100%",
@@ -45,7 +49,7 @@ export const Card = ({
             width: "100%",
             aspectRatio: "1",
             overflow: "hidden",
-            background: "#f5f5f5",
+            background: colors.background.imagePlaceholder,
             borderRadius: "4px 4px 0 0",
           }}
         >
@@ -68,7 +72,7 @@ export const Card = ({
           <div
             style={{
               fontSize: "10px",
-              color: "#666",
+              color: colors.text.secondary,
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
@@ -80,7 +84,7 @@ export const Card = ({
           <div
             style={{
               fontSize: "9px",
-              color: "#999",
+              color: colors.text.tertiary,
               marginTop: "2px",
             }}
           >
