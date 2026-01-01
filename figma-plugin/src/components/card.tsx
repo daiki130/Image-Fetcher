@@ -179,7 +179,7 @@ export const Card = ({
             aspectRatio: "1",
             overflow: "hidden",
             background: colors.background.imagePlaceholder,
-            borderRadius: "4px 4px 0 0",
+            borderRadius: "4px",
           }}
         >
           <img
@@ -197,29 +197,46 @@ export const Card = ({
             }}
           />
         </div>
-        <div style={{ padding: "6px" }}>
+        {isHovered && (
           <div
             style={{
-              fontSize: "10px",
-              color: colors.text.secondary,
+              padding: "6px",
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              background:
+                "linear-gradient(to top, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.6) 50%, rgba(0, 0, 0, 0) 100%)",
+              borderRadius: "0 0 4px 4px",
               overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-            title={image.alt || "No title"}
-          >
-            {image.alt || "No title"}
-          </div>
-          <div
-            style={{
-              fontSize: "9px",
-              color: colors.text.tertiary,
-              marginTop: "2px",
+              backdropFilter: "blur(4px)",
             }}
           >
-            {image.width} × {image.height}
+            <div>
+              <div
+                style={{
+                  fontSize: "8px",
+                  color: "#fff",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  fontWeight: 500,
+                }}
+                title={image.alt || "No title"}
+              >
+                {image.alt || "No title"}
+              </div>
+              <div
+                style={{
+                  fontSize: "8px",
+                  color: "rgba(255, 255, 255, 0.8)",
+                }}
+              >
+                {image.width} × {image.height}
+              </div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     );
   }
