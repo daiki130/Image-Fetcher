@@ -88,6 +88,27 @@ export default function () {
     }
   );
 
+  // ドラッグ&ドロップで画像を追加するリクエストを受け取る
+  on(
+    "DROP_IMAGE",
+    async (data: { imageData: Uint8Array; width: number; height: number }) => {
+      console.log("DROP_IMAGE received:", data.width, "x", data.height);
+      try {
+        await createRectangleWithImageData(
+          data.imageData,
+          data.width,
+          data.height
+        );
+        console.log("Image added to Figma successfully");
+      } catch (error) {
+        console.error("Error adding image to Figma:", error);
+        const errorMessage =
+          error instanceof Error ? error.message : "不明なエラー";
+        figma.notify(`エラー: ${errorMessage}`, { error: true });
+      }
+    }
+  );
+
   showUI({ width: 400, height: 1000 });
 }
 

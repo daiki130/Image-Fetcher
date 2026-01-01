@@ -215,6 +215,19 @@ function ServiceLogo({
   );
 }
 
+// グローバルにドラッグ中の画像データを保存
+interface DraggedImageData {
+  imageData: Uint8Array;
+  width: number;
+  height: number;
+}
+
+declare global {
+  interface Window {
+    draggedImageData?: DraggedImageData;
+  }
+}
+
 function Plugin() {
   const [jsonInput, setJsonInput] = useState("");
   const [images, setImages] = useState<ImageData[]>([]);
@@ -229,6 +242,36 @@ function Plugin() {
   const [modalService, setModalService] = useState<string | null>(null); // モーダルで表示するサービス名
   const [isEditing, setIsEditing] = useState(false); // 編集中かどうか
   const [displayValue, setDisplayValue] = useState<string>(""); // 表示用の値
+
+  // ドラッグ終了時にFigmaに追加
+  useEffect(() => {
+    const handleDragEnd = async (e: Event) => {
+      console.log("Drag end event fired");
+      // 少し遅延を入れて、ドラッグ終了を確実に検出
+      setTimeout(() => {
+        if (window.draggedImageData) {
+          console.log(
+            "Adding image to Figma:",
+            window.draggedImageData.width,
+            "x",
+            window.draggedImageData.height
+          );
+          emit("DROP_IMAGE", window.draggedImageData);
+          window.draggedImageData = undefined;
+          showStatus("画像をFigmaに追加しました", "success");
+        } else {
+          console.log("No dragged image data found");
+        }
+      }, 100);
+    };
+
+    // グローバルにドラッグ終了イベントをリッスン
+    document.addEventListener("dragend", handleDragEnd);
+
+    return () => {
+      document.removeEventListener("dragend", handleDragEnd);
+    };
+  }, []);
 
   // 起動時に保存された画像データを読み込む
   useEffect(() => {
@@ -1070,6 +1113,32 @@ function Plugin() {
                       image={img}
                       isSelected={isSelected}
                       onClick={() => handleSelectImage(index, true)}
+                      onDragStart={async (image) => {
+                        // ドラッグ開始時に画像を処理（非同期で準備）
+                        console.log("Drag start, preparing image:", image.src);
+                        downloadAndConvertImage(image)
+                          .then((imageData) => {
+                            if (imageData) {
+                              // 画像データを準備（ドロップ時に使用）
+                              window.draggedImageData = {
+                                imageData,
+                                width: image.width,
+                                height: image.height,
+                              };
+                              console.log(
+                                "Image data prepared:",
+                                image.width,
+                                "x",
+                                image.height
+                              );
+                            } else {
+                              console.error("Failed to convert image");
+                            }
+                          })
+                          .catch((error) => {
+                            console.error("Error converting image:", error);
+                          });
+                      }}
                     />
                   );
                 })}
