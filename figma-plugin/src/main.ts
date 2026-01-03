@@ -109,6 +109,11 @@ export default function () {
     }
   );
 
+  // UIからリサイズリクエストを受け取る
+  on("RESIZE_UI", (data: { width: number; height: number }) => {
+    figma.ui.resize(data.width, data.height);
+  });
+
   showUI({ width: 400, height: 1000 });
 }
 

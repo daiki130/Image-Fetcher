@@ -278,6 +278,15 @@ function Plugin() {
     emit("LOAD_IMAGES");
   }, []);
 
+  // displayImagesの表示状態に応じてプラグインの幅を変更
+  useEffect(() => {
+    if (displayImages.length > 0) {
+      emit("RESIZE_UI", { width: 700, height: 1000 });
+    } else {
+      emit("RESIZE_UI", { width: 400, height: 1000 });
+    }
+  }, [displayImages.length]);
+
   // main.ts から画像データを受け取る
   useEffect(() => {
     const handler = (loadedImages: ImageData[]) => {
@@ -1006,7 +1015,7 @@ function Plugin() {
       }}
     >
       {/* カスタムステータスタブ */}
-      <div
+      {/* <div
         style={{
           overflowX: "auto",
           whiteSpace: "nowrap",
@@ -1069,12 +1078,17 @@ function Plugin() {
             </button>
           ))}
         </div>
-      </div>
-
-      <div>
-        <VerticalSpace space="medium" />
-        {tabValue === "Top" && (
-          <div style={{ padding: "0 var(--space-small)" }}>
+      </div> */}
+      {tabValue === "Top" && (
+        <div style={{ display: "flex", flexDirection: "row" }}>
+          <div
+            style={{
+              padding: "var(--space-small)",
+              flex: 1,
+              height: "100vh",
+              borderRight: "1px solid var(--figma-color-border)",
+            }}
+          >
             <div
               style={{
                 border: `2px dashed var(--figma-color-border)`,
@@ -1136,274 +1150,204 @@ function Plugin() {
               </span>{" "}
               file
             </div>
-            {/* <div
-              style={{
-                fontSize: "11px",
-                fontWeight: "600",
-                height: "40px",
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              Image Src
-            </div>
-            <TextboxMultiline
-              value={jsonInput}
-              onValueInput={setJsonInput}
-              placeholder="データを貼り付けてください..."
-            />
-
-            <VerticalSpace space="small" /> */}
-            {/* <div style={{ display: "flex", gap: "8px" }}>
-              <Button fullWidth onClick={handleLoadData}>
-                データを読み込む
-              </Button>
-              <Button
-                fullWidth
-                secondary
-                onClick={() => {
-                  const input = document.createElement("input");
-                  input.type = "file";
-                  // 拡張子の制限を緩和（すべてのファイルを受け付ける）
-                  input.onchange = async (e: Event) => {
-                    const file = (e.target as HTMLInputElement).files?.[0];
-                    if (file) {
-                      try {
-                        showStatus("ファイルを読み込み中...", "info");
-                        const text = await file.text();
-                        // ファイルの内容をそのまま設定（表示用）
-                        setJsonInput(text);
-                        // データを直接渡して読み込む（setJsonInputの状態更新を待たない）
-                        await handleLoadData(text);
-                      } catch (error) {
-                        showStatus(
-                          `ファイルの読み込みに失敗しました: ${
-                            error instanceof Error
-                              ? error.message
-                              : "不明なエラー"
-                          }`,
-                          "error"
-                        );
-                      }
-                    }
-                  };
-                  input.click();
-                }}
-              >
-                ファイルから読み込む
-              </Button>
-            </div> */}
           </div>
-        )}
-        {tabValue === "Top" && displayImages.length > 0 && (
-          <>
-            <VerticalSpace space="medium" />
+
+          {displayImages.length > 0 && (
             <div
               style={{
                 display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "8px 12px",
-              }}
-            >
-              <Text>
-                <strong>{displayImages.length}個の画像</strong>
-              </Text>
-              <VerticalSpace space="extraSmall" />
-
-              <div
-                ref={settingsMenuRef}
-                style={{ position: "relative", display: "inline-block" }}
-                onMouseEnter={() => showTooltip("filter")}
-                onMouseLeave={() => hideTooltip("filter")}
-              >
-                <IconToggleButton onChange={handleClick} value={isOpen}>
-                  <IconSizeSmall24 />
-                </IconToggleButton>
-                {/* Tooltip */}
-                {isTooltipVisible("filter") && !isOpen && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "24px",
-                      right: "-4px",
-                      zIndex: 1000,
-                    }}
-                  >
-                    <Tooltip
-                      message="Size"
-                      arrowPosition="top"
-                      arrowOffset="74%"
-                    />
-                  </div>
-                )}
-
-                {/* Settings Menu */}
-                {isOpen && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "28px",
-                      right: "-3px",
-                      zIndex: 1001,
-                    }}
-                  >
-                    <SettingsMenu
-                      sortHighEnabled={sortHighEnabled}
-                      sortLowEnabled={sortLowEnabled}
-                      sortLabelEnabled={sortLabelEnabled}
-                      availableImageSizes={availableImageSizes}
-                      selectedImageSizes={Array.from(selectedImageSizes)}
-                      showWithDueDate={showWithDueDate}
-                      showWithoutDueDate={showWithoutDueDate}
-                      availableLabels={availableLabels}
-                      selectedLabels={selectedLabels}
-                      onSortHighChange={handleSortHighChange}
-                      onSortLowChange={handleSortLowChange}
-                      onSortLabelChange={handleSortLabelChange}
-                      onImageSizeFilterChange={handleImageSizeFilterChange}
-                      onDueDateFilterChange={handleDueDateFilterChange}
-                      onLabelFilterChange={handleLabelFilterChange}
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div
-              style={{
-                maxHeight: "530px",
-                // overflowY: "auto",
-                padding: "0 var(--space-small)",
+                flexDirection: "column",
+                flex: 1,
               }}
             >
               <div
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                  gap: "8px",
-                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "8px 12px",
                 }}
               >
-                {imagesToDisplay.map((img, index) => {
-                  // images全体でのインデックスを計算
-                  const globalIndex = images.findIndex((globalImg) => {
-                    if (globalImg.id && img.id && globalImg.id === img.id) {
-                      return true;
-                    }
-                    if (globalImg.src && img.src && globalImg.src === img.src) {
-                      return true;
-                    }
-                    return false;
-                  });
-                  const isSelected =
-                    globalIndex !== -1 && selectedImageIndices.has(globalIndex);
-                  return (
-                    <Card
-                      key={index}
-                      image={img}
-                      isSelected={isSelected}
-                      onClick={() => handleSelectImage(index, true)}
-                      onDragStart={async (image) => {
-                        // ドラッグ開始時に画像を処理（非同期で準備）
-                        console.log("Drag start, preparing image:", image.src);
-                        downloadAndConvertImage(image)
-                          .then((imageData) => {
-                            if (imageData) {
-                              // 画像データを準備（ドロップ時に使用）
-                              window.draggedImageData = {
-                                imageData,
-                                width: image.width,
-                                height: image.height,
-                              };
-                              console.log(
-                                "Image data prepared:",
-                                image.width,
-                                "x",
-                                image.height
-                              );
-                            } else {
-                              console.error("Failed to convert image");
-                            }
-                          })
-                          .catch((error) => {
-                            console.error("Error converting image:", error);
-                          });
+                <Text>
+                  <strong>{displayImages.length} images</strong>
+                </Text>
+                <VerticalSpace space="extraSmall" />
+
+                <div
+                  ref={settingsMenuRef}
+                  style={{ position: "relative", display: "inline-block" }}
+                  onMouseEnter={() => showTooltip("filter")}
+                  onMouseLeave={() => hideTooltip("filter")}
+                >
+                  <IconToggleButton onChange={handleClick} value={isOpen}>
+                    <IconSizeSmall24 />
+                  </IconToggleButton>
+                  {/* Tooltip */}
+                  {isTooltipVisible("filter") && !isOpen && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "24px",
+                        right: "-4px",
+                        zIndex: 1000,
                       }}
-                    />
-                  );
-                })}
+                    >
+                      <Tooltip
+                        message="Size"
+                        arrowPosition="top"
+                        arrowOffset="74%"
+                      />
+                    </div>
+                  )}
+
+                  {/* Settings Menu */}
+                  {isOpen && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "28px",
+                        right: "-3px",
+                        zIndex: 1001,
+                      }}
+                    >
+                      <SettingsMenu
+                        sortHighEnabled={sortHighEnabled}
+                        sortLowEnabled={sortLowEnabled}
+                        sortLabelEnabled={sortLabelEnabled}
+                        availableImageSizes={availableImageSizes}
+                        selectedImageSizes={Array.from(selectedImageSizes)}
+                        showWithDueDate={showWithDueDate}
+                        showWithoutDueDate={showWithoutDueDate}
+                        availableLabels={availableLabels}
+                        selectedLabels={selectedLabels}
+                        onSortHighChange={handleSortHighChange}
+                        onSortLowChange={handleSortLowChange}
+                        onSortLabelChange={handleSortLabelChange}
+                        onImageSizeFilterChange={handleImageSizeFilterChange}
+                        onDueDateFilterChange={handleDueDateFilterChange}
+                        onLabelFilterChange={handleLabelFilterChange}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  maxHeight: "530px",
+                  // overflowY: "auto",
+                  padding: "0 var(--space-small)",
+                }}
+              >
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                    gap: "8px",
+                    width: "100%",
+                  }}
+                >
+                  {imagesToDisplay.map((img, index) => {
+                    // images全体でのインデックスを計算
+                    const globalIndex = images.findIndex((globalImg) => {
+                      if (globalImg.id && img.id && globalImg.id === img.id) {
+                        return true;
+                      }
+                      if (
+                        globalImg.src &&
+                        img.src &&
+                        globalImg.src === img.src
+                      ) {
+                        return true;
+                      }
+                      return false;
+                    });
+                    const isSelected =
+                      globalIndex !== -1 &&
+                      selectedImageIndices.has(globalIndex);
+                    return (
+                      <Card
+                        key={index}
+                        image={img}
+                        isSelected={isSelected}
+                        onClick={() => handleSelectImage(index, true)}
+                        onDragStart={async (image) => {
+                          // ドラッグ開始時に画像を処理（非同期で準備）
+                          console.log(
+                            "Drag start, preparing image:",
+                            image.src
+                          );
+                          downloadAndConvertImage(image)
+                            .then((imageData) => {
+                              if (imageData) {
+                                // 画像データを準備（ドロップ時に使用）
+                                window.draggedImageData = {
+                                  imageData,
+                                  width: image.width,
+                                  height: image.height,
+                                };
+                                console.log(
+                                  "Image data prepared:",
+                                  image.width,
+                                  "x",
+                                  image.height
+                                );
+                              } else {
+                                console.error("Failed to convert image");
+                              }
+                            })
+                            .catch((error) => {
+                              console.error("Error converting image:", error);
+                            });
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+
+              <VerticalSpace space="small" />
+              <div
+                style={{
+                  position: "fixed",
+                  bottom: "0",
+                  left: "0",
+                  right: "0",
+                  padding: "12px 12px ",
+                  zIndex: 99,
+                  background: "var(--figma-color-bg)",
+                  display: "flex",
+                  gap: "4px",
+                }}
+              >
+                <Button
+                  fullWidth
+                  onClick={handleApplyImage}
+                  disabled={selectedImageIndices.size === 0}
+                  style={{
+                    backgroundColor: "var(--figma-color-background-secondary)",
+                    color: "var(--figma-color-text-tertiary)",
+                    height: "32px",
+                  }}
+                >
+                  選択ノードに画像を適用
+                </Button>
+                <Button
+                  fullWidth
+                  onClick={handlePlaceAllImagesInFrame}
+                  disabled={displayImages.length === 0}
+                  style={{
+                    color: "var(--figma-color-text)",
+                    height: "32px",
+                  }}
+                >
+                  フレーム内に自動配置
+                </Button>
               </div>
             </div>
-
-            <VerticalSpace space="small" />
-            <div
-              style={{
-                position: "fixed",
-                bottom: "0",
-                left: "0",
-                right: "0",
-                padding: "12px 12px ",
-                zIndex: 99,
-                background: "var(--figma-color-bg)",
-                display: "flex",
-                gap: "4px",
-              }}
-            >
-              <Button
-                fullWidth
-                onClick={handleApplyImage}
-                disabled={selectedImageIndices.size === 0}
-                style={{
-                  backgroundColor: "var(--figma-color-background-secondary)",
-                  color: "var(--figma-color-text-tertiary)",
-                  height: "32px",
-                }}
-              >
-                選択ノードに画像を適用
-              </Button>
-              <Button
-                fullWidth
-                onClick={handlePlaceAllImagesInFrame}
-                disabled={displayImages.length === 0}
-                style={{
-                  color: "var(--figma-color-text)",
-                  height: "32px",
-                }}
-              >
-                フレーム内に自動配置
-              </Button>
-            </div>
-          </>
-        )}
-
-        {/* {tabValue === "Top" && status && (
-          <>
-            <VerticalSpace space="small" />
-            <div
-              style={{
-                padding: "8px",
-                background:
-                  statusType === "error"
-                    ? "#ffe0e0"
-                    : statusType === "success"
-                    ? "#e0f5e0"
-                    : "#f5f5f5",
-                color:
-                  statusType === "error"
-                    ? "#d32f2f"
-                    : statusType === "success"
-                    ? "#388e3c"
-                    : "#333",
-                borderRadius: "4px",
-                fontSize: "11px",
-              }}
-            >
-              {status}
-            </div>
-          </>
-        )} */}
-      </div>
+          )}
+        </div>
+      )}
       <div>
         {tabValue === "Data" && (
           <Data images={images} onDeleteService={handleDeleteService} />
