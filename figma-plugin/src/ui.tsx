@@ -1173,6 +1173,7 @@ function Plugin() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
+                padding: "8px 12px",
               }}
             >
               <Text>
@@ -1183,14 +1184,14 @@ function Plugin() {
               <div
                 ref={settingsMenuRef}
                 style={{ position: "relative", display: "inline-block" }}
-                onMouseEnter={() => showTooltip("sort")}
-                onMouseLeave={() => hideTooltip("sort")}
+                onMouseEnter={() => showTooltip("filter")}
+                onMouseLeave={() => hideTooltip("filter")}
               >
                 <IconToggleButton onChange={handleClick} value={isOpen}>
                   <IconSizeSmall24 />
                 </IconToggleButton>
                 {/* Tooltip */}
-                {isTooltipVisible("sort") && !isOpen && (
+                {isTooltipVisible("filter") && !isOpen && (
                   <div
                     style={{
                       position: "absolute",
@@ -1200,7 +1201,7 @@ function Plugin() {
                     }}
                   >
                     <Tooltip
-                      message="表示設定"
+                      message="Size"
                       arrowPosition="top"
                       arrowOffset="74%"
                     />
