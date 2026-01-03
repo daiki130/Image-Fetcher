@@ -164,7 +164,7 @@ export const Card = ({
           transform: !isSelected && isHovered ? "scale(1.3)" : "scale(1)",
           boxShadow: isDragging
             ? "0 12px 32px rgba(0, 0, 0, 0.5)"
-            : isHovered
+            : !isSelected && isHovered
             ? colors.shadow.hover
             : colors.shadow.none,
           zIndex: isDragging ? 100 : isHovered ? 10 : 1,

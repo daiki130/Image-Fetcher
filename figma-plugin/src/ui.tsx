@@ -16,7 +16,7 @@ import { Data } from "./components/data";
 import { Card } from "./components/card";
 import { Tooltip } from "./components/Tooltip";
 import { SettingsMenu } from "./components/SettingsMenu";
-import "./styles.css";
+// import "./styles.css";
 
 // ImageData は types.ts からインポート
 
@@ -1001,7 +1001,8 @@ function Plugin() {
       style={{
         position: "relative",
         height: "100%",
-        backgroundColor: "#141414",
+        backgroundColor: "var(--figma-color-bg-secondary)",
+        // backgroundColor: "#141414",
       }}
     >
       {/* カスタムステータスタブ */}
@@ -1076,13 +1077,14 @@ function Plugin() {
           <div style={{ padding: "0 var(--space-small)" }}>
             <div
               style={{
-                border: `2px dashed var(--color-border-default)`,
-                borderRadius: "4px",
+                border: `2px dashed var(--figma-color-border)`,
+                borderRadius: "12px",
                 padding: "40px 20px",
                 textAlign: "center",
                 cursor: "pointer",
                 position: "relative",
-                color: "var(--color-text-primary)",
+                color: "var(--figma-color-text)",
+                backgroundColor: "var(--figma-color-bg)",
               }}
               onDragOver={(e) => {
                 e.preventDefault();
@@ -1343,7 +1345,7 @@ function Plugin() {
                 right: "0",
                 padding: "12px 12px ",
                 zIndex: 99,
-                background: "#141414",
+                background: "var(--figma-color-bg)",
                 display: "flex",
                 gap: "4px",
               }}
@@ -1353,8 +1355,8 @@ function Plugin() {
                 onClick={handleApplyImage}
                 disabled={selectedImageIndices.size === 0}
                 style={{
-                  backgroundColor: "var(--color-background-secondary)",
-                  color: "var(--color-text-tertiary)",
+                  backgroundColor: "var(--figma-color-background-secondary)",
+                  color: "var(--figma-color-text-tertiary)",
                   height: "32px",
                 }}
               >
@@ -1365,8 +1367,7 @@ function Plugin() {
                 onClick={handlePlaceAllImagesInFrame}
                 disabled={displayImages.length === 0}
                 style={{
-                  backgroundColor: "var(--color-brand-primary)",
-                  color: "var(--color-text-primary)",
+                  color: "var(--figma-color-text)",
                   height: "32px",
                 }}
               >
