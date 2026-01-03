@@ -232,8 +232,8 @@ function Plugin() {
   const [jsonInput, setJsonInput] = useState("");
   const [images, setImages] = useState<ImageData[]>([]);
   const [displayImages, setDisplayImages] = useState<ImageData[]>([]); // Topタブで表示する画像（「データを読み込む」で追加したもののみ）
-  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(
-    null
+  const [selectedImageIndices, setSelectedImageIndices] = useState<Set<number>>(
+    new Set()
   );
   const [status, setStatus] = useState("");
   const [statusType, setStatusType] = useState<"info" | "success" | "error">(
@@ -506,35 +506,53 @@ function Plugin() {
   };
 
   // 画像選択（Topタブ用：displayImagesのインデックスからimages全体のインデックスを計算）
+  // 複数選択対応：クリックで選択/選択解除をトグル
   const handleSelectImage = (index: number, isTopTab: boolean = false) => {
-    if (isTopTab && displayImages[index]) {
-      // displayImagesの画像をimages全体から探す
-      const selectedImage = displayImages[index];
-      const globalIndex = images.findIndex((img) => {
-        if (img.id && selectedImage.id && img.id === selectedImage.id) {
-          return true;
+    setSelectedImageIndices((prev) => {
+      const newSet = new Set(prev);
+      let targetIndex: number;
+
+      if (isTopTab && displayImages[index]) {
+        // displayImagesの画像をimages全体から探す
+        const selectedImage = displayImages[index];
+        const globalIndex = images.findIndex((img) => {
+          if (img.id && selectedImage.id && img.id === selectedImage.id) {
+            return true;
+          }
+          if (img.src && selectedImage.src && img.src === selectedImage.src) {
+            return true;
+          }
+          return false;
+        });
+        if (globalIndex === -1) {
+          return prev; // 見つからない場合は変更なし
         }
-        if (img.src && selectedImage.src && img.src === selectedImage.src) {
-          return true;
-        }
-        return false;
-      });
-      if (globalIndex !== -1) {
-        setSelectedImageIndex(globalIndex);
+        targetIndex = globalIndex;
+      } else {
+        targetIndex = index;
       }
-    } else {
-      setSelectedImageIndex(index);
-    }
+
+      // トグル：既に選択されている場合は解除、されていない場合は追加
+      if (newSet.has(targetIndex)) {
+        newSet.delete(targetIndex);
+      } else {
+        newSet.add(targetIndex);
+      }
+
+      return newSet;
+    });
   };
 
-  // 選択ノードに適用
+  // 選択ノードに適用（複数選択されている場合は最初の選択を適用）
   const handleApplyImage = async () => {
-    if (selectedImageIndex === null) {
+    if (selectedImageIndices.size === 0) {
       showStatus("画像を選択してください", "error");
       return;
     }
 
-    const selectedImage = images[selectedImageIndex];
+    // 複数選択されている場合は最初の選択を適用
+    const firstSelectedIndex = Array.from(selectedImageIndices)[0];
+    const selectedImage = images[firstSelectedIndex];
 
     const imageData = await downloadAndConvertImage(selectedImage);
 
@@ -1267,7 +1285,7 @@ function Plugin() {
                     return false;
                   });
                   const isSelected =
-                    globalIndex !== -1 && selectedImageIndex === globalIndex;
+                    globalIndex !== -1 && selectedImageIndices.has(globalIndex);
                   return (
                     <Card
                       key={index}
@@ -1323,7 +1341,7 @@ function Plugin() {
               <Button
                 fullWidth
                 onClick={handleApplyImage}
-                disabled={selectedImageIndex === null}
+                disabled={selectedImageIndices.size === 0}
                 style={{
                   backgroundColor: "var(--color-background-secondary)",
                   color: "var(--color-text-tertiary)",
