@@ -1122,7 +1122,17 @@ function Plugin() {
                 input.click();
               }}
             >
-              .imagefetcherファイルをドロップまたはクリック
+              Drop or click to upload a{" "}
+              <span
+                style={{
+                  padding: "4px",
+                  background: "var(--figma-color-bg-secondary)",
+                  borderRadius: "4px",
+                }}
+              >
+                .imagefetcher
+              </span>{" "}
+              file
             </div>
             {/* <div
               style={{
