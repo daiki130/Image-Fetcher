@@ -160,7 +160,7 @@ export default function () {
     animate();
   });
 
-  showUI({ width: 400, height: 1000 });
+  showUI({ width: 400, height: 160 });
 }
 
 // 選択ノードに画像データを適用
