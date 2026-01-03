@@ -278,7 +278,7 @@ function Plugin() {
     emit("LOAD_IMAGES");
   }, []);
 
-  // displayImagesの表示状態に応じてプラグインの幅を変更
+  // displayImagesの表示状態に応じてプラグインの幅を変更（アニメーションはmain.tsで処理）
   useEffect(() => {
     if (displayImages.length > 0) {
       emit("RESIZE_UI", { width: 700, height: 1000 });
@@ -1099,6 +1099,7 @@ function Plugin() {
                 position: "relative",
                 color: "var(--figma-color-text)",
                 backgroundColor: "var(--figma-color-bg)",
+                lineHeight: "2.3",
               }}
               onDragOver={(e) => {
                 e.preventDefault();
@@ -1138,7 +1139,9 @@ function Plugin() {
                 input.click();
               }}
             >
-              Drop or click to upload a{" "}
+              Drag-and-drop or click to
+              <br />
+              upload a{" "}
               <span
                 style={{
                   padding: "4px",
