@@ -3,6 +3,7 @@ import { useState } from "preact/hooks";
 import { ImageData } from "../types";
 import { colors } from "../colors";
 import "../styles.css";
+import { IconCheck16 } from "@create-figma-plugin/ui";
 
 interface CardProps {
   serviceName?: string;
@@ -160,15 +161,12 @@ export const Card = ({
           transition: isDragging
             ? "none"
             : "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-          transform: isHovered ? "scale(1.3)" : "scale(1)",
+          transform: !isSelected && isHovered ? "scale(1.3)" : "scale(1)",
           boxShadow: isDragging
             ? "0 12px 32px rgba(0, 0, 0, 0.5)"
             : isHovered
             ? colors.shadow.hover
             : colors.shadow.none,
-          outline: isSelected
-            ? "px solid var(--color-border-selected)"
-            : "none",
           zIndex: isDragging ? 100 : isHovered ? 10 : 1,
           position: "relative",
           width: "100%",
@@ -185,6 +183,37 @@ export const Card = ({
             borderRadius: "4px",
           }}
         >
+          {isSelected && (
+            <div
+              style={{
+                position: "absolute",
+                left: 4,
+                top: 4,
+                background: "var(--figma-color-bg-selected-strong)",
+                zIndex: 3,
+                borderRadius: "8px",
+              }}
+            >
+              <IconCheck16 />
+            </div>
+          )}
+
+          {isSelected && (
+            <div
+              style={{
+                position: "absolute",
+                left: 0,
+                top: 0,
+                right: 0,
+                bottom: 0,
+                background: "var(--figma-color-bg-selected)",
+                opacity: 0.5,
+                zIndex: 2,
+                borderRadius: "4px",
+              }}
+            ></div>
+          )}
+
           <img
             src={image.src}
             alt={image.alt || "Image"}
@@ -193,7 +222,6 @@ export const Card = ({
               height: "100%",
               objectFit: "cover",
               transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-              transform: isHovered ? "scale(1.1)" : "scale(1)",
             }}
             onError={(e) => {
               e.currentTarget.style.display = "none";
