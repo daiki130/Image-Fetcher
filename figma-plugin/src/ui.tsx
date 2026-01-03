@@ -1153,6 +1153,88 @@ function Plugin() {
               </span>{" "}
               file
             </div>
+
+            {imagesToDisplay.length > 0 &&
+              (() => {
+                // ユニークなサービス名とfaviconを取得
+                const uniqueServices = new Map<string, string>();
+                imagesToDisplay.forEach((img) => {
+                  const serviceName = img.service || "Unknown";
+                  if (!uniqueServices.has(serviceName) && img.favicon) {
+                    uniqueServices.set(serviceName, img.favicon);
+                  }
+                });
+
+                return (
+                  <div
+                    style={{
+                      marginTop: "16px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "8px",
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: "11px",
+                        fontWeight: "600",
+                        color: "var(--figma-color-text-secondary)",
+                        marginBottom: "4px",
+                      }}
+                    >
+                      Services
+                    </Text>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "6px",
+                      }}
+                    >
+                      {Array.from(uniqueServices.entries()).map(
+                        ([serviceName, favicon]) => (
+                          <div
+                            key={serviceName}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "8px",
+                              borderRadius: "6px",
+                              backgroundColor: "var(--figma-color-bg)",
+                              padding: "8px",
+                            }}
+                          >
+                            <ServiceLogo
+                              serviceName={serviceName}
+                              favicon={favicon}
+                              size={24}
+                            />
+                            <Text
+                              style={{
+                                fontSize: "13px",
+                                color: "var(--figma-color-text)",
+                              }}
+                            >
+                              {serviceName}
+                            </Text>
+                            <span
+                              style={{
+                                fontSize: "10px",
+                                borderRadius: "4px",
+                                padding: "4px 8px",
+                                backgroundColor:
+                                  "var(--figma-color-bg-secondary)",
+                              }}
+                            >
+                              {displayImages.length} images
+                            </span>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
           </div>
 
           {displayImages.length > 0 && (
