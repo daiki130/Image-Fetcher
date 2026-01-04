@@ -161,12 +161,15 @@ export const Card = ({
           transition: isDragging
             ? "none"
             : "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-          transform: !isSelected && isHovered ? "scale(1.3)" : "scale(1)",
+          transform: !isSelected && isHovered ? "scale(1.6)" : "scale(1)",
           boxShadow: isDragging
             ? "0 12px 32px rgba(0, 0, 0, 0.5)"
             : !isSelected && isHovered
             ? colors.shadow.hover
             : colors.shadow.none,
+          outline: isSelected
+            ? "2px solid var(--figma-color-border-selected)"
+            : "none",
           zIndex: isDragging ? 100 : isHovered ? 10 : 1,
           position: "relative",
           width: "100%",

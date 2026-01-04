@@ -281,7 +281,7 @@ function Plugin() {
   // displayImagesの表示状態に応じてプラグインの幅を変更（アニメーションはmain.tsで処理）
   useEffect(() => {
     if (displayImages.length > 0) {
-      emit("RESIZE_UI", { width: 700, height: 1000 });
+      emit("RESIZE_UI", { width: 410, height: 1000 });
     } else {
       emit("RESIZE_UI", { width: 400, height: 1000 });
     }
@@ -1080,15 +1080,15 @@ function Plugin() {
         </div>
       </div> */}
       {tabValue === "Top" && (
-        <div style={{ display: "flex", flexDirection: "row" }}>
+        <div>
           <div
             style={{
               padding: "var(--space-small)",
-              flex: 1,
-              height: "100vh",
               borderRight: "1px solid var(--figma-color-border)",
             }}
           >
+
+            {imagesToDisplay.length === 0 && (
             <div
               style={{
                 border: `2px dashed var(--figma-color-border)`,
@@ -1153,7 +1153,7 @@ function Plugin() {
               </span>{" "}
               file
             </div>
-
+            )}
             {imagesToDisplay.length > 0 &&
               (() => {
                 // ユニークなサービス名とfaviconを取得
@@ -1168,22 +1168,11 @@ function Plugin() {
                 return (
                   <div
                     style={{
-                      marginTop: "16px",
                       display: "flex",
                       flexDirection: "column",
                       gap: "8px",
                     }}
                   >
-                    <Text
-                      style={{
-                        fontSize: "11px",
-                        fontWeight: "600",
-                        color: "var(--figma-color-text-secondary)",
-                        marginBottom: "4px",
-                      }}
-                    >
-                      Services
-                    </Text>
                     <div
                       style={{
                         display: "flex",
@@ -1209,21 +1198,20 @@ function Plugin() {
                               favicon={favicon}
                               size={24}
                             />
-                            <Text
+                            <div
                               style={{
                                 fontSize: "13px",
                                 color: "var(--figma-color-text)",
                               }}
                             >
                               {serviceName}
-                            </Text>
+                            </div>
                             <span
                               style={{
                                 fontSize: "10px",
                                 borderRadius: "4px",
-                                padding: "4px 8px",
-                                backgroundColor:
-                                  "var(--figma-color-bg-secondary)",
+                                padding: "2px 8px",
+                                border: "1px solid var(--figma-color-border)",
                               }}
                             >
                               {displayImages.length} images
@@ -1327,7 +1315,7 @@ function Plugin() {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                    gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
                     gap: "8px",
                     width: "100%",
                   }}
