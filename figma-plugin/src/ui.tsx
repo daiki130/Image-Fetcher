@@ -1422,6 +1422,7 @@ function Plugin() {
                   display: "flex",
                   gap: "4px",
                   alignItems: "center",
+                  height: "80px",
                 }}
               >
                 <div style={{ display: "flex", gap: "4px", flex: 1 }}>
@@ -1455,7 +1456,7 @@ function Plugin() {
                   <div
                     style={{
                       position: "absolute",
-                      right: "2%",
+                      right: "5%",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
