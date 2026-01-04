@@ -231,7 +231,7 @@ export const Card = ({
             }}
           />
         </div>
-        {isHovered && (
+        {!isSelected && isHovered && (
           <div
             style={{
               padding: "4px",
