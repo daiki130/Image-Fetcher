@@ -1087,72 +1087,71 @@ function Plugin() {
               borderRight: "1px solid var(--figma-color-border)",
             }}
           >
-
             {imagesToDisplay.length === 0 && (
-            <div
-              style={{
-                border: `2px dashed var(--figma-color-border)`,
-                borderRadius: "12px",
-                padding: "40px 20px",
-                textAlign: "center",
-                cursor: "pointer",
-                position: "relative",
-                color: "var(--figma-color-text)",
-                backgroundColor: "var(--figma-color-bg)",
-                lineHeight: "2.3",
-              }}
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                (e.currentTarget as HTMLElement).style.borderColor =
-                  "var(--figma-color-border-selected)";
-              }}
-              onDragLeave={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                (e.currentTarget as HTMLElement).style.borderColor =
-                  "var(--figma-color-border)";
-              }}
-              onDrop={(e: DragEvent) => {
-                e.preventDefault();
-                e.stopPropagation();
-                (e.currentTarget as HTMLElement).style.borderColor =
-                  "var(--figma-color-border)";
-                const dataTransfer = e.dataTransfer;
-                if (dataTransfer && dataTransfer.files) {
-                  const files = Array.from(dataTransfer.files);
-                  if (files.length > 0) {
-                    handleSelectedFiles(files);
-                  }
-                }
-              }}
-              onClick={() => {
-                const input = document.createElement("input");
-                input.type = "file";
-                input.accept = ".imagefetcher";
-                input.onchange = async (e: Event) => {
-                  const files = (e.target as HTMLInputElement).files;
-                  if (files && files.length > 0) {
-                    handleSelectedFiles(Array.from(files));
-                  }
-                };
-                input.click();
-              }}
-            >
-              Drag-and-drop or click to
-              <br />
-              upload a{" "}
-              <span
+              <div
                 style={{
-                  padding: "4px",
-                  background: "var(--figma-color-bg-secondary)",
-                  borderRadius: "4px",
+                  border: `2px dashed var(--figma-color-border)`,
+                  borderRadius: "12px",
+                  padding: "40px 20px",
+                  textAlign: "center",
+                  cursor: "pointer",
+                  position: "relative",
+                  color: "var(--figma-color-text)",
+                  backgroundColor: "var(--figma-color-bg)",
+                  lineHeight: "2.3",
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  (e.currentTarget as HTMLElement).style.borderColor =
+                    "var(--figma-color-border-selected)";
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  (e.currentTarget as HTMLElement).style.borderColor =
+                    "var(--figma-color-border)";
+                }}
+                onDrop={(e: DragEvent) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  (e.currentTarget as HTMLElement).style.borderColor =
+                    "var(--figma-color-border)";
+                  const dataTransfer = e.dataTransfer;
+                  if (dataTransfer && dataTransfer.files) {
+                    const files = Array.from(dataTransfer.files);
+                    if (files.length > 0) {
+                      handleSelectedFiles(files);
+                    }
+                  }
+                }}
+                onClick={() => {
+                  const input = document.createElement("input");
+                  input.type = "file";
+                  input.accept = ".imagefetcher";
+                  input.onchange = async (e: Event) => {
+                    const files = (e.target as HTMLInputElement).files;
+                    if (files && files.length > 0) {
+                      handleSelectedFiles(Array.from(files));
+                    }
+                  };
+                  input.click();
                 }}
               >
-                .imagefetcher
-              </span>{" "}
-              file
-            </div>
+                Drag-and-drop or click to
+                <br />
+                upload a{" "}
+                <span
+                  style={{
+                    padding: "4px",
+                    background: "var(--figma-color-bg-secondary)",
+                    borderRadius: "4px",
+                  }}
+                >
+                  .imagefetcher
+                </span>{" "}
+                file
+              </div>
             )}
             {imagesToDisplay.length > 0 &&
               (() => {
@@ -1186,36 +1185,50 @@ function Plugin() {
                             key={serviceName}
                             style={{
                               display: "flex",
+                              justifyContent: "space-between",
                               alignItems: "center",
-                              gap: "8px",
                               borderRadius: "6px",
                               backgroundColor: "var(--figma-color-bg)",
                               padding: "8px",
                             }}
                           >
-                            <ServiceLogo
-                              serviceName={serviceName}
-                              favicon={favicon}
-                              size={24}
-                            />
                             <div
                               style={{
-                                fontSize: "13px",
-                                color: "var(--figma-color-text)",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "8px",
                               }}
                             >
-                              {serviceName}
+                              <ServiceLogo
+                                serviceName={serviceName}
+                                favicon={favicon}
+                                size={24}
+                              />
+                              <div
+                                style={{
+                                  fontSize: "13px",
+                                  color: "var(--figma-color-text)",
+                                }}
+                              >
+                                {serviceName}
+                              </div>
+                              <span
+                                style={{
+                                  fontSize: "10px",
+                                  borderRadius: "4px",
+                                  padding: "2px 8px",
+                                  border: "1px solid var(--figma-color-border)",
+                                }}
+                              >
+                                {displayImages.length} images
+                              </span>
                             </div>
-                            <span
-                              style={{
-                                fontSize: "10px",
-                                borderRadius: "4px",
-                                padding: "2px 8px",
-                                border: "1px solid var(--figma-color-border)",
-                              }}
+                            <Button
+                              danger
+                              onClick={() => handleDeleteService(serviceName)}
                             >
-                              {displayImages.length} images
-                            </span>
+                              Remove
+                            </Button>
                           </div>
                         )
                       )}
