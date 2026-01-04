@@ -161,7 +161,7 @@ export const Card = ({
           transition: isDragging
             ? "none"
             : "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-          transform: !isSelected && isHovered ? "scale(1.6)" : "scale(1)",
+          transform: !isSelected && isHovered ? "scale(2)" : "scale(1)",
           boxShadow: isDragging
             ? "0 12px 32px rgba(0, 0, 0, 0.5)"
             : !isSelected && isHovered
@@ -234,7 +234,7 @@ export const Card = ({
         {isHovered && (
           <div
             style={{
-              padding: "6px",
+              padding: "4px",
               position: "absolute",
               bottom: 0,
               left: 0,
@@ -246,15 +246,18 @@ export const Card = ({
               backdropFilter: "blur(4px)",
             }}
           >
-            <div>
+            <div style={{ width: "100%", minWidth: 0 }}>
               <div
                 style={{
-                  fontSize: "8px",
+                  fontSize: "5px",
+                  lineHeight: "8px",
                   color: "#fff",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
                   fontWeight: 500,
+                  minWidth: 0,
+                  width: "100%",
                 }}
                 title={image.alt || "No title"}
               >
@@ -262,8 +265,14 @@ export const Card = ({
               </div>
               <div
                 style={{
-                  fontSize: "8px",
+                  fontSize: "5px",
+                  lineHeight: "8px",
                   color: "rgba(255, 255, 255, 0.8)",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  minWidth: 0,
+                  width: "100%",
                 }}
               >
                 {image.width} × {image.height}
