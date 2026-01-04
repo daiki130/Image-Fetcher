@@ -1498,13 +1498,13 @@ function Plugin() {
                             borderRadius: "4px",
                             overflow: "hidden",
                             backgroundColor: "var(--figma-color-bg-secondary)",
-                            boxShadow: "-1px 2px 8px rgba(0, 0, 0, 0.7)",
+                            boxShadow: "0px 3px 8px rgba(0, 0, 0, 0.7)",
                             zIndex: stackIndex + 1, // stackIndexが大きいほど高いz-index（最新が上）
                             transition: isNewlyAdded
                               ? "transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)"
                               : "all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
                             transform: isNewlyAdded
-                              ? `translateX(120px) translateY(${targetY}px) scale(${targetScale})`
+                              ? `translateX(-120px) translateY(${targetY}px) scale(${targetScale})`
                               : `translateX(0px) translateY(${targetY}px) scale(${targetScale})`,
                             opacity: isInLatestThree
                               ? 1 - displayIndex * 0.1
