@@ -235,6 +235,10 @@ function Plugin() {
   const [selectedImageIndices, setSelectedImageIndices] = useState<Set<number>>(
     new Set()
   );
+  // 選択された順序を追跡（最新の選択が最後に来る）
+  const [selectedImageOrder, setSelectedImageOrder] = useState<number[]>([]);
+  // アニメーション用：新しく追加された画像のインデックス
+  const [newlyAddedIndex, setNewlyAddedIndex] = useState<number | null>(null);
   const [status, setStatus] = useState("");
   const [statusType, setStatusType] = useState<"info" | "success" | "error">(
     "info"
@@ -544,8 +548,21 @@ function Plugin() {
       // トグル：既に選択されている場合は解除、されていない場合は追加
       if (newSet.has(targetIndex)) {
         newSet.delete(targetIndex);
+        // 選択順序からも削除
+        setSelectedImageOrder((prevOrder) =>
+          prevOrder.filter((idx) => idx !== targetIndex)
+        );
+        setNewlyAddedIndex(null);
       } else {
         newSet.add(targetIndex);
+        // 選択順序に追加（最新が最後に来る）
+        setSelectedImageOrder((prevOrder) => [...prevOrder, targetIndex]);
+        // アニメーション用：新しく追加された画像を記録
+        setNewlyAddedIndex(targetIndex);
+        // アニメーション完了後にリセット
+        setTimeout(() => {
+          setNewlyAddedIndex(null);
+        }, 500);
       }
 
       return newSet;
@@ -1404,31 +1421,117 @@ function Plugin() {
                   background: "var(--figma-color-bg)",
                   display: "flex",
                   gap: "4px",
+                  alignItems: "center",
                 }}
               >
-                <Button
-                  fullWidth
-                  onClick={handleApplyImage}
-                  disabled={selectedImageIndices.size === 0}
-                  style={{
-                    backgroundColor: "var(--figma-color-background-secondary)",
-                    color: "var(--figma-color-text-tertiary)",
-                    height: "32px",
-                  }}
-                >
-                  選択ノードに画像を適用
-                </Button>
-                <Button
-                  fullWidth
-                  onClick={handlePlaceAllImagesInFrame}
-                  disabled={displayImages.length === 0}
-                  style={{
-                    color: "var(--figma-color-text)",
-                    height: "32px",
-                  }}
-                >
-                  フレーム内に自動配置
-                </Button>
+                <div style={{ display: "flex", gap: "4px", flex: 1 }}>
+                  <Button
+                    fullWidth
+                    onClick={handleApplyImage}
+                    disabled={selectedImageIndices.size === 0}
+                    style={{
+                      backgroundColor:
+                        "var(--figma-color-background-secondary)",
+                      color: "var(--figma-color-text-tertiary)",
+                      height: "32px",
+                    }}
+                  >
+                    選択ノードに画像を適用
+                  </Button>
+                  <Button
+                    fullWidth
+                    onClick={handlePlaceAllImagesInFrame}
+                    disabled={displayImages.length === 0}
+                    style={{
+                      color: "var(--figma-color-text)",
+                      height: "32px",
+                    }}
+                  >
+                    フレーム内に自動配置
+                  </Button>
+                </div>
+                {/* 選択された画像のサムネイルスタック */}
+                {selectedImageOrder.length > 0 && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      right: "2%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      height: "40px",
+                      width: "80px",
+                    }}
+                  >
+                    {selectedImageOrder.map((index, stackIndex) => {
+                      const selectedImage = images[index];
+                      if (!selectedImage) return null;
+                      // 最新の選択が上に来るように、stackIndexが大きいほど高いz-index
+                      // 最初の選択（stackIndex = 0）が最も下、最新の選択（stackIndex = length - 1）が最も上
+                      const displayIndex =
+                        selectedImageOrder.length - 1 - stackIndex;
+                      const isNewlyAdded = newlyAddedIndex === index;
+                      // 最新3枚以外はopacity 0にする
+                      const isInLatestThree =
+                        stackIndex >= selectedImageOrder.length - 3;
+                      const targetY = displayIndex * -4;
+                      const targetScale = 1 - displayIndex * 0.08;
+
+                      return (
+                        <div
+                          key={index} // stackIndexを含めないことで、位置が変わっても同じ要素として認識される
+                          style={{
+                            position: "absolute",
+                            width: "100px",
+                            height: "60px",
+                            borderRadius: "4px",
+                            overflow: "hidden",
+                            backgroundColor: "var(--figma-color-bg-secondary)",
+                            boxShadow: "-1px 2px 8px rgba(0, 0, 0, 0.7)",
+                            zIndex: stackIndex + 1, // stackIndexが大きいほど高いz-index（最新が上）
+                            transition: isNewlyAdded
+                              ? "transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)"
+                              : "all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+                            transform: isNewlyAdded
+                              ? `translateX(120px) translateY(${targetY}px) scale(${targetScale})`
+                              : `translateX(0px) translateY(${targetY}px) scale(${targetScale})`,
+                            opacity: isInLatestThree
+                              ? 1 - displayIndex * 0.1
+                              : 0, // 最新3枚以外はopacity 0
+                          }}
+                          ref={(el) => {
+                            if (el && isNewlyAdded) {
+                              // 次のフレームでアニメーションを開始
+                              requestAnimationFrame(() => {
+                                requestAnimationFrame(() => {
+                                  el.style.transform = `translateX(0px) translateY(${targetY}px) scale(${targetScale})`;
+                                });
+                              });
+                            }
+                          }}
+                          onTransitionEnd={() => {
+                            if (isNewlyAdded) {
+                              setNewlyAddedIndex(null);
+                            }
+                          }}
+                        >
+                          <img
+                            src={selectedImage.src}
+                            alt={selectedImage.alt || "Selected image"}
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
+                            }}
+                            onError={(e) => {
+                              e.currentTarget.style.display = "none";
+                            }}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           )}
