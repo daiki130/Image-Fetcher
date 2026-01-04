@@ -285,7 +285,7 @@ function Plugin() {
   // displayImagesの表示状態に応じてプラグインの幅を変更（アニメーションはmain.tsで処理）
   useEffect(() => {
     if (displayImages.length > 0) {
-      emit("RESIZE_UI", { width: 410, height: 1000 });
+      emit("RESIZE_UI", { width: 500, height: 1000 });
     } else {
       emit("RESIZE_UI", { width: 400, height: 1000 });
     }
@@ -1422,10 +1422,16 @@ function Plugin() {
                   display: "flex",
                   gap: "4px",
                   alignItems: "center",
-                  height: "80px",
                 }}
               >
-                <div style={{ display: "flex", gap: "4px", flex: 1 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "4px",
+                    flex: 1,
+                    justifyContent: "flex-end",
+                  }}
+                >
                   <Button
                     fullWidth
                     onClick={handleApplyImage}
@@ -1435,9 +1441,11 @@ function Plugin() {
                         "var(--figma-color-background-secondary)",
                       color: "var(--figma-color-text-tertiary)",
                       height: "32px",
+                      width: "180px",
+                      border: "1px solid var(--figma-color-border)",
                     }}
                   >
-                    選択ノードに画像を適用
+                    Apply to selection
                   </Button>
                   <Button
                     fullWidth
@@ -1446,9 +1454,10 @@ function Plugin() {
                     style={{
                       color: "var(--figma-color-text)",
                       height: "32px",
+                      width: "180px",
                     }}
                   >
-                    フレーム内に自動配置
+                    Apply
                   </Button>
                 </div>
                 {/* 選択された画像のサムネイルスタック */}
@@ -1456,7 +1465,8 @@ function Plugin() {
                   <div
                     style={{
                       position: "absolute",
-                      right: "5%",
+                      left: "4%",
+                      bottom: "37%",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
