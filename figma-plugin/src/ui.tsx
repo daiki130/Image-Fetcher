@@ -1100,8 +1100,14 @@ function Plugin() {
         <div>
           <div
             style={{
-              padding: "var(--space-small)",
+              padding: "var(--space-extra-small)",
               borderRight: "1px solid var(--figma-color-border)",
+              position: "sticky",
+              top: 0,
+              alignSelf: "flex-start",
+              zIndex: 99,
+              background: "var(--figma-color-bg-secondary)",
+              borderBottom: imagesToDisplay.length > 0 ? "1px solid var(--figma-color-border)" : "none" as string,
             }}
           >
             {imagesToDisplay.length === 0 && (
@@ -1186,7 +1192,7 @@ function Plugin() {
                     style={{
                       display: "flex",
                       flexDirection: "column",
-                      gap: "8px",
+                      gap: "var(--space-small)",
                     }}
                   >
                     <div
@@ -1250,6 +1256,79 @@ function Plugin() {
                         )
                       )}
                     </div>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <div
+                        ref={settingsMenuRef}
+                        style={{
+                          position: "relative",
+                          display: "inline-block",
+                        }}
+                        onMouseEnter={() => showTooltip("filter")}
+                        onMouseLeave={() => hideTooltip("filter")}
+                      >
+                        <IconToggleButton onChange={handleClick} value={isOpen}>
+                          <IconSizeSmall24 />
+                        </IconToggleButton>
+                        {/* Tooltip */}
+                        {isTooltipVisible("filter") && !isOpen && (
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: "24px",
+                              right: "-4px",
+                              zIndex: 1000,
+                            }}
+                          >
+                            <Tooltip
+                              message="Size"
+                              arrowPosition="top"
+                              arrowOffset="74%"
+                            />
+                          </div>
+                        )}
+
+                        {/* Settings Menu */}
+                        {isOpen && (
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: "28px",
+                              right: "-3px",
+                              zIndex: 1001,
+                            }}
+                          >
+                            <SettingsMenu
+                              sortHighEnabled={sortHighEnabled}
+                              sortLowEnabled={sortLowEnabled}
+                              sortLabelEnabled={sortLabelEnabled}
+                              availableImageSizes={availableImageSizes}
+                              selectedImageSizes={Array.from(
+                                selectedImageSizes
+                              )}
+                              showWithDueDate={showWithDueDate}
+                              showWithoutDueDate={showWithoutDueDate}
+                              availableLabels={availableLabels}
+                              selectedLabels={selectedLabels}
+                              onSortHighChange={handleSortHighChange}
+                              onSortLowChange={handleSortLowChange}
+                              onSortLabelChange={handleSortLabelChange}
+                              onImageSizeFilterChange={
+                                handleImageSizeFilterChange
+                              }
+                              onDueDateFilterChange={handleDueDateFilterChange}
+                              onLabelFilterChange={handleLabelFilterChange}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 );
               })()}
@@ -1265,81 +1344,9 @@ function Plugin() {
             >
               <div
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "8px 12px",
-                }}
-              >
-                <Text>
-                  <strong>{displayImages.length} images</strong>
-                </Text>
-                <VerticalSpace space="extraSmall" />
-
-                <div
-                  ref={settingsMenuRef}
-                  style={{ position: "relative", display: "inline-block" }}
-                  onMouseEnter={() => showTooltip("filter")}
-                  onMouseLeave={() => hideTooltip("filter")}
-                >
-                  <IconToggleButton onChange={handleClick} value={isOpen}>
-                    <IconSizeSmall24 />
-                  </IconToggleButton>
-                  {/* Tooltip */}
-                  {isTooltipVisible("filter") && !isOpen && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: "24px",
-                        right: "-4px",
-                        zIndex: 1000,
-                      }}
-                    >
-                      <Tooltip
-                        message="Size"
-                        arrowPosition="top"
-                        arrowOffset="74%"
-                      />
-                    </div>
-                  )}
-
-                  {/* Settings Menu */}
-                  {isOpen && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: "28px",
-                        right: "-3px",
-                        zIndex: 1001,
-                      }}
-                    >
-                      <SettingsMenu
-                        sortHighEnabled={sortHighEnabled}
-                        sortLowEnabled={sortLowEnabled}
-                        sortLabelEnabled={sortLabelEnabled}
-                        availableImageSizes={availableImageSizes}
-                        selectedImageSizes={Array.from(selectedImageSizes)}
-                        showWithDueDate={showWithDueDate}
-                        showWithoutDueDate={showWithoutDueDate}
-                        availableLabels={availableLabels}
-                        selectedLabels={selectedLabels}
-                        onSortHighChange={handleSortHighChange}
-                        onSortLowChange={handleSortLowChange}
-                        onSortLabelChange={handleSortLabelChange}
-                        onImageSizeFilterChange={handleImageSizeFilterChange}
-                        onDueDateFilterChange={handleDueDateFilterChange}
-                        onLabelFilterChange={handleLabelFilterChange}
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div
-                style={{
-                  maxHeight: "530px",
-                  // overflowY: "auto",
-                  padding: "0 var(--space-small)",
+                  maxHeight: "667px",
+                  overflowY: "auto",
+                  position: "relative",
                 }}
               >
                 <div
@@ -1348,6 +1355,7 @@ function Plugin() {
                     gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
                     gap: "8px",
                     width: "100%",
+                    padding: "var(--space-small)",
                   }}
                 >
                   {imagesToDisplay.map((img, index) => {
@@ -1407,9 +1415,19 @@ function Plugin() {
                     );
                   })}
                 </div>
+                <div
+                  style={{
+                    position: "sticky",
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    height: "60px",
+                    zIndex: 3,
+                    background:
+                      "linear-gradient(to bottom, transparent 0%, var(--figma-color-bg) 100%)",
+                  }}
+                ></div>
               </div>
-
-              <VerticalSpace space="small" />
               <div
                 style={{
                   position: "fixed",
@@ -1422,6 +1440,7 @@ function Plugin() {
                   display: "flex",
                   gap: "4px",
                   alignItems: "center",
+                  borderTop: "1px solid var(--figma-color-border)",
                 }}
               >
                 <div
