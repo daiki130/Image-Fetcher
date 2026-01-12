@@ -4,6 +4,11 @@ import { ImageData } from "./types";
 
 const STORAGE_KEY = "savedImages";
 
+// UIサイズ管理用の変数
+let currentUIWidth = 400;
+let currentUIHeight = 1000;
+let isAnimating = false;
+
 export default function () {
   // UIから変換済み画像を受け取る
   on(
@@ -88,7 +93,74 @@ export default function () {
     }
   );
 
-  showUI({ width: 320, height: 600 });
+  // ドラッグ&ドロップで画像を追加するリクエストを受け取る
+  on(
+    "DROP_IMAGE",
+    async (data: { imageData: Uint8Array; width: number; height: number }) => {
+      console.log("DROP_IMAGE received:", data.width, "x", data.height);
+      try {
+        await createRectangleWithImageData(
+          data.imageData,
+          data.width,
+          data.height
+        );
+        console.log("Image added to Figma successfully");
+      } catch (error) {
+        console.error("Error adding image to Figma:", error);
+        const errorMessage =
+          error instanceof Error ? error.message : "不明なエラー";
+        figma.notify(`エラー: ${errorMessage}`, { error: true });
+      }
+    }
+  );
+
+  // UIからリサイズリクエストを受け取る（滑らかなアニメーション付き）
+  on("RESIZE_UI", (data: { width: number; height: number }) => {
+    const targetWidth = data.width;
+    const targetHeight = data.height;
+
+    // 既にアニメーション中の場合はスキップ（連続クリックを防ぐ）
+    if (isAnimating) {
+      return;
+    }
+
+    // 既に目標サイズと同じ場合は何もしない
+    if (currentUIWidth === targetWidth && currentUIHeight === targetHeight) {
+      return;
+    }
+
+    // アニメーション用のステップ数と間隔
+    const steps = 10;
+    const duration = 400; // ミリ秒
+    const stepInterval = duration / steps;
+    const widthStep = (targetWidth - currentUIWidth) / steps;
+    const heightStep = (targetHeight - currentUIHeight) / steps;
+
+    isAnimating = true;
+    let step = 0;
+    const animate = () => {
+      if (step < steps) {
+        currentUIWidth += widthStep;
+        currentUIHeight += heightStep;
+        figma.ui.resize(
+          Math.round(currentUIWidth),
+          Math.round(currentUIHeight)
+        );
+        step++;
+        setTimeout(animate, stepInterval);
+      } else {
+        // 最終的に正確なサイズに設定
+        currentUIWidth = targetWidth;
+        currentUIHeight = targetHeight;
+        figma.ui.resize(targetWidth, targetHeight);
+        isAnimating = false;
+      }
+    };
+
+    animate();
+  });
+
+  showUI({ width: 400, height: 160 });
 }
 
 // 選択ノードに画像データを適用

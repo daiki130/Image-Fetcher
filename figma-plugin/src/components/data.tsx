@@ -3,6 +3,7 @@ import { emit } from "@create-figma-plugin/utilities";
 import { h, Fragment } from "preact";
 import { useState } from "preact/hooks";
 import { ImageData } from "../types";
+import "../styles.css";
 
 interface DataProps {
   images: ImageData[];

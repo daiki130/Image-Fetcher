@@ -4,17 +4,19 @@ import {
   Container,
   Text,
   VerticalSpace,
-  Textbox,
-  TextboxMultiline,
-  FileUploadDropzone,
-  Muted,
+  IconSizeSmall24,
+  IconToggleButton,
 } from "@create-figma-plugin/ui";
 import { emit, on } from "@create-figma-plugin/utilities";
-import { h, Fragment } from "preact";
-import { useState, useEffect } from "preact/hooks";
+import { h, Fragment, JSX } from "preact";
+import { useState, useEffect, useRef } from "preact/hooks";
 import CryptoJS from "crypto-js";
 import { ImageData, ImagesLoadedHandler } from "./types";
 import { Data } from "./components/data";
+import { Card } from "./components/card";
+import { Tooltip } from "./components/Tooltip";
+import { SettingsMenu } from "./components/SettingsMenu";
+// import "./styles.css";
 
 // ImageData は types.ts からインポート
 
@@ -213,13 +215,30 @@ function ServiceLogo({
   );
 }
 
+// グローバルにドラッグ中の画像データを保存
+interface DraggedImageData {
+  imageData: Uint8Array;
+  width: number;
+  height: number;
+}
+
+declare global {
+  interface Window {
+    draggedImageData?: DraggedImageData;
+  }
+}
+
 function Plugin() {
   const [jsonInput, setJsonInput] = useState("");
   const [images, setImages] = useState<ImageData[]>([]);
   const [displayImages, setDisplayImages] = useState<ImageData[]>([]); // Topタブで表示する画像（「データを読み込む」で追加したもののみ）
-  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(
-    null
+  const [selectedImageIndices, setSelectedImageIndices] = useState<Set<number>>(
+    new Set()
   );
+  // 選択された順序を追跡（最新の選択が最後に来る）
+  const [selectedImageOrder, setSelectedImageOrder] = useState<number[]>([]);
+  // アニメーション用：新しく追加された画像のインデックス
+  const [newlyAddedIndex, setNewlyAddedIndex] = useState<number | null>(null);
   const [status, setStatus] = useState("");
   const [statusType, setStatusType] = useState<"info" | "success" | "error">(
     "info"
@@ -228,10 +247,49 @@ function Plugin() {
   const [isEditing, setIsEditing] = useState(false); // 編集中かどうか
   const [displayValue, setDisplayValue] = useState<string>(""); // 表示用の値
 
+  // ドラッグ終了時にFigmaに追加
+  useEffect(() => {
+    const handleDragEnd = async (e: Event) => {
+      console.log("Drag end event fired");
+      // 少し遅延を入れて、ドラッグ終了を確実に検出
+      setTimeout(() => {
+        if (window.draggedImageData) {
+          console.log(
+            "Adding image to Figma:",
+            window.draggedImageData.width,
+            "x",
+            window.draggedImageData.height
+          );
+          emit("DROP_IMAGE", window.draggedImageData);
+          window.draggedImageData = undefined;
+          showStatus("画像をFigmaに追加しました", "success");
+        } else {
+          console.log("No dragged image data found");
+        }
+      }, 100);
+    };
+
+    // グローバルにドラッグ終了イベントをリッスン
+    document.addEventListener("dragend", handleDragEnd);
+
+    return () => {
+      document.removeEventListener("dragend", handleDragEnd);
+    };
+  }, []);
+
   // 起動時に保存された画像データを読み込む
   useEffect(() => {
     emit("LOAD_IMAGES");
   }, []);
+
+  // displayImagesの表示状態に応じてプラグインの幅を変更（アニメーションはmain.tsで処理）
+  useEffect(() => {
+    if (displayImages.length > 0) {
+      emit("RESIZE_UI", { width: 500, height: 1000 });
+    } else {
+      emit("RESIZE_UI", { width: 400, height: 1000 });
+    }
+  }, [displayImages.length]);
 
   // main.ts から画像データを受け取る
   useEffect(() => {
@@ -461,68 +519,72 @@ function Plugin() {
   };
 
   // 画像選択（Topタブ用：displayImagesのインデックスからimages全体のインデックスを計算）
+  // 複数選択対応：クリックで選択/選択解除をトグル
   const handleSelectImage = (index: number, isTopTab: boolean = false) => {
-    if (isTopTab && displayImages[index]) {
-      // displayImagesの画像をimages全体から探す
-      const selectedImage = displayImages[index];
-      const globalIndex = images.findIndex((img) => {
-        if (img.id && selectedImage.id && img.id === selectedImage.id) {
-          return true;
+    setSelectedImageIndices((prev) => {
+      const newSet = new Set(prev);
+      let targetIndex: number;
+
+      if (isTopTab && displayImages[index]) {
+        // displayImagesの画像をimages全体から探す
+        const selectedImage = displayImages[index];
+        const globalIndex = images.findIndex((img) => {
+          if (img.id && selectedImage.id && img.id === selectedImage.id) {
+            return true;
+          }
+          if (img.src && selectedImage.src && img.src === selectedImage.src) {
+            return true;
+          }
+          return false;
+        });
+        if (globalIndex === -1) {
+          return prev; // 見つからない場合は変更なし
         }
-        if (img.src && selectedImage.src && img.src === selectedImage.src) {
-          return true;
-        }
-        return false;
-      });
-      if (globalIndex !== -1) {
-        setSelectedImageIndex(globalIndex);
+        targetIndex = globalIndex;
+      } else {
+        targetIndex = index;
       }
-    } else {
-      setSelectedImageIndex(index);
-    }
+
+      // トグル：既に選択されている場合は解除、されていない場合は追加
+      if (newSet.has(targetIndex)) {
+        newSet.delete(targetIndex);
+        // 選択順序からも削除
+        setSelectedImageOrder((prevOrder) =>
+          prevOrder.filter((idx) => idx !== targetIndex)
+        );
+        setNewlyAddedIndex(null);
+      } else {
+        newSet.add(targetIndex);
+        // 選択順序に追加（最新が最後に来る）
+        setSelectedImageOrder((prevOrder) => [...prevOrder, targetIndex]);
+        // アニメーション用：新しく追加された画像を記録
+        setNewlyAddedIndex(targetIndex);
+        // アニメーション完了後にリセット
+        setTimeout(() => {
+          setNewlyAddedIndex(null);
+        }, 500);
+      }
+
+      return newSet;
+    });
   };
 
-  // 選択ノードに適用
+  // 選択ノードに適用（複数選択されている場合は最初の選択を適用）
   const handleApplyImage = async () => {
-    if (selectedImageIndex === null) {
+    if (selectedImageIndices.size === 0) {
       showStatus("画像を選択してください", "error");
       return;
     }
 
-    const selectedImage = images[selectedImageIndex];
+    // 複数選択されている場合は最初の選択を適用
+    const firstSelectedIndex = Array.from(selectedImageIndices)[0];
+    const selectedImage = images[firstSelectedIndex];
 
     const imageData = await downloadAndConvertImage(selectedImage);
 
     if (imageData) {
       emit("APPLY_IMAGE_DATA", { imageData });
       showStatus("画像を適用しました", "success");
-    } else {
-      showStatus(
-        "画像の処理に失敗しました。画像データを確認してください",
-        "error"
-      );
-    }
-  };
-
-  // 新規レクタングル作成
-  const handleCreateRectangle = async () => {
-    if (selectedImageIndex === null) {
-      showStatus("画像を選択してください", "error");
-      return;
-    }
-
-    const selectedImage = images[selectedImageIndex];
-
-    const imageData = await downloadAndConvertImage(selectedImage);
-
-    if (imageData) {
-      emit("APPLY_IMAGE_DATA", {
-        imageData,
-        isNewRect: true,
-        width: selectedImage.width,
-        height: selectedImage.height,
-      });
-      showStatus("レクタングルを作成しました", "success");
     } else {
       showStatus(
         "画像の処理に失敗しました。画像データを確認してください",
@@ -839,14 +901,141 @@ function Plugin() {
     }
   }
 
+  const [isOpen, setIsOpen] = useState<boolean>(false);
+  const settingsMenuRef = useRef<HTMLDivElement>(null);
+
+  function handleClick(event: JSX.TargetedEvent<HTMLInputElement>) {
+    const newValue = event.currentTarget.checked;
+    setIsOpen(newValue);
+  }
+
+  const [tooltipStates, setTooltipStates] = useState<{
+    [key: string]: boolean;
+  }>({});
+
+  const showTooltip = (key: string) => {
+    setTooltipStates((prev) => ({ ...prev, [key]: true }));
+  };
+
+  const hideTooltip = (key: string) => {
+    setTooltipStates((prev) => ({ ...prev, [key]: false }));
+  };
+
+  const isTooltipVisible = (key: string) => tooltipStates[key] || false;
+
+  // 画像サイズフィルター用の状態
+  // 画像サイズを文字列として管理（例："319×240"）
+  // 特別な値 "__ALL__" は「すべて」を表す
+  const [selectedImageSizes, setSelectedImageSizes] = useState<Set<string>>(
+    new Set(["__ALL__"])
+  );
+
+  // 利用可能な画像サイズのリストを取得
+  const availableImageSizes = (() => {
+    const sizeSet = new Set<string>();
+    displayImages.forEach((img) => {
+      const width = img.width || 0;
+      const height = img.height || 0;
+      if (width > 0 && height > 0) {
+        sizeSet.add(`${width}×${height}`);
+      }
+    });
+    // サイズでソート（幅×高さの順）
+    return Array.from(sizeSet).sort((a, b) => {
+      const [aWidth, aHeight] = a.split("×").map(Number);
+      const [bWidth, bHeight] = b.split("×").map(Number);
+      if (aWidth !== bWidth) return aWidth - bWidth;
+      return aHeight - bHeight;
+    });
+  })();
+
+  // 画像サイズフィルター用のハンドラー
+  const handleImageSizeFilterChange = (size: string) => {
+    setSelectedImageSizes((prev) => {
+      const newSet = new Set(prev);
+
+      if (size === "__ALL__") {
+        // 「すべて」が選択された場合
+        if (newSet.has("__ALL__")) {
+          // 既に選択されている場合は解除しない（常に1つは選択されている必要がある）
+          return prev;
+        } else {
+          // 「すべて」を選択し、個別のサイズをすべて解除
+          return new Set(["__ALL__"]);
+        }
+      } else {
+        // 個別のサイズが選択された場合
+        if (newSet.has(size)) {
+          // 選択解除
+          newSet.delete(size);
+        } else {
+          // 選択追加
+          newSet.add(size);
+          // 「すべて」を解除
+          newSet.delete("__ALL__");
+        }
+
+        // 個別のサイズがすべて外れた場合、「すべて」を自動選択
+        const hasAnySize = Array.from(newSet).some((s) => s !== "__ALL__");
+        if (!hasAnySize) {
+          return new Set(["__ALL__"]);
+        }
+
+        return newSet;
+      }
+    });
+  };
+
+  // 既存のソート/フィルター用の状態（ダミー実装）
+  const [sortHighEnabled] = useState<boolean>(false);
+  const [sortLowEnabled] = useState<boolean>(false);
+  const [sortLabelEnabled] = useState<boolean>(false);
+  const [showWithDueDate] = useState<boolean>(false);
+  const [showWithoutDueDate] = useState<boolean>(false);
+  const [availableLabels] = useState<string[]>([]);
+  const [selectedLabels] = useState<string[]>([]);
+
+  // 既存のソート/フィルター用のハンドラー（ダミー実装）
+  const handleSortHighChange = (_enabled: boolean) => {};
+  const handleSortLowChange = (_enabled: boolean) => {};
+  const handleSortLabelChange = (_enabled: boolean) => {};
+  const handleDueDateFilterChange = (
+    _withDueDate: boolean,
+    _withoutDueDate: boolean
+  ) => {};
+  const handleLabelFilterChange = (_label: string) => {};
+
+  // 画像サイズでフィルターするロジック
+  const imagesToDisplay = (() => {
+    // 「すべて」が選択されている場合はすべて表示
+    if (selectedImageSizes.has("__ALL__")) {
+      return displayImages;
+    }
+
+    // 選択されたサイズの画像のみ表示
+    return displayImages.filter((img) => {
+      const width = img.width || 0;
+      const height = img.height || 0;
+      if (width === 0 || height === 0) return false;
+      const sizeStr = `${width}×${height}`;
+      return selectedImageSizes.has(sizeStr);
+    });
+  })();
+
   return (
-    <div style={{ position: "relative", height: "100%" }}>
+    <div
+      style={{
+        position: "relative",
+        height: "100%",
+        backgroundColor: "var(--figma-color-bg-secondary)",
+        // backgroundColor: "#141414",
+      }}
+    >
       {/* カスタムステータスタブ */}
-      <div
+      {/* <div
         style={{
           overflowX: "auto",
           whiteSpace: "nowrap",
-          padding: "0 var(--space-8)",
           borderBottom: "1px solid var(--figma-color-border)",
         }}
       >
@@ -906,272 +1095,478 @@ function Plugin() {
             </button>
           ))}
         </div>
-      </div>
-
-      <Container space="small">
-        <VerticalSpace space="medium" />
-        {tabValue === "Top" && (
-          <>
-            <div
-              style={{
-                border: "2px dashed var(--figma-color-border)",
-                borderRadius: "4px",
-                padding: "40px 20px",
-                textAlign: "center",
-                cursor: "pointer",
-                position: "relative",
-              }}
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                (e.currentTarget as HTMLElement).style.borderColor =
-                  "var(--figma-color-border-selected)";
-              }}
-              onDragLeave={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                (e.currentTarget as HTMLElement).style.borderColor =
-                  "var(--figma-color-border)";
-              }}
-              onDrop={(e: DragEvent) => {
-                e.preventDefault();
-                e.stopPropagation();
-                (e.currentTarget as HTMLElement).style.borderColor =
-                  "var(--figma-color-border)";
-                const dataTransfer = e.dataTransfer;
-                if (dataTransfer && dataTransfer.files) {
-                  const files = Array.from(dataTransfer.files);
-                  if (files.length > 0) {
-                    handleSelectedFiles(files);
+      </div> */}
+      {tabValue === "Top" && (
+        <div>
+          <div
+            style={{
+              padding: "var(--space-extra-small)",
+              borderRight: "1px solid var(--figma-color-border)",
+              position: "sticky",
+              top: 0,
+              alignSelf: "flex-start",
+              zIndex: 99,
+              background: "var(--figma-color-bg-secondary)",
+              borderBottom: imagesToDisplay.length > 0 ? "1px solid var(--figma-color-border)" : "none" as string,
+            }}
+          >
+            {imagesToDisplay.length === 0 && (
+              <div
+                style={{
+                  border: `2px dashed var(--figma-color-border)`,
+                  borderRadius: "12px",
+                  padding: "40px 20px",
+                  textAlign: "center",
+                  cursor: "pointer",
+                  position: "relative",
+                  color: "var(--figma-color-text)",
+                  backgroundColor: "var(--figma-color-bg)",
+                  lineHeight: "2.3",
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  (e.currentTarget as HTMLElement).style.borderColor =
+                    "var(--figma-color-border-selected)";
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  (e.currentTarget as HTMLElement).style.borderColor =
+                    "var(--figma-color-border)";
+                }}
+                onDrop={(e: DragEvent) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  (e.currentTarget as HTMLElement).style.borderColor =
+                    "var(--figma-color-border)";
+                  const dataTransfer = e.dataTransfer;
+                  if (dataTransfer && dataTransfer.files) {
+                    const files = Array.from(dataTransfer.files);
+                    if (files.length > 0) {
+                      handleSelectedFiles(files);
+                    }
                   }
-                }
-              }}
-              onClick={() => {
-                const input = document.createElement("input");
-                input.type = "file";
-                input.accept = ".imagefetcher";
-                input.onchange = async (e: Event) => {
-                  const files = (e.target as HTMLInputElement).files;
-                  if (files && files.length > 0) {
-                    handleSelectedFiles(Array.from(files));
-                  }
-                };
-                input.click();
-              }}
-            >
-              <Text align="center">
-                <Muted>.imagefetcherファイルをドロップまたはクリック</Muted>
-              </Text>
-            </div>
-            {/* <div
-              style={{
-                fontSize: "11px",
-                fontWeight: "600",
-                height: "40px",
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              Image Src
-            </div>
-            <TextboxMultiline
-              value={jsonInput}
-              onValueInput={setJsonInput}
-              placeholder="データを貼り付けてください..."
-            />
-
-            <VerticalSpace space="small" /> */}
-            {/* <div style={{ display: "flex", gap: "8px" }}>
-              <Button fullWidth onClick={handleLoadData}>
-                データを読み込む
-              </Button>
-              <Button
-                fullWidth
-                secondary
+                }}
                 onClick={() => {
                   const input = document.createElement("input");
                   input.type = "file";
-                  // 拡張子の制限を緩和（すべてのファイルを受け付ける）
+                  input.accept = ".imagefetcher";
                   input.onchange = async (e: Event) => {
-                    const file = (e.target as HTMLInputElement).files?.[0];
-                    if (file) {
-                      try {
-                        showStatus("ファイルを読み込み中...", "info");
-                        const text = await file.text();
-                        // ファイルの内容をそのまま設定（表示用）
-                        setJsonInput(text);
-                        // データを直接渡して読み込む（setJsonInputの状態更新を待たない）
-                        await handleLoadData(text);
-                      } catch (error) {
-                        showStatus(
-                          `ファイルの読み込みに失敗しました: ${
-                            error instanceof Error
-                              ? error.message
-                              : "不明なエラー"
-                          }`,
-                          "error"
-                        );
-                      }
+                    const files = (e.target as HTMLInputElement).files;
+                    if (files && files.length > 0) {
+                      handleSelectedFiles(Array.from(files));
                     }
                   };
                   input.click();
                 }}
               >
-                ファイルから読み込む
-              </Button>
-            </div> */}
-          </>
-        )}
-        {tabValue === "Top" && displayImages.length > 0 && (
-          <>
-            <VerticalSpace space="medium" />
-            <Text>
-              <strong>{displayImages.length}個の画像</strong>
-            </Text>
-            <VerticalSpace space="extraSmall" />
-
-            <div
-              style={{
-                maxHeight: "200px",
-                overflowY: "auto",
-                border: "1px solid #e0e0e0",
-                borderRadius: "4px",
-              }}
-            >
-              {displayImages.map((img, index) => {
-                // images全体でのインデックスを計算
-                const globalIndex = images.findIndex((globalImg) => {
-                  if (globalImg.id && img.id && globalImg.id === img.id) {
-                    return true;
+                Drag-and-drop or click to
+                <br />
+                upload a{" "}
+                <span
+                  style={{
+                    padding: "4px",
+                    background: "var(--figma-color-bg-secondary)",
+                    borderRadius: "4px",
+                  }}
+                >
+                  .imagefetcher
+                </span>{" "}
+                file
+              </div>
+            )}
+            {imagesToDisplay.length > 0 &&
+              (() => {
+                // ユニークなサービス名とfaviconを取得
+                const uniqueServices = new Map<string, string>();
+                imagesToDisplay.forEach((img) => {
+                  const serviceName = img.service || "Unknown";
+                  if (!uniqueServices.has(serviceName) && img.favicon) {
+                    uniqueServices.set(serviceName, img.favicon);
                   }
-                  if (globalImg.src && img.src && globalImg.src === img.src) {
-                    return true;
-                  }
-                  return false;
                 });
-                const isSelected =
-                  globalIndex !== -1 && selectedImageIndex === globalIndex;
+
                 return (
                   <div
-                    key={index}
-                    onClick={() => handleSelectImage(index, true)}
                     style={{
                       display: "flex",
-                      alignItems: "center",
-                      padding: "8px",
-                      borderBottom:
-                        index < displayImages.length - 1
-                          ? "1px solid #f0f0f0"
-                          : "none",
-                      cursor: "pointer",
-                      background: isSelected ? "#e3f2fd" : "transparent",
-                      borderLeft: isSelected
-                        ? "3px solid #18A0FB"
-                        : "3px solid transparent",
+                      flexDirection: "column",
+                      gap: "var(--space-small)",
                     }}
                   >
-                    <img
-                      src={img.src}
-                      alt={img.alt || `Image ${index + 1}`}
+                    <div
                       style={{
-                        width: "40px",
-                        height: "40px",
-                        objectFit: "cover",
-                        marginRight: "8px",
-                        borderRadius: "3px",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "6px",
                       }}
-                      onError={(e) => {
-                        e.currentTarget.style.display = "none";
+                    >
+                      {Array.from(uniqueServices.entries()).map(
+                        ([serviceName, favicon]) => (
+                          <div
+                            key={serviceName}
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              borderRadius: "6px",
+                              backgroundColor: "var(--figma-color-bg)",
+                              padding: "8px",
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "8px",
+                              }}
+                            >
+                              <ServiceLogo
+                                serviceName={serviceName}
+                                favicon={favicon}
+                                size={24}
+                              />
+                              <div
+                                style={{
+                                  fontSize: "13px",
+                                  color: "var(--figma-color-text)",
+                                }}
+                              >
+                                {serviceName}
+                              </div>
+                              <span
+                                style={{
+                                  fontSize: "10px",
+                                  borderRadius: "4px",
+                                  padding: "2px 8px",
+                                  border: "1px solid var(--figma-color-border)",
+                                }}
+                              >
+                                {displayImages.length} images
+                              </span>
+                            </div>
+                            <Button
+                              danger
+                              onClick={() => handleDeleteService(serviceName)}
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        )
+                      )}
+                    </div>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
                       }}
-                    />
-                    <div style={{ flex: 1, overflow: "hidden" }}>
+                    >
                       <div
+                        ref={settingsMenuRef}
                         style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "6px",
-                          fontSize: "11px",
+                          position: "relative",
+                          display: "inline-block",
                         }}
+                        onMouseEnter={() => showTooltip("filter")}
+                        onMouseLeave={() => hideTooltip("filter")}
                       >
-                        <strong>{index + 1}.</strong> {img.alt || "No title"}
-                        {/* {img.service && (
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "4px",
-                          }}
-                        >
-                          <ServiceLogo serviceName={img.service} size={14} />
-                        </div>
-                      )} */}
-                      </div>
-                      <div style={{ fontSize: "10px", color: "#666" }}>
-                        {img.width} × {img.height}
+                        <IconToggleButton onChange={handleClick} value={isOpen}>
+                          <IconSizeSmall24 />
+                        </IconToggleButton>
+                        {/* Tooltip */}
+                        {isTooltipVisible("filter") && !isOpen && (
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: "24px",
+                              right: "-4px",
+                              zIndex: 1000,
+                            }}
+                          >
+                            <Tooltip
+                              message="Size"
+                              arrowPosition="top"
+                              arrowOffset="74%"
+                            />
+                          </div>
+                        )}
+
+                        {/* Settings Menu */}
+                        {isOpen && (
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: "28px",
+                              right: "-3px",
+                              zIndex: 1001,
+                            }}
+                          >
+                            <SettingsMenu
+                              sortHighEnabled={sortHighEnabled}
+                              sortLowEnabled={sortLowEnabled}
+                              sortLabelEnabled={sortLabelEnabled}
+                              availableImageSizes={availableImageSizes}
+                              selectedImageSizes={Array.from(
+                                selectedImageSizes
+                              )}
+                              showWithDueDate={showWithDueDate}
+                              showWithoutDueDate={showWithoutDueDate}
+                              availableLabels={availableLabels}
+                              selectedLabels={selectedLabels}
+                              onSortHighChange={handleSortHighChange}
+                              onSortLowChange={handleSortLowChange}
+                              onSortLabelChange={handleSortLabelChange}
+                              onImageSizeFilterChange={
+                                handleImageSizeFilterChange
+                              }
+                              onDueDateFilterChange={handleDueDateFilterChange}
+                              onLabelFilterChange={handleLabelFilterChange}
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
                 );
-              })}
-            </div>
+              })()}
+          </div>
 
-            <VerticalSpace space="small" />
-            <Button
-              fullWidth
-              onClick={handlePlaceAllImagesInFrame}
-              disabled={displayImages.length === 0}
-            >
-              フレーム内に自動配置
-            </Button>
-
-            <VerticalSpace space="extraSmall" />
-            <Button
-              fullWidth
-              onClick={handleApplyImage}
-              disabled={selectedImageIndex === null}
-            >
-              選択ノードに画像を適用
-            </Button>
-
-            <VerticalSpace space="extraSmall" />
-            <Button
-              fullWidth
-              secondary
-              onClick={handleCreateRectangle}
-              disabled={selectedImageIndex === null}
-            >
-              新規レクタングルを作成
-            </Button>
-          </>
-        )}
-
-        {tabValue === "Top" && status && (
-          <>
-            <VerticalSpace space="small" />
+          {displayImages.length > 0 && (
             <div
               style={{
-                padding: "8px",
-                background:
-                  statusType === "error"
-                    ? "#ffe0e0"
-                    : statusType === "success"
-                    ? "#e0f5e0"
-                    : "#f5f5f5",
-                color:
-                  statusType === "error"
-                    ? "#d32f2f"
-                    : statusType === "success"
-                    ? "#388e3c"
-                    : "#333",
-                borderRadius: "4px",
-                fontSize: "11px",
+                display: "flex",
+                flexDirection: "column",
+                flex: 1,
               }}
             >
-              {status}
+              <div
+                style={{
+                  maxHeight: "667px",
+                  overflowY: "auto",
+                  position: "relative",
+                }}
+              >
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
+                    gap: "8px",
+                    width: "100%",
+                    padding: "var(--space-small)",
+                  }}
+                >
+                  {imagesToDisplay.map((img, index) => {
+                    // images全体でのインデックスを計算
+                    const globalIndex = images.findIndex((globalImg) => {
+                      if (globalImg.id && img.id && globalImg.id === img.id) {
+                        return true;
+                      }
+                      if (
+                        globalImg.src &&
+                        img.src &&
+                        globalImg.src === img.src
+                      ) {
+                        return true;
+                      }
+                      return false;
+                    });
+                    const isSelected =
+                      globalIndex !== -1 &&
+                      selectedImageIndices.has(globalIndex);
+                    return (
+                      <Card
+                        key={index}
+                        image={img}
+                        isSelected={isSelected}
+                        onClick={() => handleSelectImage(index, true)}
+                        onDragStart={async (image) => {
+                          // ドラッグ開始時に画像を処理（非同期で準備）
+                          console.log(
+                            "Drag start, preparing image:",
+                            image.src
+                          );
+                          downloadAndConvertImage(image)
+                            .then((imageData) => {
+                              if (imageData) {
+                                // 画像データを準備（ドロップ時に使用）
+                                window.draggedImageData = {
+                                  imageData,
+                                  width: image.width,
+                                  height: image.height,
+                                };
+                                console.log(
+                                  "Image data prepared:",
+                                  image.width,
+                                  "x",
+                                  image.height
+                                );
+                              } else {
+                                console.error("Failed to convert image");
+                              }
+                            })
+                            .catch((error) => {
+                              console.error("Error converting image:", error);
+                            });
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+                <div
+                  style={{
+                    position: "sticky",
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    height: "60px",
+                    zIndex: 3,
+                    background:
+                      "linear-gradient(to bottom, transparent 0%, var(--figma-color-bg) 100%)",
+                  }}
+                ></div>
+              </div>
+              <div
+                style={{
+                  position: "fixed",
+                  bottom: "0",
+                  left: "0",
+                  right: "0",
+                  padding: "12px 12px ",
+                  zIndex: 99,
+                  background: "var(--figma-color-bg)",
+                  display: "flex",
+                  gap: "4px",
+                  alignItems: "center",
+                  borderTop: "1px solid var(--figma-color-border)",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "4px",
+                    flex: 1,
+                    justifyContent: "flex-end",
+                  }}
+                >
+                  <Button
+                    fullWidth
+                    onClick={handleApplyImage}
+                    disabled={selectedImageIndices.size === 0}
+                    style={{
+                      backgroundColor:
+                        "var(--figma-color-background-secondary)",
+                      color: "var(--figma-color-text-tertiary)",
+                      height: "32px",
+                      width: "180px",
+                      border: "1px solid var(--figma-color-border)",
+                    }}
+                  >
+                    Apply to selection
+                  </Button>
+                  <Button
+                    fullWidth
+                    onClick={handlePlaceAllImagesInFrame}
+                    disabled={displayImages.length === 0}
+                    style={{
+                      color: "var(--figma-color-text)",
+                      height: "32px",
+                      width: "180px",
+                    }}
+                  >
+                    Apply
+                  </Button>
+                </div>
+                {/* 選択された画像のサムネイルスタック */}
+                {selectedImageOrder.length > 0 && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: "4%",
+                      bottom: "37%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      height: "40px",
+                      width: "80px",
+                    }}
+                  >
+                    {selectedImageOrder.map((index, stackIndex) => {
+                      const selectedImage = images[index];
+                      if (!selectedImage) return null;
+                      // 最新の選択が上に来るように、stackIndexが大きいほど高いz-index
+                      // 最初の選択（stackIndex = 0）が最も下、最新の選択（stackIndex = length - 1）が最も上
+                      const displayIndex =
+                        selectedImageOrder.length - 1 - stackIndex;
+                      const isNewlyAdded = newlyAddedIndex === index;
+                      // 最新3枚以外はopacity 0にする
+                      const isInLatestThree =
+                        stackIndex >= selectedImageOrder.length - 3;
+                      const targetY = displayIndex * -4;
+                      const targetScale = 1 - displayIndex * 0.08;
+
+                      return (
+                        <div
+                          key={index} // stackIndexを含めないことで、位置が変わっても同じ要素として認識される
+                          style={{
+                            position: "absolute",
+                            width: "100px",
+                            height: "60px",
+                            borderRadius: "4px",
+                            overflow: "hidden",
+                            backgroundColor: "var(--figma-color-bg-secondary)",
+                            boxShadow: "0px 3px 8px rgba(0, 0, 0, 0.7)",
+                            zIndex: stackIndex + 1, // stackIndexが大きいほど高いz-index（最新が上）
+                            transition: isNewlyAdded
+                              ? "transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)"
+                              : "all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+                            transform: isNewlyAdded
+                              ? `translateX(-120px) translateY(${targetY}px) scale(${targetScale})`
+                              : `translateX(0px) translateY(${targetY}px) scale(${targetScale})`,
+                            opacity: isInLatestThree
+                              ? 1 - displayIndex * 0.1
+                              : 0, // 最新3枚以外はopacity 0
+                          }}
+                          ref={(el) => {
+                            if (el && isNewlyAdded) {
+                              // 次のフレームでアニメーションを開始
+                              requestAnimationFrame(() => {
+                                requestAnimationFrame(() => {
+                                  el.style.transform = `translateX(0px) translateY(${targetY}px) scale(${targetScale})`;
+                                });
+                              });
+                            }
+                          }}
+                          onTransitionEnd={() => {
+                            if (isNewlyAdded) {
+                              setNewlyAddedIndex(null);
+                            }
+                          }}
+                        >
+                          <img
+                            src={selectedImage.src}
+                            alt={selectedImage.alt || "Selected image"}
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
+                            }}
+                            onError={(e) => {
+                              e.currentTarget.style.display = "none";
+                            }}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
-          </>
-        )}
-      </Container>
+          )}
+        </div>
+      )}
       <div>
         {tabValue === "Data" && (
           <Data images={images} onDeleteService={handleDeleteService} />
