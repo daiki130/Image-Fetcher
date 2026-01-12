@@ -16,6 +16,7 @@ import { Data } from "./components/data";
 import { Card } from "./components/card";
 import { Tooltip } from "./components/Tooltip";
 import { SettingsMenu } from "./components/SettingsMenu";
+import { Loading } from "./components/loading";
 // import "./styles.css";
 
 // ImageData は types.ts からインポート
@@ -246,6 +247,9 @@ function Plugin() {
   const [modalService, setModalService] = useState<string | null>(null); // モーダルで表示するサービス名
   const [isEditing, setIsEditing] = useState(false); // 編集中かどうか
   const [displayValue, setDisplayValue] = useState<string>(""); // 表示用の値
+  const [isLoading, setIsLoading] = useState(false); // データ読み込み中かどうか
+  const [loadingProgress, setLoadingProgress] = useState(0); // 進捗率（0-100）
+  const [applyButtonLoading, setApplyButtonLoading] = useState(false); // 適用ボタンのローディング状態
 
   // ドラッグ終了時にFigmaに追加
   useEffect(() => {
@@ -343,6 +347,16 @@ function Plugin() {
     return merged;
   };
 
+  // 進捗更新を確実に反映させるためのヘルパー関数
+  const updateProgress = (progress: number): Promise<void> => {
+    return new Promise((resolve) => {
+      setLoadingProgress(progress);
+      requestAnimationFrame(() => {
+        setTimeout(resolve, 50); // UI更新を確実にするための小さな遅延
+      });
+    });
+  };
+
   // データ読み込み（引数でデータを直接渡すことも可能）
   const handleLoadData = async (data?: string) => {
     const dataToProcess = data || jsonInput;
@@ -351,23 +365,33 @@ function Plugin() {
       return;
     }
 
+    // ローディング開始
+    setIsLoading(true);
+    await updateProgress(0);
+
     try {
+      await updateProgress(5);
       let dataToParse = dataToProcess.trim();
 
       // 暗号化されている場合は復号化
       if (isEncrypted(dataToParse)) {
+        await updateProgress(10);
         showStatus("データを復号化中...", "info");
         console.log("Attempting to decrypt data, length:", dataToParse.length);
 
         try {
+          await updateProgress(20);
           const decrypted = decryptData(dataToParse);
+          await updateProgress(30);
 
           if (!decrypted) {
             console.error("Decryption returned null or empty string");
             // 復号化に失敗した場合、元のデータでJSONパースを試みる
             try {
+              await updateProgress(40);
               const parsed = JSON.parse(dataToParse);
               if (Array.isArray(parsed) && parsed.length > 0) {
+                await updateProgress(50);
                 // Chrome拡張機能の短縮形式（w, h）を通常形式（width, height, alt）に変換
                 let convertedParsed = parsed.map((img: any) => {
                   // 既に通常形式の場合はそのまま返す（base64やserviceなどのフィールドも保持）
@@ -391,6 +415,7 @@ function Plugin() {
                 });
 
                 // 既存データを取得してマージ
+                await updateProgress(70);
                 const existingImages = images.length > 0 ? images : [];
                 const merged = mergeImages(existingImages, convertedParsed);
                 setImages(merged);
@@ -405,15 +430,18 @@ function Plugin() {
                   }
                 }
                 setDisplayImages(uniqueParsed);
+                await updateProgress(90);
                 // 画像データを figmaClientStorage に保存
                 emit("SAVE_IMAGES", merged);
-                // 状態更新後にメッセージを表示
+                await updateProgress(100);
+                // 状態更新後にメッセージを表示（少し長めの遅延で完了を確認できるように）
                 setTimeout(() => {
+                  setIsLoading(false);
                   showStatus(
                     `${parsed.length}個の画像を追加しました（合計: ${merged.length}個）`,
                     "success"
                   );
-                }, 0);
+                }, 300);
                 return;
               }
             } catch (parseError) {
@@ -422,6 +450,7 @@ function Plugin() {
                 parseError
               );
             }
+            setIsLoading(false);
             showStatus(
               "データの復号化に失敗しました。ファイルが正しい形式か確認してください",
               "error"
@@ -436,6 +465,7 @@ function Plugin() {
           dataToParse = decrypted;
         } catch (decryptError) {
           console.error("Decryption error:", decryptError);
+          setIsLoading(false);
           showStatus(
             `復号化エラー: ${
               decryptError instanceof Error
@@ -448,13 +478,16 @@ function Plugin() {
         }
       }
 
+      await updateProgress(40);
       let parsed = JSON.parse(dataToParse);
 
       if (!Array.isArray(parsed) || parsed.length === 0) {
+        setIsLoading(false);
         showStatus("有効な画像配列を入力してください", "error");
         return;
       }
 
+      await updateProgress(50);
       // Chrome拡張機能の短縮形式（w, h）を通常形式（width, height, alt）に変換
       parsed = parsed.map((img: any) => {
         // 既に通常形式の場合はそのまま返す（base64やserviceなどのフィールドも保持）
@@ -477,11 +510,13 @@ function Plugin() {
         };
       });
 
+      await updateProgress(60);
       // 既存データと新規データをマージ
       // 既存の images ステートを使用（起動時に自動で読み込まれている）
       const existingImages = images.length > 0 ? images : [];
       const merged = mergeImages(existingImages, parsed);
 
+      await updateProgress(70);
       setImages(merged);
       // 表示用画像を新しいデータに置き換え（parsed内の重複を排除）
       const uniqueParsed: ImageData[] = [];
@@ -494,11 +529,14 @@ function Plugin() {
         }
       }
       setDisplayImages(uniqueParsed);
+      await updateProgress(90);
       // 画像データを figmaClientStorage に保存
       emit("SAVE_IMAGES", merged);
-      // 状態更新後にメッセージを表示
+      await updateProgress(100);
+      // 状態更新後にメッセージを表示（少し長めの遅延で完了を確認できるように）
       const addedCount = merged.length - existingImages.length;
       setTimeout(() => {
+        setIsLoading(false);
         if (addedCount > 0) {
           showStatus(
             `${addedCount}個の画像を追加しました（合計: ${merged.length}個）`,
@@ -510,8 +548,9 @@ function Plugin() {
             "info"
           );
         }
-      }, 0);
+      }, 300);
     } catch (error) {
+      setIsLoading(false);
       const errorMessage =
         error instanceof Error ? error.message : "不明なエラー";
       showStatus(`データ読み込みエラー: ${errorMessage}`, "error");
@@ -595,6 +634,7 @@ function Plugin() {
 
   // フレーム内にすべての画像を自動配置
   const handlePlaceAllImagesInFrame = async () => {
+    setApplyButtonLoading(true);
     if (displayImages.length === 0) {
       showStatus("配置する画像がありません", "error");
       return;
@@ -636,6 +676,7 @@ function Plugin() {
       } else {
         showStatus("配置できる画像がありませんでした", "error");
       }
+      setApplyButtonLoading(false);
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "不明なエラー";
@@ -1031,6 +1072,37 @@ function Plugin() {
         // backgroundColor: "#141414",
       }}
     >
+      {/* ローディング表示 */}
+      {isLoading && (
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "var(--figma-color-bg)",
+              borderRadius: "8px",
+              padding: "var(--space-medium)",
+              minWidth: "200px",
+            }}
+          >
+            <Loading
+              message="データを読み込み中..."
+              progress={loadingProgress}
+            />
+          </div>
+        </div>
+      )}
       {/* カスタムステータスタブ */}
       {/* <div
         style={{
@@ -1107,7 +1179,10 @@ function Plugin() {
               alignSelf: "flex-start",
               zIndex: 99,
               background: "var(--figma-color-bg-secondary)",
-              borderBottom: imagesToDisplay.length > 0 ? "1px solid var(--figma-color-border)" : "none" as string,
+              borderBottom:
+                imagesToDisplay.length > 0
+                  ? "1px solid var(--figma-color-border)"
+                  : ("none" as string),
             }}
           >
             {imagesToDisplay.length === 0 && (
@@ -1468,6 +1543,7 @@ function Plugin() {
                   </Button>
                   <Button
                     fullWidth
+                    loading={applyButtonLoading}
                     onClick={handlePlaceAllImagesInFrame}
                     disabled={displayImages.length === 0}
                     style={{
