@@ -249,6 +249,7 @@ function Plugin() {
   const [displayValue, setDisplayValue] = useState<string>(""); // 表示用の値
   const [isLoading, setIsLoading] = useState(false); // データ読み込み中かどうか
   const [loadingProgress, setLoadingProgress] = useState(0); // 進捗率（0-100）
+  const [applyButtonLoading, setApplyButtonLoading] = useState(false); // 適用ボタンのローディング状態
 
   // ドラッグ終了時にFigmaに追加
   useEffect(() => {
@@ -633,6 +634,7 @@ function Plugin() {
 
   // フレーム内にすべての画像を自動配置
   const handlePlaceAllImagesInFrame = async () => {
+    setApplyButtonLoading(true);
     if (displayImages.length === 0) {
       showStatus("配置する画像がありません", "error");
       return;
@@ -674,6 +676,7 @@ function Plugin() {
       } else {
         showStatus("配置できる画像がありませんでした", "error");
       }
+      setApplyButtonLoading(false);
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "不明なエラー";
@@ -1540,6 +1543,7 @@ function Plugin() {
                   </Button>
                   <Button
                     fullWidth
+                    loading={applyButtonLoading}
                     onClick={handlePlaceAllImagesInFrame}
                     disabled={displayImages.length === 0}
                     style={{
