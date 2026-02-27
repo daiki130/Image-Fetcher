@@ -250,6 +250,29 @@ function Plugin() {
   const [isLoading, setIsLoading] = useState(false); // データ読み込み中かどうか
   const [loadingProgress, setLoadingProgress] = useState(0); // 進捗率（0-100）
   const [applyButtonLoading, setApplyButtonLoading] = useState(false); // 適用ボタンのローディング状態
+  const [isScrolledToBottom, setIsScrolledToBottom] = useState(false); // 一番下までスクロールしたかどうか
+  const scrollContainerRef = useRef<HTMLDivElement>(null); // スクロール可能なコンテナのref
+
+  // スクロール位置を監視
+  useEffect(() => {
+    const scrollContainer = scrollContainerRef.current;
+    if (!scrollContainer) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
+      // 一番下までスクロールしたかどうかを判定（5pxの余裕を持たせる）
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 5;
+      setIsScrolledToBottom(isAtBottom);
+    };
+
+    scrollContainer.addEventListener("scroll", handleScroll);
+    // 初回チェック
+    handleScroll();
+
+    return () => {
+      scrollContainer.removeEventListener("scroll", handleScroll);
+    };
+  }, [displayImages]); // displayImagesが変更されたら再チェック
 
   // ドラッグ終了時にFigmaに追加
   useEffect(() => {
@@ -1418,8 +1441,9 @@ function Plugin() {
               }}
             >
               <div
+                ref={scrollContainerRef}
                 style={{
-                  maxHeight: "667px",
+                  maxHeight: "850px",
                   overflowY: "auto",
                   position: "relative",
                 }}
@@ -1490,18 +1514,6 @@ function Plugin() {
                     );
                   })}
                 </div>
-                <div
-                  style={{
-                    position: "sticky",
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    height: "60px",
-                    zIndex: 3,
-                    background:
-                      "linear-gradient(to bottom, transparent 0%, var(--figma-color-bg) 100%)",
-                  }}
-                ></div>
               </div>
               <div
                 style={{
