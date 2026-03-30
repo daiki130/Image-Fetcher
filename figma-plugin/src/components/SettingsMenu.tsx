@@ -189,7 +189,6 @@ export function SettingsMenu({
       }}
     >
       {/* 画像サイズセクション */}
-      <div style={styles.header}>画像サイズ</div>
       <div style={{ marginBottom: "var(--space-8)" }}>
         {/* 個別のサイズオプション */}
         {availableImageSizes.length > 0 ? (
@@ -219,7 +218,7 @@ export function SettingsMenu({
       <MenuItem
         key="__ALL__"
         id="imageSize-__ALL__"
-        label="すべて"
+        label="All"
         isSelected={selectedImageSizes.includes("__ALL__")}
         hoveredItem={hoveredItem}
         onHover={setHoveredItem}

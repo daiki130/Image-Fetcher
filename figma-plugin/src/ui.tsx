@@ -1,13 +1,14 @@
 import {
   render,
   Button,
+  Checkbox,
   Container,
   Text,
   VerticalSpace,
   IconSizeSmall24,
   IconToggleButton,
 } from "@create-figma-plugin/ui";
-import { emit, on } from "@create-figma-plugin/utilities";
+import { emit, on, MIXED_BOOLEAN } from "@create-figma-plugin/utilities";
 import { h, Fragment, JSX } from "preact";
 import { useState, useEffect, useRef } from "preact/hooks";
 import CryptoJS from "crypto-js";
@@ -79,7 +80,7 @@ function decryptData(encryptedBase64: string): string | null {
         iv: iv,
         mode: CryptoJS.mode.CBC,
         padding: CryptoJS.pad.Pkcs7,
-      }
+      },
     );
 
     const decryptedString = decrypted.toString(CryptoJS.enc.Utf8);
@@ -234,7 +235,7 @@ function Plugin() {
   const [images, setImages] = useState<ImageData[]>([]);
   const [displayImages, setDisplayImages] = useState<ImageData[]>([]); // Topタブで表示する画像（「データを読み込む」で追加したもののみ）
   const [selectedImageIndices, setSelectedImageIndices] = useState<Set<number>>(
-    new Set()
+    new Set(),
   );
   // 選択された順序を追跡（最新の選択が最後に来る）
   const [selectedImageOrder, setSelectedImageOrder] = useState<number[]>([]);
@@ -242,7 +243,7 @@ function Plugin() {
   const [newlyAddedIndex, setNewlyAddedIndex] = useState<number | null>(null);
   const [status, setStatus] = useState("");
   const [statusType, setStatusType] = useState<"info" | "success" | "error">(
-    "info"
+    "info",
   );
   const [modalService, setModalService] = useState<string | null>(null); // モーダルで表示するサービス名
   const [isEditing, setIsEditing] = useState(false); // 編集中かどうか
@@ -285,7 +286,7 @@ function Plugin() {
             "Adding image to Figma:",
             window.draggedImageData.width,
             "x",
-            window.draggedImageData.height
+            window.draggedImageData.height,
           );
           emit("DROP_IMAGE", window.draggedImageData);
           window.draggedImageData = undefined;
@@ -325,7 +326,7 @@ function Plugin() {
         setImages(loadedImages);
         showStatus(
           `${loadedImages.length}個の保存された画像を読み込みました`,
-          "success"
+          "success",
         );
       }
     };
@@ -336,7 +337,7 @@ function Plugin() {
   // 画像の重複チェック（srcまたはidで判定）
   const isDuplicateImage = (
     existing: ImageData,
-    newImage: ImageData
+    newImage: ImageData,
   ): boolean => {
     // idが存在する場合はidで比較
     if (existing.id && newImage.id && existing.id === newImage.id) {
@@ -352,14 +353,14 @@ function Plugin() {
   // 既存データと新規データをマージ
   const mergeImages = (
     existing: ImageData[],
-    newImages: ImageData[]
+    newImages: ImageData[],
   ): ImageData[] => {
     const merged = [...existing];
 
     for (const newImage of newImages) {
       // 重複チェック
       const isDuplicate = merged.some((existingImage) =>
-        isDuplicateImage(existingImage, newImage)
+        isDuplicateImage(existingImage, newImage),
       );
 
       if (!isDuplicate) {
@@ -446,7 +447,7 @@ function Plugin() {
                 const uniqueParsed: ImageData[] = [];
                 for (const newImage of convertedParsed) {
                   const isDuplicate = uniqueParsed.some((existingImage) =>
-                    isDuplicateImage(existingImage, newImage)
+                    isDuplicateImage(existingImage, newImage),
                   );
                   if (!isDuplicate) {
                     uniqueParsed.push(newImage);
@@ -462,7 +463,7 @@ function Plugin() {
                   setIsLoading(false);
                   showStatus(
                     `${parsed.length}個の画像を追加しました（合計: ${merged.length}個）`,
-                    "success"
+                    "success",
                   );
                 }, 300);
                 return;
@@ -470,20 +471,20 @@ function Plugin() {
             } catch (parseError) {
               console.error(
                 "JSON parse error after decryption failure:",
-                parseError
+                parseError,
               );
             }
             setIsLoading(false);
             showStatus(
               "データの復号化に失敗しました。ファイルが正しい形式か確認してください",
-              "error"
+              "error",
             );
             return;
           }
 
           console.log(
             "Decryption successful, decrypted length:",
-            decrypted.length
+            decrypted.length,
           );
           dataToParse = decrypted;
         } catch (decryptError) {
@@ -495,7 +496,7 @@ function Plugin() {
                 ? decryptError.message
                 : "不明なエラー"
             }`,
-            "error"
+            "error",
           );
           return;
         }
@@ -545,7 +546,7 @@ function Plugin() {
       const uniqueParsed: ImageData[] = [];
       for (const newImage of parsed) {
         const isDuplicate = uniqueParsed.some((existingImage) =>
-          isDuplicateImage(existingImage, newImage)
+          isDuplicateImage(existingImage, newImage),
         );
         if (!isDuplicate) {
           uniqueParsed.push(newImage);
@@ -563,12 +564,12 @@ function Plugin() {
         if (addedCount > 0) {
           showStatus(
             `${addedCount}個の画像を追加しました（合計: ${merged.length}個）`,
-            "success"
+            "success",
           );
         } else {
           showStatus(
             `すべての画像は既に追加されています（合計: ${merged.length}個）`,
-            "info"
+            "info",
           );
         }
       }, 300);
@@ -612,7 +613,7 @@ function Plugin() {
         newSet.delete(targetIndex);
         // 選択順序からも削除
         setSelectedImageOrder((prevOrder) =>
-          prevOrder.filter((idx) => idx !== targetIndex)
+          prevOrder.filter((idx) => idx !== targetIndex),
         );
         setNewlyAddedIndex(null);
       } else {
@@ -650,7 +651,7 @@ function Plugin() {
     } else {
       showStatus(
         "画像の処理に失敗しました。画像データを確認してください",
-        "error"
+        "error",
       );
     }
   };
@@ -677,7 +678,7 @@ function Plugin() {
         const img = displayImages[i];
         showStatus(
           `画像を処理中... (${i + 1}/${displayImages.length})`,
-          "info"
+          "info",
         );
 
         const imageData = await downloadAndConvertImage(img);
@@ -694,7 +695,7 @@ function Plugin() {
         emit("PLACE_IMAGES_IN_FRAME", { images: imagesToPlace });
         showStatus(
           `${imagesToPlace.length}個の画像をフレーム内に配置しました`,
-          "success"
+          "success",
         );
       } else {
         showStatus("配置できる画像がありませんでした", "error");
@@ -709,7 +710,7 @@ function Plugin() {
 
   // 画像をダウンロードして変換
   const downloadAndConvertImage = async (
-    image: ImageData
+    image: ImageData,
   ): Promise<Uint8Array | null> => {
     try {
       let blob: Blob;
@@ -812,7 +813,7 @@ function Plugin() {
   // ステータス表示
   const showStatus = (
     message: string,
-    type: "info" | "success" | "error" = "info"
+    type: "info" | "success" | "error" = "info",
   ) => {
     setStatus(message);
     setStatusType(type);
@@ -821,10 +822,10 @@ function Plugin() {
   // サービスを削除
   const handleDeleteService = (serviceName: string) => {
     const filteredImages = images.filter(
-      (img) => (img.service || "Unknown") !== serviceName
+      (img) => (img.service || "Unknown") !== serviceName,
     );
     const filteredDisplayImages = displayImages.filter(
-      (img) => (img.service || "Unknown") !== serviceName
+      (img) => (img.service || "Unknown") !== serviceName,
     );
     const deletedCount = images.length - filteredImages.length;
 
@@ -834,7 +835,7 @@ function Plugin() {
       emit("SAVE_IMAGES", filteredImages);
       showStatus(
         `${serviceName}の${deletedCount}個の画像を削除しました`,
-        "success"
+        "success",
       );
     } else {
       showStatus("削除する画像が見つかりませんでした", "error");
@@ -960,7 +961,7 @@ function Plugin() {
         `ファイルの読み込みに失敗しました: ${
           error instanceof Error ? error.message : "不明なエラー"
         }`,
-        "error"
+        "error",
       );
     }
   }
@@ -991,7 +992,7 @@ function Plugin() {
   // 画像サイズを文字列として管理（例："319×240"）
   // 特別な値 "__ALL__" は「すべて」を表す
   const [selectedImageSizes, setSelectedImageSizes] = useState<Set<string>>(
-    new Set(["__ALL__"])
+    new Set(["__ALL__"]),
   );
 
   // 利用可能な画像サイズのリストを取得
@@ -1065,7 +1066,7 @@ function Plugin() {
   const handleSortLabelChange = (_enabled: boolean) => {};
   const handleDueDateFilterChange = (
     _withDueDate: boolean,
-    _withoutDueDate: boolean
+    _withoutDueDate: boolean,
   ) => {};
   const handleLabelFilterChange = (_label: string) => {};
 
@@ -1085,6 +1086,105 @@ function Plugin() {
       return selectedImageSizes.has(sizeStr);
     });
   })();
+
+  const areAllDisplayImagesSelected: boolean =
+    imagesToDisplay.length > 0 &&
+    imagesToDisplay.every((displayImg) => {
+      const globalIndex = images.findIndex((img) => {
+        if (img.id && displayImg.id && img.id === displayImg.id) return true;
+        if (img.src && displayImg.src && img.src === displayImg.src)
+          return true;
+        return false;
+      });
+      return globalIndex !== -1 && selectedImageIndices.has(globalIndex);
+    });
+
+  const hasSomeDisplayImagesSelected: boolean =
+    imagesToDisplay.length > 0 &&
+    imagesToDisplay.some((displayImg) => {
+      const globalIndex = images.findIndex((img) => {
+        if (img.id && displayImg.id && img.id === displayImg.id) return true;
+        if (img.src && displayImg.src && img.src === displayImg.src)
+          return true;
+        return false;
+      });
+      return globalIndex !== -1 && selectedImageIndices.has(globalIndex);
+    });
+
+  const selectAllCheckboxValue: boolean | typeof MIXED_BOOLEAN =
+    imagesToDisplay.length === 0
+      ? false
+      : areAllDisplayImagesSelected
+        ? true
+        : hasSomeDisplayImagesSelected
+          ? MIXED_BOOLEAN
+          : false;
+
+  const deselectAllDisplayedImages = () => {
+    const indicesToRemove = new Set<number>();
+    imagesToDisplay.forEach((displayImg) => {
+      const globalIndex = images.findIndex((img) => {
+        if (img.id && displayImg.id && img.id === displayImg.id) return true;
+        if (img.src && displayImg.src && img.src === displayImg.src)
+          return true;
+        return false;
+      });
+      if (globalIndex !== -1) indicesToRemove.add(globalIndex);
+    });
+
+    setSelectedImageIndices((prev) => {
+      const next = new Set(prev);
+      indicesToRemove.forEach((i) => next.delete(i));
+      return next;
+    });
+    setSelectedImageOrder((prevOrder) =>
+      prevOrder.filter((idx) => !indicesToRemove.has(idx)),
+    );
+    setNewlyAddedIndex(null);
+    showStatus(
+      `${indicesToRemove.size}件の画像の選択を解除しました`,
+      "success",
+    );
+  };
+
+  const selectAllDisplayedImages = () => {
+    const newIndices = new Set(selectedImageIndices);
+    const newOrder = [...selectedImageOrder];
+    let addedCount = 0;
+
+    imagesToDisplay.forEach((displayImg) => {
+      const globalIndex = images.findIndex((img) => {
+        if (img.id && displayImg.id && img.id === displayImg.id) return true;
+        if (img.src && displayImg.src && img.src === displayImg.src)
+          return true;
+        return false;
+      });
+      if (globalIndex !== -1 && !newIndices.has(globalIndex)) {
+        newIndices.add(globalIndex);
+        newOrder.push(globalIndex);
+        addedCount++;
+      }
+    });
+
+    setSelectedImageIndices(newIndices);
+    setSelectedImageOrder(newOrder);
+
+    if (newOrder.length > 0) {
+      const lastAdded = newOrder[newOrder.length - 1];
+      setNewlyAddedIndex(lastAdded);
+      setTimeout(() => setNewlyAddedIndex(null), 500);
+    }
+
+    showStatus(`${addedCount}件の画像を選択しました`, "success");
+  };
+
+  const handleSelectAllCheckboxValueChange = (checked: boolean) => {
+    if (checked) {
+      selectAllDisplayedImages();
+    } else {
+      deselectAllDisplayedImages();
+    }
+  };
 
   return (
     <div
@@ -1351,7 +1451,7 @@ function Plugin() {
                               Remove
                             </Button>
                           </div>
-                        )
+                        ),
                       )}
                     </div>
 
@@ -1362,6 +1462,22 @@ function Plugin() {
                         justifyContent: "space-between",
                       }}
                     >
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "8px",
+                          alignItems: "center",
+                          minHeight: "32px",
+                        }}
+                      >
+                        <Checkbox
+                          value={selectAllCheckboxValue}
+                          onValueChange={handleSelectAllCheckboxValueChange}
+                          disabled={imagesToDisplay.length === 0}
+                        >
+                          <Text>Select all images</Text>
+                        </Checkbox>
+                      </div>
                       <div
                         ref={settingsMenuRef}
                         style={{
@@ -1408,7 +1524,7 @@ function Plugin() {
                               sortLabelEnabled={sortLabelEnabled}
                               availableImageSizes={availableImageSizes}
                               selectedImageSizes={Array.from(
-                                selectedImageSizes
+                                selectedImageSizes,
                               )}
                               showWithDueDate={showWithDueDate}
                               showWithoutDueDate={showWithoutDueDate}
@@ -1454,7 +1570,7 @@ function Plugin() {
                     gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
                     gap: "8px",
                     width: "100%",
-                    padding: "var(--space-small)",
+                    padding: "var(--space-extra-small)",
                   }}
                 >
                   {imagesToDisplay.map((img, index) => {
@@ -1485,7 +1601,7 @@ function Plugin() {
                           // ドラッグ開始時に画像を処理（非同期で準備）
                           console.log(
                             "Drag start, preparing image:",
-                            image.src
+                            image.src,
                           );
                           downloadAndConvertImage(image)
                             .then((imageData) => {
@@ -1500,7 +1616,7 @@ function Plugin() {
                                   "Image data prepared:",
                                   image.width,
                                   "x",
-                                  image.height
+                                  image.height,
                                 );
                               } else {
                                 console.error("Failed to convert image");
@@ -1533,42 +1649,51 @@ function Plugin() {
                 <div
                   style={{
                     display: "flex",
+                    flexDirection: "column",
                     gap: "4px",
                     flex: 1,
-                    justifyContent: "flex-end",
+                    justifyContent: "space-between",
+                    alignItems: "center",
                   }}
                 >
-                  <Button
-                    fullWidth
-                    onClick={handleApplyImage}
-                    disabled={selectedImageIndices.size === 0}
+                  <div
                     style={{
-                      backgroundColor:
-                        "var(--figma-color-background-secondary)",
-                      color: "var(--figma-color-text-tertiary)",
-                      height: "32px",
-                      width: "180px",
-                      border: "1px solid var(--figma-color-border)",
+                      display: "flex",
+                      gap: "4px",
                     }}
                   >
-                    Apply to selection
-                  </Button>
-                  <Button
-                    fullWidth
-                    loading={applyButtonLoading}
-                    onClick={handlePlaceAllImagesInFrame}
-                    disabled={displayImages.length === 0}
-                    style={{
-                      color: "var(--figma-color-text)",
-                      height: "32px",
-                      width: "180px",
-                    }}
-                  >
-                    Apply
-                  </Button>
+                    <Button
+                      fullWidth
+                      onClick={handleApplyImage}
+                      disabled={selectedImageIndices.size === 0}
+                      style={{
+                        backgroundColor:
+                          "var(--figma-color-background-secondary)",
+                        color: "var(--figma-color-text-tertiary)",
+                        height: "32px",
+                        width: "180px",
+                        border: "1px solid var(--figma-color-border)",
+                      }}
+                    >
+                      Apply to selection
+                    </Button>
+                    <Button
+                      fullWidth
+                      loading={applyButtonLoading}
+                      onClick={handlePlaceAllImagesInFrame}
+                      disabled={displayImages.length === 0}
+                      style={{
+                        color: "#fff",
+                        height: "32px",
+                        width: "180px",
+                      }}
+                    >
+                      Apply
+                    </Button>
+                  </div>
                 </div>
                 {/* 選択された画像のサムネイルスタック */}
-                {selectedImageOrder.length > 0 && (
+                {/* {selectedImageOrder.length > 0 && (
                   <div
                     style={{
                       position: "absolute",
@@ -1649,7 +1774,7 @@ function Plugin() {
                       );
                     })}
                   </div>
-                )}
+                )} */}
               </div>
             </div>
           )}

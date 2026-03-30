@@ -161,7 +161,7 @@ export const Card = ({
           transition: isDragging
             ? "none"
             : "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-          transform: !isSelected && isHovered ? "scale(2)" : "scale(1)",
+          transform: !isSelected && isHovered ? "scale(1.8)" : "scale(1)",
           boxShadow: isDragging
             ? "0 12px 32px rgba(0, 0, 0, 0.5)"
             : !isSelected && isHovered
