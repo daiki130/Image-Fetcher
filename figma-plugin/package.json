@@ -33,7 +33,8 @@
   },
   "networkAccess": {
     "allowedDomains": [
-      "none"
+      "images.unsplash.com",
+      "www.google.com"
     ]
   }
 }

@@ -1,5 +1,5 @@
 import { h } from "preact";
-import { useState } from "preact/hooks";
+import { useState, useEffect } from "preact/hooks";
 import { ImageData } from "../types";
 import { colors } from "../colors";
 import "../styles.css";
@@ -12,6 +12,8 @@ interface CardProps {
   isSelected?: boolean;
   onClick?: () => void;
   onDragStart?: (image: ImageData) => void;
+  /** true のとき、画像の読み込みに失敗したカードは描画しない（プレースホルダーを出さない） */
+  hideOnImageError?: boolean;
 }
 
 export const Card = ({
@@ -21,9 +23,19 @@ export const Card = ({
   isSelected = false,
   onClick,
   onDragStart,
+  hideOnImageError = false,
 }: CardProps) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [imageLoadFailed, setImageLoadFailed] = useState(false);
+
+  useEffect(() => {
+    setImageLoadFailed(false);
+  }, [image?.src]);
+
+  if (image && imageLoadFailed && hideOnImageError) {
+    return null;
+  }
 
   const handleDragStart = (e: DragEvent) => {
     if (!image || !onDragStart) return;
@@ -227,7 +239,11 @@ export const Card = ({
               transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
             }}
             onError={(e) => {
-              e.currentTarget.style.display = "none";
+              if (hideOnImageError) {
+                setImageLoadFailed(true);
+              } else {
+                e.currentTarget.style.display = "none";
+              }
             }}
           />
         </div>

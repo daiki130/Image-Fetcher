@@ -10,14 +10,16 @@ import {
 } from "@create-figma-plugin/ui";
 import { emit, on, MIXED_BOOLEAN } from "@create-figma-plugin/utilities";
 import { h, Fragment, JSX } from "preact";
-import { useState, useEffect, useRef } from "preact/hooks";
+import { useState, useEffect, useRef, useMemo } from "preact/hooks";
 import CryptoJS from "crypto-js";
 import { ImageData, ImagesLoadedHandler } from "./types";
+import { buildRandomDemoImages } from "./randomDemoMode";
 import { Data } from "./components/data";
 import { Card } from "./components/card";
 import { Tooltip } from "./components/Tooltip";
 import { SettingsMenu } from "./components/SettingsMenu";
 import { Loading } from "./components/loading";
+import { Random } from "./components/random";
 // import "./styles.css";
 
 // ImageData は types.ts からインポート
@@ -254,6 +256,8 @@ function Plugin() {
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(false); // 一番下までスクロールしたかどうか
   const scrollContainerRef = useRef<HTMLDivElement>(null); // スクロール可能なコンテナのref
 
+
+
   // スクロール位置を監視
   useEffect(() => {
     const scrollContainer = scrollContainerRef.current;
@@ -309,15 +313,6 @@ function Plugin() {
   useEffect(() => {
     emit("LOAD_IMAGES");
   }, []);
-
-  // displayImagesの表示状態に応じてプラグインの幅を変更（アニメーションはmain.tsで処理）
-  useEffect(() => {
-    if (displayImages.length > 0) {
-      emit("RESIZE_UI", { width: 500, height: 1000 });
-    } else {
-      emit("RESIZE_UI", { width: 400, height: 1000 });
-    }
-  }, [displayImages.length]);
 
   // main.ts から画像データを受け取る
   useEffect(() => {
@@ -454,6 +449,7 @@ function Plugin() {
                   }
                 }
                 setDisplayImages(uniqueParsed);
+                setSelectedImageSizes(new Set(["__ALL__"]));
                 await updateProgress(90);
                 // 画像データを figmaClientStorage に保存
                 emit("SAVE_IMAGES", merged);
@@ -553,6 +549,7 @@ function Plugin() {
         }
       }
       setDisplayImages(uniqueParsed);
+      setSelectedImageSizes(new Set(["__ALL__"]));
       await updateProgress(90);
       // 画像データを figmaClientStorage に保存
       emit("SAVE_IMAGES", merged);
@@ -581,16 +578,23 @@ function Plugin() {
     }
   };
 
-  // 画像選択（Topタブ用：displayImagesのインデックスからimages全体のインデックスを計算）
+  // 画像選択（Topタブ用：グリッドの画像から images 全体のインデックスを計算）
   // 複数選択対応：クリックで選択/選択解除をトグル
-  const handleSelectImage = (index: number, isTopTab: boolean = false) => {
+  // topImage: サイズフィルタ適用時は imagesToDisplay の要素を渡す（displayImages[index] とずれないように）
+  const handleSelectImage = (
+    index: number,
+    isTopTab: boolean = false,
+    topImage?: ImageData,
+  ) => {
     setSelectedImageIndices((prev) => {
       const newSet = new Set(prev);
       let targetIndex: number;
 
-      if (isTopTab && displayImages[index]) {
-        // displayImagesの画像をimages全体から探す
-        const selectedImage = displayImages[index];
+      if (isTopTab) {
+        const selectedImage = topImage ?? displayImages[index];
+        if (!selectedImage) {
+          return prev;
+        }
         const globalIndex = images.findIndex((img) => {
           if (img.id && selectedImage.id && img.id === selectedImage.id) {
             return true;
@@ -849,10 +853,20 @@ function Plugin() {
       value: "Top",
     },
     {
-      text: "Data",
-      value: "Data",
+      text: "Random",
+      value: "Random",
     },
   ];
+
+  // displayImages / Random タブに応じてプラグイン幅を変更（アニメーションは main.ts で処理）
+  useEffect(() => {
+    const hasWideLayout =
+      displayImages.length > 0 || tabValue === "Random";
+    emit("RESIZE_UI", {
+      width: hasWideLayout ? 500 : 400,
+      height: 1000,
+    });
+  }, [displayImages.length, tabValue]);
 
   // 表示用の値を計算する関数（最初の値のみ表示、残りは「...」）
   const getDisplayValue = (input: string): string => {
@@ -1227,7 +1241,7 @@ function Plugin() {
         </div>
       )}
       {/* カスタムステータスタブ */}
-      {/* <div
+      <div
         style={{
           overflowX: "auto",
           whiteSpace: "nowrap",
@@ -1290,7 +1304,7 @@ function Plugin() {
             </button>
           ))}
         </div>
-      </div> */}
+      </div>
       {tabValue === "Top" && (
         <div>
           <div
@@ -1596,7 +1610,7 @@ function Plugin() {
                         key={index}
                         image={img}
                         isSelected={isSelected}
-                        onClick={() => handleSelectImage(index, true)}
+                        onClick={() => handleSelectImage(index, true, img)}
                         onDragStart={async (image) => {
                           // ドラッグ開始時に画像を処理（非同期で準備）
                           console.log(
@@ -1780,11 +1794,10 @@ function Plugin() {
           )}
         </div>
       )}
-      <div>
-        {tabValue === "Data" && (
-          <Data images={images} onDeleteService={handleDeleteService} />
-        )}
-      </div>
+
+      {tabValue === "Random" && (
+        <Random />
+      )}
     </div>
   );
 }
