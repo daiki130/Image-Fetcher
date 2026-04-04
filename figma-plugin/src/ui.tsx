@@ -4,15 +4,17 @@ import {
   Checkbox,
   Container,
   Text,
+  Textbox,
   VerticalSpace,
   IconSizeSmall24,
   IconToggleButton,
 } from "@create-figma-plugin/ui";
 import { emit, on, MIXED_BOOLEAN } from "@create-figma-plugin/utilities";
 import { h, Fragment, JSX } from "preact";
-import { useState, useEffect, useRef } from "preact/hooks";
+import { useState, useEffect, useRef, useMemo } from "preact/hooks";
 import CryptoJS from "crypto-js";
 import { ImageData, ImagesLoadedHandler } from "./types";
+import { buildRandomDemoImages } from "./randomDemoMode";
 import { Data } from "./components/data";
 import { Card } from "./components/card";
 import { Tooltip } from "./components/Tooltip";
@@ -256,7 +258,47 @@ function Plugin() {
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(false); // 一番下までスクロールしたかどうか
   const scrollContainerRef = useRef<HTMLDivElement>(null); // スクロール可能なコンテナのref
 
+  const [tabValue, setTabValue] = useState<string>("Top");
+  /** Top タブの「フレームに Apply」: オンでアスペクト比マッチ、オフで枠を上から順に割り当て */
+  const [matchAspectRatioForFrame, setMatchAspectRatioForFrame] =
+    useState(true);
+  const [randomDemoSeed, setRandomDemoSeed] = useState(1);
+  const [selectedRandomIndices, setSelectedRandomIndices] = useState<
+    Set<number>
+  >(new Set());
 
+  const randomDemoImages = useMemo(
+    () => buildRandomDemoImages(randomDemoSeed, 5),
+    [randomDemoSeed],
+  );
+
+  const DUMMY_TEXT_STORAGE_KEY = "image-fetcher-dummy-text-template";
+  const [dummyTextTemplate, setDummyTextTemplate] = useState(() => {
+    try {
+      const v = localStorage.getItem(DUMMY_TEXT_STORAGE_KEY);
+      return v != null && v !== "" ? v : "テキスト";
+    } catch {
+      return "テキスト";
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(DUMMY_TEXT_STORAGE_KEY, dummyTextTemplate);
+    } catch {
+      /* ignore */
+    }
+  }, [dummyTextTemplate]);
+
+  useEffect(() => {
+    setSelectedRandomIndices(new Set());
+  }, [randomDemoSeed]);
+
+  useEffect(() => {
+    if (tabValue !== "Random") {
+      setSelectedRandomIndices(new Set());
+    }
+  }, [tabValue]);
 
   // スクロール位置を監視
   useEffect(() => {
@@ -636,14 +678,47 @@ function Plugin() {
     });
   };
 
+  /** Random は1枚だけ選択（同じ画像をフレーム内の各 img 枠に繰り返し適用） */
+  const toggleRandomImageSelect = (index: number) => {
+    setSelectedRandomIndices((prev) => {
+      if (prev.has(index) && prev.size === 1) {
+        return new Set();
+      }
+      return new Set([index]);
+    });
+  };
+
   // 選択ノードに適用（複数選択されている場合は最初の選択を適用）
   const handleApplyImage = async () => {
+    if (tabValue === "Random") {
+      if (selectedRandomIndices.size === 0) {
+        showStatus("画像を選択してください", "error");
+        return;
+      }
+      const idx = Array.from(selectedRandomIndices).sort((a, b) => a - b)[0];
+      const selectedImage = randomDemoImages[idx];
+      if (!selectedImage) {
+        showStatus("画像を選択してください", "error");
+        return;
+      }
+      const imageData = await downloadAndConvertImage(selectedImage);
+      if (imageData) {
+        emit("APPLY_IMAGE_DATA", { imageData });
+        showStatus("画像を適用しました", "success");
+      } else {
+        showStatus(
+          "画像の処理に失敗しました。画像データを確認してください",
+          "error",
+        );
+      }
+      return;
+    }
+
     if (selectedImageIndices.size === 0) {
       showStatus("画像を選択してください", "error");
       return;
     }
 
-    // 複数選択されている場合は最初の選択を適用
     const firstSelectedIndex = Array.from(selectedImageIndices)[0];
     const selectedImage = images[firstSelectedIndex];
 
@@ -663,8 +738,24 @@ function Plugin() {
   // フレーム内にすべての画像を自動配置
   const handlePlaceAllImagesInFrame = async () => {
     setApplyButtonLoading(true);
-    if (displayImages.length === 0) {
+
+    let sourceImages: ImageData[];
+    if (tabValue === "Random") {
+      if (selectedRandomIndices.size === 0) {
+        showStatus("フレームに入れる画像を1枚以上選択してください", "error");
+        setApplyButtonLoading(false);
+        return;
+      }
+      const idx = Array.from(selectedRandomIndices).sort((a, b) => a - b)[0];
+      const one = randomDemoImages[idx];
+      sourceImages = one != null ? [one] : [];
+    } else {
+      sourceImages = displayImages;
+    }
+
+    if (sourceImages.length === 0) {
       showStatus("配置する画像がありません", "error");
+      setApplyButtonLoading(false);
       return;
     }
 
@@ -677,11 +768,10 @@ function Plugin() {
         height: number;
       }> = [];
 
-      // すべての画像を変換
-      for (let i = 0; i < displayImages.length; i++) {
-        const img = displayImages[i];
+      for (let i = 0; i < sourceImages.length; i++) {
+        const img = sourceImages[i];
         showStatus(
-          `画像を処理中... (${i + 1}/${displayImages.length})`,
+          `画像を処理中... (${i + 1}/${sourceImages.length})`,
           "info",
         );
 
@@ -696,11 +786,26 @@ function Plugin() {
       }
 
       if (imagesToPlace.length > 0) {
-        emit("PLACE_IMAGES_IN_FRAME", { images: imagesToPlace });
-        showStatus(
-          `${imagesToPlace.length}個の画像をフレーム内に配置しました`,
-          "success",
-        );
+        if (tabValue === "Random") {
+          emit("PLACE_RANDOM_CONTENT_IN_FRAME", {
+            images: imagesToPlace,
+            seed: randomDemoSeed,
+            dummyTextTemplate,
+          });
+          showStatus(
+            "フレーム内のテキストと画像を更新しました（キャンバスで結果を確認してください）",
+            "success",
+          );
+        } else {
+          emit("PLACE_IMAGES_IN_FRAME", {
+            images: imagesToPlace,
+            matchAspectRatio: matchAspectRatioForFrame,
+          });
+          showStatus(
+            `${imagesToPlace.length}個の画像をフレーム内に配置しました`,
+            "success",
+          );
+        }
       } else {
         showStatus("配置できる画像がありませんでした", "error");
       }
@@ -846,7 +951,6 @@ function Plugin() {
     }
   };
 
-  const [tabValue, setTabValue] = useState<string>("Top");
   const tabOptions = [
     {
       text: "Top",
@@ -860,8 +964,7 @@ function Plugin() {
 
   // displayImages / Random タブに応じてプラグイン幅を変更（アニメーションは main.ts で処理）
   useEffect(() => {
-    const hasWideLayout =
-      displayImages.length > 0 || tabValue === "Random";
+    const hasWideLayout = displayImages.length > 0 || tabValue === "Random";
     emit("RESIZE_UI", {
       width: hasWideLayout ? 500 : 400,
       height: 1000,
@@ -1645,6 +1748,22 @@ function Plugin() {
                   })}
                 </div>
               </div>
+              <div
+                style={{
+                  padding: "0 var(--space-extra-small) 8px",
+                  display: "flex",
+                  alignItems: "flex-start",
+                }}
+              >
+                <Checkbox
+                  value={matchAspectRatioForFrame}
+                  onValueChange={setMatchAspectRatioForFrame}
+                >
+                  <Text style={{ fontSize: "11px" }}>
+                    アスペクト比が近い枠にマッチする（オフのときは上から順に割り当て）
+                  </Text>
+                </Checkbox>
+              </div>
               <Footer
                 onApplyToSelection={handleApplyImage}
                 onApplyAll={handlePlaceAllImagesInFrame}
@@ -1658,7 +1777,41 @@ function Plugin() {
       )}
 
       {tabValue === "Random" && (
-        <Random />
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            flex: 1,
+          }}
+        >
+          <Random
+            images={randomDemoImages}
+            dummyTextTemplate={dummyTextTemplate}
+            onDummyTextTemplateChange={setDummyTextTemplate}
+            onShuffle={() => setRandomDemoSeed((s) => s + 1)}
+            selectedIndices={selectedRandomIndices}
+            onToggleSelect={toggleRandomImageSelect}
+            onDragPrepare={async (image) => {
+              const imageData = await downloadAndConvertImage(image);
+              if (imageData) {
+                window.draggedImageData = {
+                  imageData,
+                  width: image.width,
+                  height: image.height,
+                };
+              }
+            }}
+          />
+          <Footer
+            onApplyToSelection={handleApplyImage}
+            onApplyAll={handlePlaceAllImagesInFrame}
+            applyToSelectionDisabled={selectedRandomIndices.size === 0}
+            applyAllDisabled={
+              randomDemoImages.length === 0 || selectedRandomIndices.size === 0
+            }
+            applyAllLoading={applyButtonLoading}
+          />
+        </div>
       )}
     </div>
   );

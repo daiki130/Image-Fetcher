@@ -1,6 +1,43 @@
 import { ImageData } from "./types";
 
 /**
+ * 数字・中点（・・・）・箇条書き・記号などを含む場合はダミーにしない。
+ * - 0-9 / 全角数字
+ * - ・ · • ‧ ･ … ‥ ․ などの中点・省略記号
+ * - ※ ★ ☆ ○ ● ■ □ などよく使う UI 記号
+ */
+const SKIP_DUMMY_TEXT_PATTERN =
+  /[0-9０-９\u30FB\u00B7\u2022\u2027\uFF65\u2024\u2025\u2026\u203B\u2605\u2606\u25A0\u25A1\u25CB\u25CF]/;
+
+/** 原文に数字や上記記号が含まれる場合は true（ダミー置換しない） */
+export function shouldSkipDummyReplacement(
+  text: string | undefined | null,
+): boolean {
+  if (text == null || typeof text !== "string") {
+    return false;
+  }
+  return SKIP_DUMMY_TEXT_PATTERN.test(text);
+}
+
+const DEFAULT_DUMMY_TEMPLATE = "テキスト";
+
+/**
+ * 原文をダミーに置き換える文字列を決める。
+ * - 数字や記号を含む原文は置換しない（null）。
+ * - 空の template は「テキスト」を使う。
+ */
+export function resolveDummyText(
+  original: string | undefined | null,
+  template: string | undefined | null,
+): string | null {
+  if (shouldSkipDummyReplacement(original)) {
+    return null;
+  }
+  const t = String(template ?? "").trim();
+  return t.length > 0 ? t : DEFAULT_DUMMY_TEMPLATE;
+}
+
+/**
  * Unsplash の静的 CDN 用スラッグ（images.unsplash.com のみ使用）。
  * シードで開始位置をずらし、指定枚数のサンプルグリッドを生成する。
  */

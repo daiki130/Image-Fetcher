@@ -1,6 +1,7 @@
 // Figma Plugin Main Code
 import { showUI, on, emit } from "@create-figma-plugin/utilities";
 import { ImageData } from "./types";
+import { resolveDummyText } from "./randomDemoMode";
 
 const STORAGE_KEY = "savedImages";
 
@@ -23,12 +24,12 @@ export default function () {
         await createRectangleWithImageData(
           data.imageData,
           data.width,
-          data.height
+          data.height,
         );
       } else {
         await applyImageDataToSelection(data.imageData);
       }
-    }
+    },
   );
 
   // UIから画像データを保存するリクエストを受け取る
@@ -90,7 +91,29 @@ export default function () {
       images: Array<{ imageData: Uint8Array; width: number; height: number }>;
     }) => {
       await placeImagesInFrame(data.images);
-    }
+    },
+  );
+
+  on(
+    "PLACE_RANDOM_CONTENT_IN_FRAME",
+    async (data: {
+      images: Array<{ imageData: Uint8Array; width: number; height: number }>;
+      seed: number;
+      dummyTextTemplate: string;
+    }) => {
+      await placeRandomContentInFrame(
+        data.images,
+        data.seed,
+        data.dummyTextTemplate,
+      );
+    },
+  );
+
+  on(
+    "APPLY_DUMMY_TEXT_TO_SELECTION",
+    async (data: { dummyTextTemplate: string }) => {
+      await applyDummyTextToSelection(data.dummyTextTemplate);
+    },
   );
 
   // ドラッグ&ドロップで画像を追加するリクエストを受け取る
@@ -102,7 +125,7 @@ export default function () {
         await createRectangleWithImageData(
           data.imageData,
           data.width,
-          data.height
+          data.height,
         );
         console.log("Image added to Figma successfully");
       } catch (error) {
@@ -111,7 +134,7 @@ export default function () {
           error instanceof Error ? error.message : "不明なエラー";
         figma.notify(`エラー: ${errorMessage}`, { error: true });
       }
-    }
+    },
   );
 
   // UIからリサイズリクエストを受け取る（滑らかなアニメーション付き）
@@ -144,7 +167,7 @@ export default function () {
         currentUIHeight += heightStep;
         figma.ui.resize(
           Math.round(currentUIWidth),
-          Math.round(currentUIHeight)
+          Math.round(currentUIHeight),
         );
         step++;
         setTimeout(animate, stepInterval);
@@ -161,6 +184,160 @@ export default function () {
   });
 
   showUI({ width: 400, height: 500 });
+}
+
+async function loadFontsForTextNode(node: TextNode): Promise<void> {
+  const len = node.characters.length;
+  if (len === 0) {
+    if (node.fontName !== figma.mixed) {
+      await figma.loadFontAsync(node.fontName as FontName);
+    }
+    return;
+  }
+  if (node.fontName === figma.mixed) {
+    for (let i = 0; i < len; i++) {
+      const fn = node.getRangeFontName(i, i + 1);
+      if (fn !== figma.mixed) {
+        await figma.loadFontAsync(fn as FontName);
+      }
+    }
+  } else {
+    await figma.loadFontAsync(node.fontName as FontName);
+  }
+}
+
+/** 選択中の Text ノードの文字をダミーに置き換える（数字・記号を含む原文はスキップ） */
+async function applyDummyTextToSelection(dummyTextTemplate: string) {
+  const selection = figma.currentPage.selection;
+  if (selection.length === 0) {
+    figma.notify("ノードを選択してください", { error: true });
+    return;
+  }
+
+  let replaced = 0;
+  let skippedProtected = 0;
+
+  for (let i = 0; i < selection.length; i++) {
+    const node = selection[i];
+    if (node.type !== "TEXT") {
+      continue;
+    }
+    const textNode = node as TextNode;
+    const original = textNode.characters;
+    const next = resolveDummyText(original, dummyTextTemplate);
+    if (next === null) {
+      skippedProtected++;
+      continue;
+    }
+    try {
+      await loadFontsForTextNode(textNode);
+      textNode.characters = next;
+      replaced++;
+    } catch (e) {
+      console.error("Dummy text apply failed:", e);
+    }
+  }
+
+  if (replaced > 0) {
+    figma.notify(`${replaced}件のテキストをダミーに置き換えました`);
+  } else if (skippedProtected > 0) {
+    figma.notify(
+      "数字や記号を含むテキストは置換しませんでした（該当しないテキストを選択してください）",
+      { error: true },
+    );
+  } else {
+    figma.notify("テキストレイヤーが選択されていません", { error: true });
+  }
+}
+
+function collectTextNodesInSubtree(root: SceneNode): TextNode[] {
+  const out: TextNode[] = [];
+  function visit(n: SceneNode) {
+    if (n.type === "TEXT") {
+      out.push(n as TextNode);
+    }
+    if ("children" in n) {
+      for (const child of n.children) {
+        visit(child);
+      }
+    }
+  }
+  visit(root);
+  return out;
+}
+
+/** フレーム配下のすべてのテキストをダミーに置換（数字・記号を含む原文はスキップ） */
+async function applyDummyTextToFrameSubtree(
+  frame: FrameNode,
+  dummyTextTemplate: string,
+): Promise<{ replaced: number; skippedProtected: number }> {
+  const texts = collectTextNodesInSubtree(frame);
+  let replaced = 0;
+  let skippedProtected = 0;
+  for (let i = 0; i < texts.length; i++) {
+    const textNode = texts[i];
+    const original = textNode.characters;
+    const next = resolveDummyText(original, dummyTextTemplate);
+    if (next === null) {
+      skippedProtected++;
+      continue;
+    }
+    try {
+      await loadFontsForTextNode(textNode);
+      textNode.characters = next;
+      replaced++;
+    } catch (e) {
+      console.error("Dummy text apply failed:", e);
+    }
+  }
+  return { replaced, skippedProtected };
+}
+
+/**
+ * Random タブ用: フレーム内テキストをダミーにしたうえで、サンプル画像をプレースホルダーへ配置
+ */
+async function placeRandomContentInFrame(
+  images: Array<{ imageData: Uint8Array; width: number; height: number }>,
+  _seed: number,
+  dummyTextTemplate: string,
+) {
+  const selection = figma.currentPage.selection;
+  let targetFrame: FrameNode | null = null;
+  for (const node of selection) {
+    if (node.type === "FRAME") {
+      targetFrame = node;
+      break;
+    }
+  }
+  if (!targetFrame) {
+    figma.notify("フレームを選択してください", { error: true });
+    return;
+  }
+
+  const { replaced: textCount, skippedProtected } =
+    await applyDummyTextToFrameSubtree(targetFrame, dummyTextTemplate);
+  const imageResult = await placeImagesInFrame(images, {
+    silent: true,
+    sequentialImgPlaceholders: true,
+  });
+
+  if (imageResult.errorMessage) {
+    figma.notify(
+      textCount > 0
+        ? `テキスト${textCount}件をダミーにしました。画像は適用できませんでした（${imageResult.errorMessage}）`
+        : imageResult.errorMessage,
+      { error: true },
+    );
+    return;
+  }
+
+  const skipHint =
+    skippedProtected > 0
+      ? `（数字・記号を含む${skippedProtected}件のテキストはスキップ）`
+      : "";
+  figma.notify(
+    `テキスト${textCount}件をダミーにし、画像を${imageResult.appliedCount}箇所に適用しました${skipHint}`,
+  );
 }
 
 // 選択ノードに画像データを適用
@@ -207,7 +384,7 @@ async function applyImageDataToSelection(imageData: Uint8Array) {
 async function createRectangleWithImageData(
   imageData: Uint8Array,
   width: number,
-  height: number
+  height: number,
 ) {
   try {
     const rect = figma.createRectangle();
@@ -264,7 +441,7 @@ const matchImagesToPlaceholders = (
     y: number;
     width: number;
     height: number;
-  }>
+  }>,
 ): Array<{
   image: { imageData: Uint8Array; width: number; height: number };
   placeholder: {
@@ -309,7 +486,7 @@ const matchImagesToPlaceholders = (
 
       // アスペクト比の差を計算
       const aspectRatioDiff = Math.abs(
-        imageAspectRatio - placeholderAspectRatio
+        imageAspectRatio - placeholderAspectRatio,
       );
 
       // アスペクト比の差が大きすぎる場合はスキップ（閾値: 0.3）
@@ -433,7 +610,7 @@ function findImagePlaceholders(frame: FrameNode): Array<{
           hasImageFill =
             Array.isArray(node.fills) &&
             node.fills.some(
-              (fill) => fill.type === "IMAGE" && fill.imageHash !== figma.mixed
+              (fill) => fill.type === "IMAGE" && fill.imageHash !== figma.mixed,
             );
         }
 
@@ -487,13 +664,27 @@ function findImagePlaceholders(frame: FrameNode): Array<{
   return placeholders;
 }
 
+type PlaceImagesResult = {
+  appliedCount: number;
+  errorMessage?: string;
+};
+
 // フレーム内に画像を自動配置する関数
 async function placeImagesInFrame(
-  images: Array<{ imageData: Uint8Array; width: number; height: number }>
-) {
+  images: Array<{ imageData: Uint8Array; width: number; height: number }>,
+  opts?: { silent?: boolean; sequentialImgPlaceholders?: boolean },
+): Promise<PlaceImagesResult> {
+  const silent = opts?.silent === true;
+  const sequential = opts?.sequentialImgPlaceholders === true;
+  const notify = (msg: string, isError?: boolean) => {
+    if (silent && !isError) {
+      return;
+    }
+    figma.notify(msg, isError ? { error: true } : undefined);
+  };
+
   const selection = figma.currentPage.selection;
 
-  // フレームが選択されているか確認
   let targetFrame: FrameNode | null = null;
   for (const node of selection) {
     if (node.type === "FRAME") {
@@ -502,18 +693,15 @@ async function placeImagesInFrame(
     }
   }
 
-  // フレームが選択されていない場合はエラー
   if (!targetFrame) {
-    figma.notify("フレームを選択してください", { error: true });
-    return;
+    notify("フレームを選択してください", true);
+    return { appliedCount: 0, errorMessage: "フレームを選択してください" };
   }
 
   try {
-    // フレーム内の画像プレースホルダーを検出
     const placeholders = findImagePlaceholders(targetFrame);
 
     if (placeholders.length === 0) {
-      // プレースホルダーが見つからない場合は、既存の画像ノードを探す
       const existingImageNodes: SceneNode[] = [];
       const findImageNodes = (node: SceneNode) => {
         if (
@@ -537,51 +725,90 @@ async function placeImagesInFrame(
         findImageNodes(child);
       }
 
-      // 既存の画像ノードに直接画像を適用
       if (existingImageNodes.length > 0) {
+        if (images.length === 0) {
+          notify("画像データがありません", true);
+          return { appliedCount: 0, errorMessage: "画像データがありません" };
+        }
         let appliedCount = 0;
-        for (
-          let i = 0;
-          i < Math.min(images.length, existingImageNodes.length);
-          i++
-        ) {
-          const node = existingImageNodes[i];
-          if ("fills" in node && node.fills !== figma.mixed) {
-            const imageHash = figma.createImage(images[i].imageData).hash;
-            node.fills = [
-              {
-                type: "IMAGE",
-                imageHash: imageHash,
-                scaleMode: "FIT",
-              },
-            ];
-            appliedCount++;
+        if (sequential) {
+          const imageHash = figma.createImage(images[0].imageData).hash;
+          for (const node of existingImageNodes) {
+            if ("fills" in node && node.fills !== figma.mixed) {
+              node.fills = [
+                {
+                  type: "IMAGE",
+                  imageHash,
+                  scaleMode: "FILL",
+                },
+              ];
+              appliedCount++;
+            }
+          }
+        } else {
+          for (
+            let i = 0;
+            i < Math.min(images.length, existingImageNodes.length);
+            i++
+          ) {
+            const node = existingImageNodes[i];
+            if ("fills" in node && node.fills !== figma.mixed) {
+              const imageHash = figma.createImage(images[i].imageData).hash;
+              node.fills = [
+                {
+                  type: "IMAGE",
+                  imageHash: imageHash,
+                  scaleMode: "FILL",
+                },
+              ];
+              appliedCount++;
+            }
           }
         }
-        figma.notify(`${appliedCount}個の既存ノードに画像を適用しました`);
-        return;
+        notify(`${appliedCount}個の既存ノードに画像を適用しました`);
+        return { appliedCount };
       }
 
-      // プレースホルダーも既存の画像ノードも見つからない場合
-      figma.notify(
-        "画像を適用できる要素が見つかりませんでした。画像プレースホルダー（img、画像などの名前が含まれる要素）を用意してください。",
-        { error: true }
-      );
-      return;
+      const errMsg =
+        "画像を適用できる要素が見つかりませんでした。画像プレースホルダー（img、画像などの名前が含まれる要素）を用意してください。";
+      notify(errMsg, true);
+      return { appliedCount: 0, errorMessage: errMsg };
     }
 
     const updatedNodes: SceneNode[] = [];
 
-    // プレースホルダーが見つかった場合
-    if (placeholders.length > 0) {
-      // 画像とプレースホルダーの最適なマッチングを計算
-      const matchedPairs = matchImagesToPlaceholders(images, placeholders);
+    if (images.length === 0) {
+      notify("画像データがありません", true);
+      return { appliedCount: 0, errorMessage: "画像データがありません" };
+    }
 
-      for (const pair of matchedPairs) {
+    if (sequential) {
+      // Random など: 1枚の画像をすべての img 枠に繰り返し（各枠を画像の塗りで埋める＝FILL）
+      const imageHash = figma.createImage(images[0].imageData).hash;
+      for (const ph of placeholders) {
+        if ("fills" in ph.node && ph.node.fills !== figma.mixed) {
+          ph.node.fills = [
+            {
+              type: "IMAGE",
+              imageHash,
+              scaleMode: "FILL",
+            },
+          ];
+          updatedNodes.push(ph.node);
+        }
+      }
+    } else {
+      const pairs = matchImagesToPlaceholders(images, placeholders).map(
+        (p) => ({
+          image: p.image,
+          placeholder: p.placeholder,
+        }),
+      );
+
+      for (const pair of pairs) {
         const img = pair.image;
         const placeholder = pair.placeholder;
 
-        // 既存のノードに直接画像を適用（新しいRectangleは作成しない）
         if (
           "fills" in placeholder.node &&
           placeholder.node.fills !== figma.mixed
@@ -591,34 +818,29 @@ async function placeImagesInFrame(
             {
               type: "IMAGE",
               imageHash: imageHash,
-              scaleMode: "FIT",
+              scaleMode: "FILL",
             },
           ];
           updatedNodes.push(placeholder.node);
         }
       }
-
-      if (updatedNodes.length > 0) {
-        figma.currentPage.selection = updatedNodes;
-        figma.viewport.scrollAndZoomIntoView(updatedNodes);
-        figma.notify(
-          `${updatedNodes.length}個の画像を既存の要素に適用しました`
-        );
-      } else {
-        figma.notify("画像を適用できる要素が見つかりませんでした", {
-          error: true,
-        });
-      }
-    } else {
-      // プレースホルダーが見つからない場合
-      figma.notify(
-        "画像プレースホルダーが見つかりません。画像を適用できる要素（img、画像などの名前が含まれる要素）を用意してください。",
-        { error: true }
-      );
     }
+
+    if (updatedNodes.length > 0) {
+      figma.currentPage.selection = updatedNodes;
+      figma.viewport.scrollAndZoomIntoView(updatedNodes);
+      notify(`${updatedNodes.length}個の画像を既存の要素に適用しました`);
+      return { appliedCount: updatedNodes.length };
+    }
+    notify("画像を適用できる要素が見つかりませんでした", true);
+    return {
+      appliedCount: 0,
+      errorMessage: "画像を適用できる要素が見つかりませんでした",
+    };
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "不明なエラー";
-    figma.notify(`エラー: ${errorMessage}`, { error: true });
+    notify(`エラー: ${errorMessage}`, true);
+    return { appliedCount: 0, errorMessage: `エラー: ${errorMessage}` };
   }
 }

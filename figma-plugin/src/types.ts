@@ -43,3 +43,25 @@ export interface SavedImagesRetrievedHandler extends EventHandler {
   name: "SAVED_IMAGES_RETRIEVED";
   handler: (images: ImageData[]) => void;
 }
+
+export interface PlaceImagesInFrameHandler extends EventHandler {
+  name: "PLACE_IMAGES_IN_FRAME";
+  handler: (data: {
+    images: Array<{ imageData: Uint8Array; width: number; height: number }>;
+    matchAspectRatio?: boolean;
+  }) => void;
+}
+
+export interface ApplyDummyTextToSelectionHandler extends EventHandler {
+  name: "APPLY_DUMMY_TEXT_TO_SELECTION";
+  handler: (data: { dummyTextTemplate: string }) => void;
+}
+
+export interface PlaceRandomContentInFrameHandler extends EventHandler {
+  name: "PLACE_RANDOM_CONTENT_IN_FRAME";
+  handler: (data: {
+    images: Array<{ imageData: Uint8Array; width: number; height: number }>;
+    seed: number;
+    dummyTextTemplate: string;
+  }) => void;
+}
