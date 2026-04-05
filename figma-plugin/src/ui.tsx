@@ -259,7 +259,7 @@ function Plugin() {
   const scrollContainerRef = useRef<HTMLDivElement>(null); // スクロール可能なコンテナのref
 
   const [tabValue, setTabValue] = useState<string>("Top");
-  /** Top タブの「フレームに Apply」: オンでアスペクト比マッチ、オフで枠を上から順に割り当て */
+  /** Top タブの「フレームに Apply」: オンでアスペクト比が近い枠にマッチ、オフは選択画像を枠の順に割り当て（足りなければ循環） */
   const [matchAspectRatioForFrame, setMatchAspectRatioForFrame] =
     useState(true);
   const [randomDemoSeed, setRandomDemoSeed] = useState(1);
@@ -750,7 +750,24 @@ function Plugin() {
       const one = randomDemoImages[idx];
       sourceImages = one != null ? [one] : [];
     } else {
-      sourceImages = displayImages;
+      if (selectedImageIndices.size === 0) {
+        showStatus("フレームに入れる画像を選択してください", "error");
+        setApplyButtonLoading(false);
+        return;
+      }
+      const orderedIndices = selectedImageOrder.filter((i) =>
+        selectedImageIndices.has(i),
+      );
+      const seen = new Set(orderedIndices);
+      for (const i of Array.from(selectedImageIndices).sort((a, b) => a - b)) {
+        if (!seen.has(i)) {
+          orderedIndices.push(i);
+          seen.add(i);
+        }
+      }
+      sourceImages = orderedIndices
+        .map((i) => images[i])
+        .filter((img): img is ImageData => img != null);
     }
 
     if (sourceImages.length === 0) {
@@ -1596,6 +1613,22 @@ function Plugin() {
                         </Checkbox>
                       </div>
                       <div
+                        style={{
+                          display: "flex",
+                          gap: "8px",
+                          alignItems: "center",
+                          minHeight: "32px",
+                        }}
+                      >
+                        <Checkbox
+                          value={matchAspectRatioForFrame}
+                          onValueChange={setMatchAspectRatioForFrame}
+                          disabled={imagesToDisplay.length === 0}
+                        >
+                          <Text>画像とサイズのアスペクト比が近しいものをマッチ</Text>
+                        </Checkbox>
+                      </div>
+                      <div
                         ref={settingsMenuRef}
                         style={{
                           position: "relative",
@@ -1748,27 +1781,13 @@ function Plugin() {
                   })}
                 </div>
               </div>
-              <div
-                style={{
-                  padding: "0 var(--space-extra-small) 8px",
-                  display: "flex",
-                  alignItems: "flex-start",
-                }}
-              >
-                <Checkbox
-                  value={matchAspectRatioForFrame}
-                  onValueChange={setMatchAspectRatioForFrame}
-                >
-                  <Text style={{ fontSize: "11px" }}>
-                    アスペクト比が近い枠にマッチする（オフのときは上から順に割り当て）
-                  </Text>
-                </Checkbox>
-              </div>
               <Footer
                 onApplyToSelection={handleApplyImage}
                 onApplyAll={handlePlaceAllImagesInFrame}
                 applyToSelectionDisabled={selectedImageIndices.size === 0}
-                applyAllDisabled={displayImages.length === 0}
+                applyAllDisabled={
+                  displayImages.length === 0 || selectedImageIndices.size === 0
+                }
                 applyAllLoading={applyButtonLoading}
               />
             </div>

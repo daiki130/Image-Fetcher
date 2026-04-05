@@ -89,8 +89,13 @@ export default function () {
     "PLACE_IMAGES_IN_FRAME",
     async (data: {
       images: Array<{ imageData: Uint8Array; width: number; height: number }>;
+      matchAspectRatio?: boolean;
     }) => {
-      await placeImagesInFrame(data.images);
+      const match = data.matchAspectRatio !== false;
+      await placeImagesInFrame(data.images, {
+        sequentialImgPlaceholders: false,
+        indexOrderPlaceholders: !match,
+      });
     },
   );
 
@@ -672,10 +677,16 @@ type PlaceImagesResult = {
 // フレーム内に画像を自動配置する関数
 async function placeImagesInFrame(
   images: Array<{ imageData: Uint8Array; width: number; height: number }>,
-  opts?: { silent?: boolean; sequentialImgPlaceholders?: boolean },
+  opts?: {
+    silent?: boolean;
+    sequentialImgPlaceholders?: boolean;
+    /** true: 画像を上から順に割り当て（枚数が足りなければ先頭から循環）。アスペクト比マッチはしない */
+    indexOrderPlaceholders?: boolean;
+  },
 ): Promise<PlaceImagesResult> {
   const silent = opts?.silent === true;
   const sequential = opts?.sequentialImgPlaceholders === true;
+  const indexOrder = opts?.indexOrderPlaceholders === true;
   const notify = (msg: string, isError?: boolean) => {
     if (silent && !isError) {
       return;
@@ -745,6 +756,22 @@ async function placeImagesInFrame(
               appliedCount++;
             }
           }
+        } else if (indexOrder) {
+          for (let i = 0; i < existingImageNodes.length; i++) {
+            const node = existingImageNodes[i];
+            const img = images[i % images.length];
+            if ("fills" in node && node.fills !== figma.mixed) {
+              const imageHash = figma.createImage(img.imageData).hash;
+              node.fills = [
+                {
+                  type: "IMAGE",
+                  imageHash: imageHash,
+                  scaleMode: "FILL",
+                },
+              ];
+              appliedCount++;
+            }
+          }
         } else {
           for (
             let i = 0;
@@ -791,6 +818,22 @@ async function placeImagesInFrame(
             {
               type: "IMAGE",
               imageHash,
+              scaleMode: "FILL",
+            },
+          ];
+          updatedNodes.push(ph.node);
+        }
+      }
+    } else if (indexOrder) {
+      for (let i = 0; i < placeholders.length; i++) {
+        const ph = placeholders[i];
+        const img = images[i % images.length];
+        if ("fills" in ph.node && ph.node.fills !== figma.mixed) {
+          const imageHash = figma.createImage(img.imageData).hash;
+          ph.node.fills = [
+            {
+              type: "IMAGE",
+              imageHash: imageHash,
               scaleMode: "FILL",
             },
           ];
