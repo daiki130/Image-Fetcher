@@ -1325,7 +1325,7 @@ function Plugin() {
       style={{
         position: "relative",
         height: "100%",
-        backgroundColor: "var(--figma-color-bg-secondary)",
+        backgroundColor: "var(--figma-color-bg)",
         // backgroundColor: "#141414",
       }}
     >

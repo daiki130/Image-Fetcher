@@ -14,6 +14,8 @@ interface CardProps {
   onDragStart?: (image: ImageData) => void;
   /** true のとき、画像の読み込みに失敗したカードは描画しない（プレースホルダーを出さない） */
   hideOnImageError?: boolean;
+  /** true のときホバー拡大を無効化（グリッドの小さなサムネ用） */
+  compact?: boolean;
 }
 
 export const Card = ({
@@ -24,6 +26,7 @@ export const Card = ({
   onClick,
   onDragStart,
   hideOnImageError = false,
+  compact = false,
 }: CardProps) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -173,7 +176,10 @@ export const Card = ({
           transition: isDragging
             ? "none"
             : "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-          transform: !isSelected && isHovered ? "scale(1.8)" : "scale(1)",
+          transform:
+            compact || isSelected || !isHovered
+              ? "scale(1)"
+              : "scale(1.8)",
           boxShadow: isDragging
             ? "0 12px 32px rgba(0, 0, 0, 0.5)"
             : !isSelected && isHovered
