@@ -689,51 +689,51 @@ function Plugin() {
   };
 
   // 選択ノードに適用（複数選択されている場合は最初の選択を適用）
-  const handleApplyImage = async () => {
-    if (tabValue === "Random") {
-      if (selectedRandomIndices.size === 0) {
-        showStatus("画像を選択してください", "error");
-        return;
-      }
-      const idx = Array.from(selectedRandomIndices).sort((a, b) => a - b)[0];
-      const selectedImage = randomDemoImages[idx];
-      if (!selectedImage) {
-        showStatus("画像を選択してください", "error");
-        return;
-      }
-      const imageData = await downloadAndConvertImage(selectedImage);
-      if (imageData) {
-        emit("APPLY_IMAGE_DATA", { imageData });
-        showStatus("画像を適用しました", "success");
-      } else {
-        showStatus(
-          "画像の処理に失敗しました。画像データを確認してください",
-          "error",
-        );
-      }
-      return;
-    }
+  // const handleApplyImage = async () => {
+  //   if (tabValue === "Random") {
+  //     if (selectedRandomIndices.size === 0) {
+  //       showStatus("画像を選択してください", "error");
+  //       return;
+  //     }
+  //     const idx = Array.from(selectedRandomIndices).sort((a, b) => a - b)[0];
+  //     const selectedImage = randomDemoImages[idx];
+  //     if (!selectedImage) {
+  //       showStatus("画像を選択してください", "error");
+  //       return;
+  //     }
+  //     const imageData = await downloadAndConvertImage(selectedImage);
+  //     if (imageData) {
+  //       emit("APPLY_IMAGE_DATA", { imageData });
+  //       showStatus("画像を適用しました", "success");
+  //     } else {
+  //       showStatus(
+  //         "画像の処理に失敗しました。画像データを確認してください",
+  //         "error",
+  //       );
+  //     }
+  //     return;
+  //   }
 
-    if (selectedImageIndices.size === 0) {
-      showStatus("画像を選択してください", "error");
-      return;
-    }
+  //   if (selectedImageIndices.size === 0) {
+  //     showStatus("画像を選択してください", "error");
+  //     return;
+  //   }
 
-    const firstSelectedIndex = Array.from(selectedImageIndices)[0];
-    const selectedImage = images[firstSelectedIndex];
+  //   const firstSelectedIndex = Array.from(selectedImageIndices)[0];
+  //   const selectedImage = images[firstSelectedIndex];
 
-    const imageData = await downloadAndConvertImage(selectedImage);
+  //   const imageData = await downloadAndConvertImage(selectedImage);
 
-    if (imageData) {
-      emit("APPLY_IMAGE_DATA", { imageData });
-      showStatus("画像を適用しました", "success");
-    } else {
-      showStatus(
-        "画像の処理に失敗しました。画像データを確認してください",
-        "error",
-      );
-    }
-  };
+  //   if (imageData) {
+  //     emit("APPLY_IMAGE_DATA", { imageData });
+  //     showStatus("画像を適用しました", "success");
+  //   } else {
+  //     showStatus(
+  //       "画像の処理に失敗しました。画像データを確認してください",
+  //       "error",
+  //     );
+  //   }
+  // };
 
   // フレーム内にすべての画像を自動配置
   const handlePlaceAllImagesInFrame = async () => {
@@ -1361,7 +1361,7 @@ function Plugin() {
         </div>
       )}
       {/* カスタムステータスタブ */}
-      <div
+      {/* <div
         style={{
           overflowX: "auto",
           whiteSpace: "nowrap",
@@ -1424,7 +1424,7 @@ function Plugin() {
             </button>
           ))}
         </div>
-      </div>
+      </div> */}
       {tabValue === "Top" && (
         <div>
           <div
@@ -1435,7 +1435,7 @@ function Plugin() {
               top: 0,
               alignSelf: "flex-start",
               zIndex: 99,
-              background: "var(--figma-color-bg-secondary)",
+              background: "var(--figma-color-bg)",
               borderBottom:
                 imagesToDisplay.length > 0
                   ? "1px solid var(--figma-color-border)"
@@ -1523,7 +1523,6 @@ function Plugin() {
                   <div
                     style={{
                       display: "flex",
-                      flexDirection: "column",
                       gap: "var(--space-small)",
                     }}
                   >
@@ -1532,6 +1531,7 @@ function Plugin() {
                         display: "flex",
                         flexDirection: "column",
                         gap: "6px",
+                        width: "328px",
                       }}
                     >
                       {Array.from(uniqueServices.entries()).map(
@@ -1542,8 +1542,8 @@ function Plugin() {
                               display: "flex",
                               justifyContent: "space-between",
                               alignItems: "center",
-                              borderRadius: "6px",
-                              backgroundColor: "var(--figma-color-bg)",
+                              borderRadius: "8px",
+                              backgroundColor: "var(--figma-color-bg-secondary)",
                               padding: "8px",
                             }}
                           >
@@ -1557,11 +1557,11 @@ function Plugin() {
                               <ServiceLogo
                                 serviceName={serviceName}
                                 favicon={favicon}
-                                size={24}
+                                size={20}
                               />
                               <div
                                 style={{
-                                  fontSize: "13px",
+                                  fontSize: "11px",
                                   color: "var(--figma-color-text)",
                                 }}
                               >
@@ -1573,6 +1573,7 @@ function Plugin() {
                                   borderRadius: "4px",
                                   padding: "2px 8px",
                                   border: "1px solid var(--figma-color-border)",
+                                  backgroundColor: "var(--figma-color-bg)",
                                 }}
                               >
                                 {displayImages.length} images
@@ -1596,22 +1597,6 @@ function Plugin() {
                         justifyContent: "space-between",
                       }}
                     >
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: "8px",
-                          alignItems: "center",
-                          minHeight: "32px",
-                        }}
-                      >
-                        <Checkbox
-                          value={selectAllCheckboxValue}
-                          onValueChange={handleSelectAllCheckboxValueChange}
-                          disabled={imagesToDisplay.length === 0}
-                        >
-                          <Text>Select all images</Text>
-                        </Checkbox>
-                      </div>
                       <div
                         style={{
                           display: "flex",
@@ -1782,7 +1767,10 @@ function Plugin() {
                 </div>
               </div>
               <Footer
-                onApplyToSelection={handleApplyImage}
+                // onApplyToSelection={handleApplyImage}
+                selectAllCheckboxValue={selectAllCheckboxValue as boolean}
+                handleSelectAllCheckboxValueChange={handleSelectAllCheckboxValueChange}
+                imagesToDisplay={imagesToDisplay}
                 onApplyAll={handlePlaceAllImagesInFrame}
                 applyToSelectionDisabled={selectedImageIndices.size === 0}
                 applyAllDisabled={
@@ -1795,7 +1783,7 @@ function Plugin() {
         </div>
       )}
 
-      {tabValue === "Random" && (
+      {/* {tabValue === "Random" && (
         <div
           style={{
             display: "flex",
@@ -1822,7 +1810,7 @@ function Plugin() {
             }}
           />
           <Footer
-            onApplyToSelection={handleApplyImage}
+            // onApplyToSelection={handleApplyImage}
             onApplyAll={handlePlaceAllImagesInFrame}
             applyToSelectionDisabled={selectedRandomIndices.size === 0}
             applyAllDisabled={
@@ -1831,7 +1819,7 @@ function Plugin() {
             applyAllLoading={applyButtonLoading}
           />
         </div>
-      )}
+      )} */}
     </div>
   );
 }

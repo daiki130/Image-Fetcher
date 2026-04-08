@@ -1,8 +1,12 @@
 import { h } from "preact";
-import { Button } from "@create-figma-plugin/ui";
+import { Button, Checkbox, Text } from "@create-figma-plugin/ui";
+import { ImageData } from "../types";
 
 export interface FooterProps {
-  onApplyToSelection: () => void;
+  // onApplyToSelection: () => void;
+  selectAllCheckboxValue: boolean;
+  handleSelectAllCheckboxValueChange: (checked: boolean) => void;
+  imagesToDisplay: ImageData[] | undefined;
   onApplyAll: () => void;
   applyToSelectionDisabled: boolean;
   applyAllDisabled: boolean;
@@ -10,7 +14,10 @@ export interface FooterProps {
 }
 
 export function Footer({
-  onApplyToSelection,
+  // onApplyToSelection,
+  selectAllCheckboxValue,
+  handleSelectAllCheckboxValueChange,
+  imagesToDisplay,
   onApplyAll,
   applyToSelectionDisabled,
   applyAllDisabled,
@@ -23,7 +30,7 @@ export function Footer({
         bottom: "0",
         left: "0",
         right: "0",
-        padding: "12px 12px ",
+        padding: "8px 8px 8px 20px",
         zIndex: 99,
         background: "var(--figma-color-bg)",
         display: "flex",
@@ -45,12 +52,12 @@ export function Footer({
         <div
           style={{
             display: "flex",
-            gap: "4px",
+            gap: "40px",
           }}
         >
-          <Button
+          {/* <Button
             fullWidth
-            onClick={onApplyToSelection}
+            // onClick={onApplyToSelection}
             disabled={applyToSelectionDisabled}
             style={{
               backgroundColor: "var(--figma-color-background-secondary)",
@@ -61,7 +68,23 @@ export function Footer({
             }}
           >
             Apply to selection
-          </Button>
+          </Button> */}
+          <div
+            style={{
+              display: "flex",
+              gap: "8px",
+              alignItems: "center",
+              minHeight: "32px",
+            }}
+          >
+            <Checkbox
+              value={selectAllCheckboxValue}
+              onValueChange={handleSelectAllCheckboxValueChange}
+              disabled={imagesToDisplay?.length === 0}
+            >
+              <Text>Select all images</Text>
+            </Checkbox>
+          </div>
           <Button
             fullWidth
             loading={applyAllLoading}
@@ -69,8 +92,10 @@ export function Footer({
             disabled={applyAllDisabled}
             style={{
               color: "#fff",
-              height: "32px",
-              width: "180px",
+              height: "40px",
+              width: "290px",
+              borderRadius: "8px",
+              fontSize: "13px",
             }}
           >
             Apply
