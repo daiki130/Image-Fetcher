@@ -1524,6 +1524,7 @@ function Plugin() {
                     style={{
                       display: "flex",
                       gap: "var(--space-small)",
+                      justifyContent: "space-between",
                     }}
                   >
                     <div
@@ -1531,7 +1532,6 @@ function Plugin() {
                         display: "flex",
                         flexDirection: "column",
                         gap: "6px",
-                        width: "328px",
                       }}
                     >
                       {Array.from(uniqueServices.entries()).map(
@@ -1545,6 +1545,7 @@ function Plugin() {
                               borderRadius: "8px",
                               backgroundColor: "var(--figma-color-bg-secondary)",
                               padding: "8px",
+                              gap: "16px",
                             }}
                           >
                             <div
@@ -1561,8 +1562,12 @@ function Plugin() {
                               />
                               <div
                                 style={{
-                                  fontSize: "11px",
+                                  fontSize: "13px",
                                   color: "var(--figma-color-text)",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
+                                  maxWidth: "150px",
                                 }}
                               >
                                 {serviceName}
