@@ -255,13 +255,13 @@ function Plugin() {
   const [isLoading, setIsLoading] = useState(false); // データ読み込み中かどうか
   const [loadingProgress, setLoadingProgress] = useState(0); // 進捗率（0-100）
   const [applyButtonLoading, setApplyButtonLoading] = useState(false); // 適用ボタンのローディング状態
+  /** Top タブの Apply: オンでアスペクト比が近い枠にマッチ、オフは選択画像を枠の順に割り当て */
+  const [matchAspectRatioForFrame, setMatchAspectRatioForFrame] =
+    useState(true);
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(false); // 一番下までスクロールしたかどうか
   const scrollContainerRef = useRef<HTMLDivElement>(null); // スクロール可能なコンテナのref
 
   const [tabValue, setTabValue] = useState<string>("Top");
-  /** Top タブの「フレームに Apply」: オンでアスペクト比が近い枠にマッチ、オフは選択画像を枠の順に割り当て（足りなければ循環） */
-  const [matchAspectRatioForFrame, setMatchAspectRatioForFrame] =
-    useState(true);
   const [randomDemoSeed, setRandomDemoSeed] = useState(1);
   const [selectedRandomIndices, setSelectedRandomIndices] = useState<
     Set<number>
@@ -1598,22 +1598,6 @@ function Plugin() {
                       }}
                     >
                       <div
-                        style={{
-                          display: "flex",
-                          gap: "8px",
-                          alignItems: "center",
-                          minHeight: "32px",
-                        }}
-                      >
-                        <Checkbox
-                          value={matchAspectRatioForFrame}
-                          onValueChange={setMatchAspectRatioForFrame}
-                          disabled={imagesToDisplay.length === 0}
-                        >
-                          <Text>画像とサイズのアスペクト比が近しいものをマッチ</Text>
-                        </Checkbox>
-                      </div>
-                      <div
                         ref={settingsMenuRef}
                         style={{
                           position: "relative",
@@ -1767,7 +1751,8 @@ function Plugin() {
                 </div>
               </div>
               <Footer
-                // onApplyToSelection={handleApplyImage}
+                matchAspectRatioForFrame={matchAspectRatioForFrame}
+                setMatchAspectRatioForFrame={setMatchAspectRatioForFrame}
                 selectAllCheckboxValue={selectAllCheckboxValue as boolean}
                 handleSelectAllCheckboxValueChange={handleSelectAllCheckboxValueChange}
                 imagesToDisplay={imagesToDisplay}

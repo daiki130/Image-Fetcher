@@ -1,9 +1,11 @@
 import { h } from "preact";
-import { Button, Checkbox, Text } from "@create-figma-plugin/ui";
+import { Button, Checkbox, Text, Toggle } from "@create-figma-plugin/ui";
 import { ImageData } from "../types";
 
 export interface FooterProps {
   // onApplyToSelection: () => void;
+  matchAspectRatioForFrame: boolean;
+  setMatchAspectRatioForFrame: (checked: boolean) => void;
   selectAllCheckboxValue: boolean;
   handleSelectAllCheckboxValueChange: (checked: boolean) => void;
   imagesToDisplay: ImageData[] | undefined;
@@ -14,7 +16,8 @@ export interface FooterProps {
 }
 
 export function Footer({
-  // onApplyToSelection,
+  matchAspectRatioForFrame,
+  setMatchAspectRatioForFrame,
   selectAllCheckboxValue,
   handleSelectAllCheckboxValueChange,
   imagesToDisplay,
@@ -49,6 +52,22 @@ export function Footer({
           alignItems: "center",
         }}
       >
+        <div
+          style={{
+            display: "flex",
+            gap: "8px",
+            alignItems: "center",
+            minHeight: "32px",
+          }}
+        >
+          <Toggle
+            value={matchAspectRatioForFrame}
+            onValueChange={setMatchAspectRatioForFrame}
+            disabled={imagesToDisplay?.length === 0}
+          >
+            <Text>画像とサイズのアスペクト比が近しいものをマッチ</Text>
+          </Toggle>
+        </div>
         <div
           style={{
             display: "flex",
