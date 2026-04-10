@@ -976,15 +976,6 @@ function Plugin() {
     },
   ];
 
-  // displayImages / Random タブに応じてプラグイン幅を変更（アニメーションは main.ts で処理）
-  useEffect(() => {
-    const hasWideLayout = displayImages.length > 0 || tabValue === "Random";
-    emit("RESIZE_UI", {
-      width: hasWideLayout ? 500 : 400,
-      height: 1000,
-    });
-  }, [displayImages.length, tabValue]);
-
   // 表示用の値を計算する関数（最初の値のみ表示、残りは「...」）
   const getDisplayValue = (input: string): string => {
     if (!input || !input.trim()) {
@@ -1239,6 +1230,14 @@ function Plugin() {
     });
   })();
 
+  useEffect(() => {
+    const hasWideLayout = displayImages.length > 0 || tabValue === "Random";
+    emit("RESIZE_UI", {
+      width: hasWideLayout ? 500 : 400,
+      height: hasWideLayout ? 1000 : 151,
+    });
+  }, [imagesToDisplay.length]);
+
   const areAllDisplayImagesSelected: boolean =
     imagesToDisplay.length > 0 &&
     imagesToDisplay.every((displayImg) => {
@@ -1453,7 +1452,7 @@ function Plugin() {
               top: 0,
               alignSelf: "flex-start",
               zIndex: 99,
-              background: "var(--figma-color-bg)",
+              background: imagesToDisplay.length === 0 ? "var(--figma-color-bg-secondary)" : "var(--figma-color-bg)",
               borderBottom:
                 imagesToDisplay.length > 0
                   ? "1px solid var(--figma-color-border)"
