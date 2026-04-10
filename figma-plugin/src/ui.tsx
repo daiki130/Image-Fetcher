@@ -787,10 +787,7 @@ function Plugin() {
 
       for (let i = 0; i < sourceImages.length; i++) {
         const img = sourceImages[i];
-        showStatus(
-          `画像を処理中... (${i + 1}/${sourceImages.length})`,
-          "info",
-        );
+        showStatus(`画像を処理中... (${i + 1}/${sourceImages.length})`, "info");
 
         const imageData = await downloadAndConvertImage(img);
         if (imageData) {
@@ -1107,6 +1104,27 @@ function Plugin() {
     const newValue = event.currentTarget.checked;
     setIsOpen(newValue);
   }
+
+  // 外側クリックで設定メニューを閉じる
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        isOpen &&
+        settingsMenuRef.current &&
+        !settingsMenuRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isOpen]);
 
   const [tooltipStates, setTooltipStates] = useState<{
     [key: string]: boolean;
@@ -1543,7 +1561,8 @@ function Plugin() {
                               justifyContent: "space-between",
                               alignItems: "center",
                               borderRadius: "8px",
-                              backgroundColor: "var(--figma-color-bg-secondary)",
+                              backgroundColor:
+                                "var(--figma-color-bg-secondary)",
                               padding: "8px",
                               gap: "16px",
                             }}
@@ -1759,7 +1778,9 @@ function Plugin() {
                 matchAspectRatioForFrame={matchAspectRatioForFrame}
                 setMatchAspectRatioForFrame={setMatchAspectRatioForFrame}
                 selectAllCheckboxValue={selectAllCheckboxValue as boolean}
-                handleSelectAllCheckboxValueChange={handleSelectAllCheckboxValueChange}
+                handleSelectAllCheckboxValueChange={
+                  handleSelectAllCheckboxValueChange
+                }
                 imagesToDisplay={imagesToDisplay}
                 onApplyAll={handlePlaceAllImagesInFrame}
                 applyToSelectionDisabled={selectedImageIndices.size === 0}
