@@ -1452,7 +1452,10 @@ function Plugin() {
               top: 0,
               alignSelf: "flex-start",
               zIndex: 99,
-              background: imagesToDisplay.length === 0 ? "var(--figma-color-bg-secondary)" : "var(--figma-color-bg)",
+              background:
+                imagesToDisplay.length === 0
+                  ? "var(--figma-color-bg-secondary)"
+                  : "var(--figma-color-bg)",
               borderBottom:
                 imagesToDisplay.length > 0
                   ? "1px solid var(--figma-color-border)"
