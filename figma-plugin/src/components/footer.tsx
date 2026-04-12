@@ -1,6 +1,7 @@
 import { h } from "preact";
 import { Button, Checkbox, Text, Toggle } from "@create-figma-plugin/ui";
 import { ImageData } from "../types";
+import { Toogle } from "./toggle";
 
 export interface FooterProps {
   // onApplyToSelection: () => void;
@@ -52,7 +53,7 @@ export function Footer({
           alignItems: "center",
         }}
       >
-        <div
+        {/* <div
           style={{
             display: "flex",
             gap: "8px",
@@ -67,6 +68,24 @@ export function Footer({
           >
             <Text>画像とサイズのアスペクト比が近しいものをマッチ</Text>
           </Toggle>
+        </div> */}
+        
+        {/* 画像とサイズのアスペクト比が近しいものをマッチ */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: "8px",
+            alignItems: "center",
+          }}
+        >
+          <div>
+            <Text>Match aspect ratio</Text>
+          </div>
+          <Toogle
+            value={matchAspectRatioForFrame}
+            onChange={setMatchAspectRatioForFrame}
+          />
         </div>
         <div
           style={{
@@ -74,20 +93,6 @@ export function Footer({
             gap: "40px",
           }}
         >
-          {/* <Button
-            fullWidth
-            // onClick={onApplyToSelection}
-            disabled={applyToSelectionDisabled}
-            style={{
-              backgroundColor: "var(--figma-color-background-secondary)",
-              color: "var(--figma-color-text-tertiary)",
-              height: "32px",
-              width: "180px",
-              border: "1px solid var(--figma-color-border)",
-            }}
-          >
-            Apply to selection
-          </Button> */}
           <div
             style={{
               display: "flex",
