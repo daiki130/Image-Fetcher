@@ -14,7 +14,7 @@ export const Toogle = ({
         style={{
           width: 32,
           height: 16,
-          backgroundColor: value ? "var(--figma-color-bg-brand)" : "var(--figma-color-bg-tertiary)",
+          backgroundColor: value ? "#21DA6E" : "var(--figma-color-bg-tertiary)",
           borderRadius: 10,
           position: "relative",
         }}
@@ -24,12 +24,12 @@ export const Toogle = ({
           style={{
             width: 14,
             height: 14,
-            backgroundColor: "var(--figma-color-bg)",
+            backgroundColor: "#fff",
             borderRadius: 10,
             position: "absolute",
             top: 1,
             left: value ? 17 : 1,
-            transition: "all 0.1s ease",
+            transition: "all 0.2s ease",
           }}
         />
       </div>

@@ -46,7 +46,6 @@ export function Footer({
       <div
         style={{
           display: "flex",
-          flexDirection: "column",
           gap: "4px",
           flex: 1,
           justifyContent: "space-between",
