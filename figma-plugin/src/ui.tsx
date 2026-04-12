@@ -1770,7 +1770,7 @@ function Plugin() {
               <div
                 ref={scrollContainerRef}
                 style={{
-                  maxHeight: "850px",
+                  maxHeight: "659px",
                   overflowY: "auto",
                   position: "relative",
                 }}

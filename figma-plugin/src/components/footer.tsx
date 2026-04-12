@@ -34,7 +34,7 @@ export function Footer({
         bottom: "0",
         left: "0",
         right: "0",
-        padding: "8px 8px 8px 20px",
+        padding: "8px",
         zIndex: 99,
         background: "var(--figma-color-bg)",
         display: "flex",
@@ -46,7 +46,7 @@ export function Footer({
       <div
         style={{
           display: "flex",
-          gap: "4px",
+          gap: "8px",
           flex: 1,
           justifyContent: "space-between",
           alignItems: "center",
@@ -76,6 +76,9 @@ export function Footer({
             justifyContent: "space-between",
             gap: "8px",
             alignItems: "center",
+            padding: "12px 12px 12px 16px",
+            background: "var(--figma-color-bg-secondary)",
+            borderRadius: "28px",
           }}
         >
           <div>
@@ -86,28 +89,21 @@ export function Footer({
             onChange={setMatchAspectRatioForFrame}
           />
         </div>
-        <div
+        <Button
+          fullWidth
+          loading={applyAllLoading}
+          onClick={onApplyAll}
+          disabled={applyAllDisabled}
           style={{
-            display: "flex",
-            gap: "40px",
+            color: "#fff",
+            height: "40px",
+            width: "280px",
+            borderRadius: "8px",
+            fontSize: "13px",
           }}
         >
-          <Button
-            fullWidth
-            loading={applyAllLoading}
-            onClick={onApplyAll}
-            disabled={applyAllDisabled}
-            style={{
-              color: "#fff",
-              height: "40px",
-              width: "290px",
-              borderRadius: "8px",
-              fontSize: "13px",
-            }}
-          >
-            Apply
-          </Button>
-        </div>
+          Apply
+        </Button>
       </div>
       {/* 選択された画像のサムネイルスタック */}
       {/* {selectedImageOrder.length > 0 && (
