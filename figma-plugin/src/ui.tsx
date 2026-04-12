@@ -8,6 +8,7 @@ import {
   VerticalSpace,
   IconSizeSmall24,
   IconToggleButton,
+  SearchTextbox,
 } from "@create-figma-plugin/ui";
 import { emit, on, MIXED_BOOLEAN } from "@create-figma-plugin/utilities";
 import { h, Fragment, JSX } from "preact";
@@ -281,6 +282,12 @@ function Plugin() {
       return "テキスト";
     }
   });
+  const [searchValue, setSearchValue] = useState<string>("");
+  function handleSearchInput(event: JSX.TargetedEvent<HTMLInputElement>) {
+    const newValue = event.currentTarget.value;
+    console.log(newValue);
+    setSearchValue(newValue);
+  }
 
   useEffect(() => {
     try {
@@ -1213,20 +1220,38 @@ function Plugin() {
   ) => {};
   const handleLabelFilterChange = (_label: string) => {};
 
-  // 画像サイズでフィルターするロジック
+  // 画像サイズ + 検索文字列でフィルターするロジック
   const imagesToDisplay = (() => {
+    let list: ImageData[];
+
     // 「すべて」が選択されている場合はすべて表示
     if (selectedImageSizes.has("__ALL__")) {
-      return displayImages;
+      list = displayImages;
+    } else {
+      // 選択されたサイズの画像のみ表示
+      list = displayImages.filter((img) => {
+        const width = img.width || 0;
+        const height = img.height || 0;
+        if (width === 0 || height === 0) return false;
+        const sizeStr = `${width}×${height}`;
+        return selectedImageSizes.has(sizeStr);
+      });
     }
 
-    // 選択されたサイズの画像のみ表示
-    return displayImages.filter((img) => {
-      const width = img.width || 0;
-      const height = img.height || 0;
-      if (width === 0 || height === 0) return false;
-      const sizeStr = `${width}×${height}`;
-      return selectedImageSizes.has(sizeStr);
+    const q = searchValue.trim().toLowerCase();
+    if (!q) return list;
+
+    return list.filter((img) => {
+      const alt = (img.alt || "").toLowerCase();
+      const src = (img.src || "").toLowerCase();
+      const service = (img.service || "").toLowerCase();
+      const sizeStr = `${img.width || 0}×${img.height || 0}`.toLowerCase();
+      return (
+        alt.includes(q) ||
+        src.includes(q) ||
+        service.includes(q) ||
+        sizeStr.includes(q)
+      );
     });
   })();
 
@@ -1370,10 +1395,7 @@ function Plugin() {
               minWidth: "200px",
             }}
           >
-            <Loading
-              message="データを読み込み中..."
-              progress={loadingProgress}
-            />
+            <Loading message="Loading data..." progress={loadingProgress} />
           </div>
         </div>
       )}
@@ -1453,16 +1475,16 @@ function Plugin() {
               alignSelf: "flex-start",
               zIndex: 99,
               background:
-                imagesToDisplay.length === 0
+                displayImages.length === 0
                   ? "var(--figma-color-bg-secondary)"
                   : "var(--figma-color-bg)",
               borderBottom:
-                imagesToDisplay.length > 0
+                displayImages.length > 0
                   ? "1px solid var(--figma-color-border)"
                   : ("none" as string),
             }}
           >
-            {imagesToDisplay.length === 0 && (
+            {displayImages.length === 0 && (
               <div
                 style={{
                   border: `2px dashed var(--figma-color-border)`,
@@ -1528,11 +1550,11 @@ function Plugin() {
                 file
               </div>
             )}
-            {imagesToDisplay.length > 0 &&
+            {displayImages.length > 0 &&
               (() => {
-                // ユニークなサービス名とfaviconを取得
+                // ユニークなサービス名とfavicon（検索で絞り込んでも一覧は displayImages ベース）
                 const uniqueServices = new Map<string, string>();
-                imagesToDisplay.forEach((img) => {
+                displayImages.forEach((img) => {
                   const serviceName = img.service || "Unknown";
                   if (!uniqueServices.has(serviceName) && img.favicon) {
                     uniqueServices.set(serviceName, img.favicon);
@@ -1545,6 +1567,7 @@ function Plugin() {
                       display: "flex",
                       gap: "var(--space-small)",
                       justifyContent: "space-between",
+                      flexDirection: "column",
                     }}
                   >
                     <div
@@ -1602,7 +1625,13 @@ function Plugin() {
                                   backgroundColor: "var(--figma-color-bg)",
                                 }}
                               >
-                                {displayImages.length} images
+                                {
+                                  displayImages.filter(
+                                    (i) =>
+                                      (i.service || "Unknown") === serviceName,
+                                  ).length
+                                }{" "}
+                                images
                               </span>
                             </div>
                             <Button
@@ -1620,72 +1649,109 @@ function Plugin() {
                       style={{
                         display: "flex",
                         alignItems: "center",
+                        gap: "8px",
                         justifyContent: "space-between",
                       }}
                     >
                       <div
-                        ref={settingsMenuRef}
                         style={{
-                          position: "relative",
-                          display: "inline-block",
+                          display: "flex",
+                          gap: "8px",
+                          alignItems: "center",
+                          minHeight: "32px",
                         }}
-                        onMouseEnter={() => showTooltip("filter")}
-                        onMouseLeave={() => hideTooltip("filter")}
                       >
-                        <IconToggleButton onChange={handleClick} value={isOpen}>
-                          <IconSizeSmall24 />
-                        </IconToggleButton>
-                        {/* Tooltip */}
-                        {isTooltipVisible("filter") && !isOpen && (
+                        <Checkbox
+                          value={selectAllCheckboxValue}
+                          onValueChange={handleSelectAllCheckboxValueChange}
+                          disabled={imagesToDisplay?.length === 0}
+                        >
+                          <Text>Select all images</Text>
+                        </Checkbox>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <SearchTextbox
+                          onInput={handleSearchInput}
+                          placeholder="Search"
+                          value={searchValue}
+                        />
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                          }}
+                        >
                           <div
+                            ref={settingsMenuRef}
                             style={{
-                              position: "absolute",
-                              top: "24px",
-                              right: "-4px",
-                              zIndex: 1000,
+                              position: "relative",
+                              display: "inline-block",
                             }}
+                            onMouseEnter={() => showTooltip("filter")}
+                            onMouseLeave={() => hideTooltip("filter")}
                           >
-                            <Tooltip
-                              message="Size"
-                              arrowPosition="top"
-                              arrowOffset="74%"
-                            />
-                          </div>
-                        )}
+                            <IconToggleButton
+                              onChange={handleClick}
+                              value={isOpen}
+                            >
+                              <IconSizeSmall24 />
+                            </IconToggleButton>
+                            {/* Tooltip */}
+                            {isTooltipVisible("filter") && !isOpen && (
+                              <div
+                                style={{
+                                  position: "absolute",
+                                  top: "24px",
+                                  right: "-4px",
+                                  zIndex: 1000,
+                                }}
+                              >
+                                <Tooltip
+                                  message="Size"
+                                  arrowPosition="top"
+                                  arrowOffset="74%"
+                                />
+                              </div>
+                            )}
 
-                        {/* Settings Menu */}
-                        {isOpen && (
-                          <div
-                            style={{
-                              position: "absolute",
-                              top: "28px",
-                              right: "-3px",
-                              zIndex: 1001,
-                            }}
-                          >
-                            <SettingsMenu
-                              sortHighEnabled={sortHighEnabled}
-                              sortLowEnabled={sortLowEnabled}
-                              sortLabelEnabled={sortLabelEnabled}
-                              availableImageSizes={availableImageSizes}
-                              selectedImageSizes={Array.from(
-                                selectedImageSizes,
-                              )}
-                              showWithDueDate={showWithDueDate}
-                              showWithoutDueDate={showWithoutDueDate}
-                              availableLabels={availableLabels}
-                              selectedLabels={selectedLabels}
-                              onSortHighChange={handleSortHighChange}
-                              onSortLowChange={handleSortLowChange}
-                              onSortLabelChange={handleSortLabelChange}
-                              onImageSizeFilterChange={
-                                handleImageSizeFilterChange
-                              }
-                              onDueDateFilterChange={handleDueDateFilterChange}
-                              onLabelFilterChange={handleLabelFilterChange}
-                            />
+                            {/* Settings Menu */}
+                            {isOpen && (
+                              <div
+                                style={{
+                                  position: "absolute",
+                                  top: "28px",
+                                  right: "-3px",
+                                  zIndex: 1001,
+                                }}
+                              >
+                                <SettingsMenu
+                                  sortHighEnabled={sortHighEnabled}
+                                  sortLowEnabled={sortLowEnabled}
+                                  sortLabelEnabled={sortLabelEnabled}
+                                  availableImageSizes={availableImageSizes}
+                                  selectedImageSizes={Array.from(
+                                    selectedImageSizes,
+                                  )}
+                                  showWithDueDate={showWithDueDate}
+                                  showWithoutDueDate={showWithoutDueDate}
+                                  availableLabels={availableLabels}
+                                  selectedLabels={selectedLabels}
+                                  onSortHighChange={handleSortHighChange}
+                                  onSortLowChange={handleSortLowChange}
+                                  onSortLabelChange={handleSortLabelChange}
+                                  onImageSizeFilterChange={
+                                    handleImageSizeFilterChange
+                                  }
+                                  onDueDateFilterChange={
+                                    handleDueDateFilterChange
+                                  }
+                                  onLabelFilterChange={handleLabelFilterChange}
+                                />
+                              </div>
+                            )}
                           </div>
-                        )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1718,6 +1784,21 @@ function Plugin() {
                     padding: "var(--space-extra-small)",
                   }}
                 >
+                  {imagesToDisplay.length === 0 && displayImages.length > 0 && (
+                    <div
+                      style={{
+                        gridColumn: "1 / -1",
+                        padding: "var(--space-large)",
+                        textAlign: "center",
+                        color: "var(--figma-color-text-secondary)",
+                        fontSize: "12px",
+                      }}
+                    >
+                      {searchValue.trim()
+                        ? "検索に一致する画像がありません"
+                        : "表示する画像がありません"}
+                    </div>
+                  )}
                   {imagesToDisplay.map((img, index) => {
                     // images全体でのインデックスを計算
                     const globalIndex = images.findIndex((globalImg) => {

@@ -69,7 +69,7 @@ export function Footer({
             <Text>画像とサイズのアスペクト比が近しいものをマッチ</Text>
           </Toggle>
         </div> */}
-        
+
         {/* 画像とサイズのアスペクト比が近しいものをマッチ */}
         <div
           style={{
@@ -93,22 +93,6 @@ export function Footer({
             gap: "40px",
           }}
         >
-          <div
-            style={{
-              display: "flex",
-              gap: "8px",
-              alignItems: "center",
-              minHeight: "32px",
-            }}
-          >
-            <Checkbox
-              value={selectAllCheckboxValue}
-              onValueChange={handleSelectAllCheckboxValueChange}
-              disabled={imagesToDisplay?.length === 0}
-            >
-              <Text>Select all images</Text>
-            </Checkbox>
-          </div>
           <Button
             fullWidth
             loading={applyAllLoading}
