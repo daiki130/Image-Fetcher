@@ -28,11 +28,12 @@ document.getElementById("collectBtn").addEventListener("click", async () => {
       // URLが長すぎる画像を除外(データURL等)
       collectedImages = collectedImages.filter((img) => img.src.length < 500);
 
-      // 最小限のデータのみ保存（faviconも含める）
+      // 最小限のデータのみ保存（favicon・タイトル用altも含める）
       const simplifiedImages = collectedImages.map((img) => ({
         src: img.src,
         w: img.width,
         h: img.height,
+        alt: img.alt || "",
         favicon: img.favicon || null, // faviconも保存
       }));
 
@@ -453,12 +454,12 @@ async function fetchImageAsBase64(url) {
 // ページロード時に保存済みの画像を復元
 chrome.storage.local.get(["images"], (result) => {
   if (result.images && result.images.length > 0) {
-    // 短縮形式から復元（faviconも含める）
+    // 短縮形式から復元（favicon・altも含める）
     window.collectedImages = result.images.map((img) => ({
       src: img.src,
       width: img.w,
       height: img.h,
-      alt: "",
+      alt: img.alt || "",
       favicon: img.favicon || null, // faviconも復元
     }));
     collectedImages = window.collectedImages;
@@ -479,6 +480,13 @@ function updateStatus(message, type = "info") {
     type === "error" ? "#d32f2f" : type === "success" ? "#388e3c" : "#666";
 }
 
+function escapeHtmlAttr(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/"/g, "&quot;");
+}
+
 // 画像リスト表示
 function displayImages(images) {
   const listEl = document.getElementById("imageList");
@@ -487,13 +495,21 @@ function displayImages(images) {
   images.forEach((img, index) => {
     const itemEl = document.createElement("div");
     itemEl.className = "image-item";
+    const titleHtml = img.alt
+      ? `<div class="image-title"><strong>Title:</strong> ${escapeHtmlAttr(
+          img.alt,
+        )}</div>`
+      : "";
     itemEl.innerHTML = `
       <img src="${img.src}" alt="Image ${
       index + 1
     }" onerror="this.style.display='none'">
       <div class="image-info">
         <div><strong>Size:</strong> ${img.width} × ${img.height}</div>
-        <div class="image-url" title="${img.src}">${img.src}</div>
+        ${titleHtml}
+        <div class="image-url" title="${escapeHtmlAttr(img.src)}">${escapeHtmlAttr(
+      img.src,
+    )}</div>
       </div>
     `;
     listEl.appendChild(itemEl);
@@ -594,6 +610,122 @@ async function collectImagesFromPage() {
     return null;
   }
 
+  /** 前後空白・改行を整形 */
+  function normalizeLabel(s) {
+    if (s == null || typeof s !== "string") return "";
+    return s.replace(/\s+/g, " ").trim();
+  }
+
+  function getByDomId(id) {
+    if (!id) return null;
+    try {
+      return document.getElementById(id);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /** aria-labelledby で参照されるノードのテキストを結合 */
+  function resolveAriaLabelledby(el) {
+    const ids = el.getAttribute("aria-labelledby");
+    if (!ids) return "";
+    const parts = ids.trim().split(/\s+/).filter(Boolean);
+    const out = [];
+    for (const id of parts) {
+      const node = getByDomId(id);
+      if (node) {
+        const t = normalizeLabel(node.textContent);
+        if (t) out.push(t);
+      }
+    }
+    return out.join(" ");
+  }
+
+  /**
+   * <img> 周辺からタイトル候補を取得（alt, aria-label, title, aria-labelledby, figcaption, 祖先の aria-label 等）
+   */
+  function getImageTitleFromImg(img) {
+    const direct = [
+      normalizeLabel(img.getAttribute("aria-label")),
+      normalizeLabel(img.alt),
+      normalizeLabel(img.getAttribute("title")),
+      resolveAriaLabelledby(img),
+    ];
+    for (let i = 0; i < direct.length; i++) {
+      if (direct[i]) return direct[i];
+    }
+
+    let p = img.parentElement;
+    for (let depth = 0; depth < 8 && p; depth++) {
+      if (p.tagName === "FIGURE") {
+        const cap = p.querySelector("figcaption");
+        if (cap) {
+          const t = normalizeLabel(cap.textContent);
+          if (t) return t;
+        }
+      }
+      const a = normalizeLabel(p.getAttribute("aria-label"));
+      if (a) return a;
+      const tt = normalizeLabel(p.getAttribute("title"));
+      if (tt) return tt;
+      p = p.parentElement;
+    }
+    return "";
+  }
+
+  /**
+   * background-image を持つ要素からタイトル（ラベル・見出し・オーバーレイテキスト等）
+   */
+  function getImageTitleFromBackgroundHost(el) {
+    const direct = [
+      normalizeLabel(el.getAttribute("aria-label")),
+      normalizeLabel(el.getAttribute("title")),
+      resolveAriaLabelledby(el),
+    ];
+    for (let i = 0; i < direct.length; i++) {
+      if (direct[i]) return direct[i];
+    }
+
+    const heading = el.querySelector("h1, h2, h3, h4, h5, h6");
+    if (heading) {
+      const t = normalizeLabel(heading.textContent);
+      if (t) return t;
+    }
+
+    let text = normalizeLabel(el.innerText || "");
+    if (text.length > 200) text = text.slice(0, 200) + "…";
+    if (text) return text;
+
+    let p = el.parentElement;
+    for (let depth = 0; depth < 5 && p; depth++) {
+      if (p.tagName === "FIGURE") {
+        const cap = p.querySelector("figcaption");
+        if (cap) {
+          const t = normalizeLabel(cap.textContent);
+          if (t) return t;
+        }
+      }
+      const a = normalizeLabel(p.getAttribute("aria-label"));
+      if (a) return a;
+      p = p.parentElement;
+    }
+    return "";
+  }
+
+  function getImageTitleFromPicture(picture) {
+    const innerImg = picture.querySelector("img");
+    if (innerImg) return getImageTitleFromImg(innerImg);
+    const direct = [
+      normalizeLabel(picture.getAttribute("aria-label")),
+      normalizeLabel(picture.getAttribute("title")),
+      resolveAriaLabelledby(picture),
+    ];
+    for (let i = 0; i < direct.length; i++) {
+      if (direct[i]) return direct[i];
+    }
+    return "";
+  }
+
   // 現在表示されている画像を収集する関数
   function collectCurrentImages() {
     const images = [];
@@ -609,7 +741,7 @@ async function collectImagesFromPage() {
           seenSrcs.add(src);
           images.push({
             src: src,
-            alt: img.alt || "",
+            alt: getImageTitleFromImg(img),
             width: img.naturalWidth,
             height: img.naturalHeight,
           });
@@ -623,6 +755,10 @@ async function collectImagesFromPage() {
       const sources = picture.querySelectorAll("source");
       sources.forEach((source) => {
         const srcset = source.srcset;
+        const picture = source.closest("picture");
+        const titleFromPicture = picture
+          ? getImageTitleFromPicture(picture)
+          : "";
         if (srcset) {
           // srcsetからURLを抽出（"url1 1x, url2 2x"の形式）
           const urls = srcset.split(",").map((s) => {
@@ -634,7 +770,7 @@ async function collectImagesFromPage() {
               seenSrcs.add(url);
               images.push({
                 src: url,
-                alt: "",
+                alt: titleFromPicture,
                 width: 0,
                 height: 0,
               });
@@ -650,7 +786,7 @@ async function collectImagesFromPage() {
           seenSrcs.add(src);
           images.push({
             src: src,
-            alt: img.alt || "",
+            alt: getImageTitleFromImg(img),
             width: img.naturalWidth,
             height: img.naturalHeight,
           });
@@ -678,7 +814,7 @@ async function collectImagesFromPage() {
           seenSrcs.add(bgUrl);
           images.push({
             src: bgUrl,
-            alt: "",
+            alt: getImageTitleFromBackgroundHost(element),
             width: Math.round(rect.width),
             height: Math.round(rect.height),
           });
