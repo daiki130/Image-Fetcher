@@ -4,8 +4,7 @@ import {
   Checkbox,
   Container,
   Text,
-  Textbox,
-  VerticalSpace,
+  IconLanguageSmall24,
   IconSizeSmall24,
   IconToggleButton,
   SearchTextbox,
@@ -1259,7 +1258,7 @@ function Plugin() {
     const hasWideLayout = displayImages.length > 0 || tabValue === "Random";
     emit("RESIZE_UI", {
       width: hasWideLayout ? 500 : 400,
-      height: hasWideLayout ? 1000 : 151,
+      height: hasWideLayout ? 820 : 151,
     });
   }, [imagesToDisplay.length]);
 
@@ -1573,8 +1572,7 @@ function Plugin() {
                     <div
                       style={{
                         display: "flex",
-                        flexDirection: "column",
-                        gap: "6px",
+                        justifyContent: "space-between",
                       }}
                     >
                       {Array.from(uniqueServices.entries()).map(
@@ -1643,6 +1641,83 @@ function Plugin() {
                           </div>
                         ),
                       )}
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                        }}
+                      >
+                        <div
+                          ref={settingsMenuRef}
+                          style={{
+                            position: "relative",
+                            display: "inline-block",
+                          }}
+                          onMouseEnter={() => showTooltip("language")}
+                          onMouseLeave={() => hideTooltip("language")}
+                        >
+                          <IconToggleButton
+                            onChange={handleClick}
+                            value={isOpen}
+                          >
+                            <IconLanguageSmall24 />
+                          </IconToggleButton>
+                          {/* Tooltip */}
+                          {isTooltipVisible("language") && !isOpen && (
+                            <div
+                              style={{
+                                position: "absolute",
+                                top: "24px",
+                                right: "-4px",
+                                zIndex: 1000,
+                              }}
+                            >
+                              <Tooltip
+                                message="Language"
+                                arrowPosition="top"
+                                arrowOffset="74%"
+                              />
+                            </div>
+                          )}
+
+                          {/* Settings Menu */}
+                          {isOpen && (
+                            <div
+                              style={{
+                                position: "absolute",
+                                top: "28px",
+                                right: "-3px",
+                                zIndex: 1001,
+                              }}
+                            >
+                              <SettingsMenu
+                                sortHighEnabled={sortHighEnabled}
+                                sortLowEnabled={sortLowEnabled}
+                                sortLabelEnabled={sortLabelEnabled}
+                                availableImageSizes={availableImageSizes}
+                                selectedImageSizes={Array.from(
+                                  selectedImageSizes,
+                                )}
+                                showWithDueDate={showWithDueDate}
+                                showWithoutDueDate={showWithoutDueDate}
+                                availableLabels={availableLabels}
+                                selectedLabels={selectedLabels}
+                                onSortHighChange={handleSortHighChange}
+                                onSortLowChange={handleSortLowChange}
+                                onSortLabelChange={handleSortLabelChange}
+                                onImageSizeFilterChange={
+                                  handleImageSizeFilterChange
+                                }
+                                onDueDateFilterChange={
+                                  handleDueDateFilterChange
+                                }
+                                onLabelFilterChange={handleLabelFilterChange}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
 
                     <div
@@ -1669,7 +1744,13 @@ function Plugin() {
                           <Text>Select all images</Text>
                         </Checkbox>
                       </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px",
+                        }}
+                      >
                         <SearchTextbox
                           onInput={handleSearchInput}
                           placeholder="Search"
