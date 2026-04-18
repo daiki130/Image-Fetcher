@@ -1,8 +1,15 @@
-import { Button, Text, Textbox } from "@create-figma-plugin/ui";
-import { h } from "preact";
+import {
+  Button,
+  Text,
+  Textbox,
+  TextboxColor,
+  Divider,
+} from "@create-figma-plugin/ui";
+import { h, JSX } from "preact";
 import { useState } from "preact/hooks";
 import { ImageData } from "../types";
 import { Card } from "./card";
+import { Toogle } from "./toggle";
 
 const CATEGORY_ROWS: ReadonlyArray<{ emoji: string; label: string }> = [
   { emoji: "🐶", label: "Dog" },
@@ -14,6 +21,21 @@ const CATEGORY_ROWS: ReadonlyArray<{ emoji: string; label: string }> = [
 
 const COLS = 6;
 const THUMB = 74;
+
+/** `#rrggbb` / `rrggbb` を TextboxColor 用の6桁（#なし・大文字）にする */
+function maskColorToHexDigits(maskColor: string): string {
+  const trimmed = maskColor.trim();
+  const body = trimmed.startsWith("#") ? trimmed.slice(1) : trimmed;
+  const upper = body.toUpperCase();
+  if (/^[0-9A-F]{6}$/.test(upper)) {
+    return upper;
+  }
+  if (/^[0-9A-F]{3}$/.test(upper)) {
+    const [r, g, b] = upper.split("");
+    return `${r}${r}${g}${g}${b}${b}`;
+  }
+  return "FF0000";
+}
 
 function IconGithub() {
   return (
@@ -33,10 +55,7 @@ function IconGrid({ active }: { active: boolean }) {
   const c = active ? "rgba(0,0,0,0.9)" : "rgba(0,0,0,0.35)";
   return (
     <svg width={16} height={16} viewBox="0 0 16 16" aria-hidden>
-      <path
-        fill={c}
-        d="M2 2h5v5H2V2zm7 0h5v5H9V2zM2 9h5v5H2V9zm7 0h5v5H9V9z"
-      />
+      <path fill={c} d="M2 2h5v5H2V2zm7 0h5v5H9V2zM2 9h5v5H2V9zm7 0h5v5H9V9z" />
     </svg>
   );
 }
@@ -45,10 +64,7 @@ function IconList({ active }: { active: boolean }) {
   const c = active ? "rgba(0,0,0,0.9)" : "rgba(0,0,0,0.35)";
   return (
     <svg width={16} height={16} viewBox="0 0 16 16" aria-hidden>
-      <path
-        fill={c}
-        d="M2 3h12v2H2V3zm0 4h12v2H2V7zm0 4h12v2H2v-2z"
-      />
+      <path fill={c} d="M2 3h12v2H2V3zm0 4h12v2H2V7zm0 4h12v2H2v-2z" />
     </svg>
   );
 }
@@ -68,6 +84,8 @@ export interface RandomProps {
   images: ImageData[];
   dummyTextTemplate: string;
   onDummyTextTemplateChange: (value: string) => void;
+  maskColor: string;
+  onMaskColorChange: (value: string) => void;
   onShuffle: () => void;
   selectedIndices: Set<number>;
   onToggleSelect: (index: number) => void;
@@ -80,6 +98,8 @@ export function Random({
   images,
   dummyTextTemplate,
   onDummyTextTemplateChange,
+  maskColor,
+  onMaskColorChange,
   onShuffle,
   selectedIndices,
   onToggleSelect,
@@ -94,6 +114,19 @@ export function Random({
     offset: catIdx * COLS,
   })).filter((row) => row.slice.length > 0);
 
+  /** マスク適用は RGB のみ（main の parseMaskColorHex）。不透明度は UI 用 */
+  const [opacity, setOpacity] = useState<string>("100");
+  const hexColor = maskColorToHexDigits(maskColor);
+  function handleHexColorInput(event: JSX.TargetedEvent<HTMLInputElement>) {
+    const v = event.currentTarget.value;
+    const withHash =
+      v.trim() === "" ? "#ff0000" : `#${v.trim().replace(/^#/, "")}`;
+    onMaskColorChange(withHash);
+  }
+  function handleOpacityInput(event: JSX.TargetedEvent<HTMLInputElement>) {
+    setOpacity(event.currentTarget.value);
+  }
+
   return (
     <div
       style={{
@@ -104,409 +137,212 @@ export function Random({
         marginBottom: "12px",
       }}
     >
-      {/* Sample Text */}
       <div
         style={{
           display: "flex",
-          gap: "20px",
-          alignItems: "stretch",
-          padding: "8px",
-          width: "100%",
-          boxSizing: "border-box",
+          flexDirection: "column",
+          gap: "8px",
         }}
       >
+        <div style={{ fontSize: "13px", fontWeight: "600" }}>Settings</div>
+
+
         <div
           style={{
             display: "flex",
             flexDirection: "column",
-            justifyContent: "center",
-            flexShrink: 0,
-            width: "250px",
-            maxWidth: "42%",
-            fontSize: "10px",
-            color: "rgba(0,0,0,0.9)",
-          }}
-        >
-          <div
-            style={{
-              fontFamily: "Inter, sans-serif",
-              fontWeight: 700,
-              height: "20px",
-              display: "flex",
-              alignItems: "center",
-            }}
-          >
-            Sample Text
-          </div>
-          <div
-            style={{
-              fontFamily:
-                'Inter, "Noto Sans JP", system-ui, sans-serif',
-              fontWeight: 400,
-              minHeight: "20px",
-              lineHeight: 1.35,
-            }}
-          >
-            選択した要素のテキスト要素をこの文字に置き換えます
-          </div>
-        </div>
-        <div
-          style={{
-            flex: "1 1 0",
-            minWidth: 0,
-            background: "#f1f1f1",
+            gap: "4px",
+            background: "var(--figma-color-bg-secondary)",
             borderRadius: "8px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "8px 12px 8px 12px",
-            gap: "8px",
+            width: "100%",
+            boxSizing: "border-box",
           }}
         >
-          <Text
-            style={{
-              fontFamily: "Menlo, Monaco, monospace",
-              fontSize: "11px",
-              color: "rgba(0,0,0,0.9)",
-              flexShrink: 0,
-            }}
-          >
-            Text
-          </Text>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <Textbox
-              value={dummyTextTemplate}
-              placeholder="テキスト"
-              onValueInput={onDummyTextTemplateChange}
-              spellCheck={false}
-            />
-          </div>
-          <div
-            style={{
-              flexShrink: 0,
-              display: "flex",
-              alignItems: "center",
-              padding: "4px",
-            }}
-            title="編集"
-          >
-            <IconEdit />
-          </div>
-        </div>
-      </div>
-
-      <div
-        style={{
-          height: "1px",
-          width: "100%",
-          background: "#e6e6e6",
-          margin: "8px 0",
-        }}
-      />
-
-      {/* Source bar + view toggle */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "8px",
-          width: "100%",
-          boxSizing: "border-box",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            flexWrap: "wrap",
-            background: "#f1f1f1",
-            borderRadius: "8px",
-            padding: "8px",
-            maxWidth: "calc(100% - 120px)",
-          }}
-        >
-          <div
-            style={{
-              width: "20px",
-              height: "20px",
-              borderRadius: "4px",
-              background:
-                "linear-gradient(135deg, #111 0%, #444 50%, #111 100%)",
-              flexShrink: 0,
-            }}
-          />
-          <Text
-            style={{
-              fontFamily: "Menlo, Monaco, monospace",
-              fontSize: "11px",
-              color: "rgba(0,0,0,0.9)",
-              whiteSpace: "nowrap",
-            }}
-          >
-            Unsplash
-          </Text>
-          <div
-            style={{
-              background: "#fff",
-              border: "1px solid #e6e6e6",
-              borderRadius: "4px",
-              padding: "2px 8px",
-              height: "22px",
-              display: "flex",
-              alignItems: "center",
-              boxSizing: "border-box",
-            }}
-          >
-            <Text
-              style={{
-                fontFamily: "Menlo, Monaco, monospace",
-                fontSize: "10px",
-                color: "rgba(0,0,0,0.9)",
-              }}
-            >
-              {images.length} images
-            </Text>
-          </div>
-          <Button secondary onClick={onShuffle}>
-            別の画像
-          </Button>
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-          {githubUrl ? (
-            <a
-              href={githubUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: "40px",
-                height: "40px",
-                borderRadius: "4px",
-                color: "inherit",
-              }}
-              title="GitHub"
-            >
-              <IconGithub />
-            </a>
-          ) : null}
+          {/* Sample Text */}
           <div
             style={{
               display: "flex",
-              alignItems: "center",
-              background: "#f1f1f1",
-              borderRadius: "9999px",
-              padding: "4px",
-              gap: 0,
+              flexDirection: "column",
+              gap: "4px",
+              padding: "12px",
             }}
           >
-            <button
-              type="button"
-              onClick={() => setViewMode("grid")}
+            <div
               style={{
-                width: "32px",
-                height: "32px",
-                borderRadius: "9999px",
-                border: "none",
-                cursor: "pointer",
                 display: "flex",
+                gap: "20px",
                 alignItems: "center",
-                justifyContent: "center",
-                background: viewMode === "grid" ? "#fff" : "transparent",
-                boxShadow:
-                  viewMode === "grid"
-                    ? "0 1px 2px rgba(0,0,0,0.08)"
-                    : "none",
+                width: "100%",
+                boxSizing: "border-box",
+                justifyContent: "space-between",
               }}
-              title="Grid"
             >
-              <IconGrid active={viewMode === "grid"} />
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("list")}
-              style={{
-                width: "32px",
-                height: "32px",
-                borderRadius: "9999px",
-                border: "none",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                background: viewMode === "list" ? "#fff" : "transparent",
-                boxShadow:
-                  viewMode === "list"
-                    ? "0 1px 2px rgba(0,0,0,0.08)"
-                    : "none",
-              }}
-              title="List"
-            >
-              <IconList active={viewMode === "list"} />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Gallery */}
-      <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
-        {viewMode === "grid"
-          ? categorySlices.map((row) => (
               <div
-                key={row.label}
                 style={{
                   display: "flex",
                   flexDirection: "column",
-                  gap: "8px",
-                  padding: "8px",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                  fontSize: "10px",
+                  color: "rgba(0,0,0,0.9)",
                 }}
               >
                 <div
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "4px",
-                    fontFamily: "Menlo, Monaco, monospace",
+                    fontFamily: "Inter, sans-serif",
+                    color: "var(--figma-color-text)",
                     fontWeight: 700,
-                    fontSize: "11px",
-                    color: "#000",
+                    height: "20px",
+                    display: "flex",
+                    flexGrow: 1,
                   }}
                 >
-                  <span>{row.emoji}</span>
-                  <span>{row.label}</span>
+                  Sample Text
                 </div>
                 <div
                   style={{
-                    display: "flex",
-                    flexWrap: "wrap",
+                    fontFamily: 'Inter, "Noto Sans JP", system-ui, sans-serif',
+                    color: "var(--figma-color-text-secondary)",
+                    fontWeight: 400,
+                    minHeight: "20px",
+                    lineHeight: 1.35,
+                  }}
+                >
+                  選択した要素のテキスト要素をこの文字に置き換えます
+                </div>
+              </div>
+              <Toogle
+                value={true}
+                onChange={(value) => {
+                  console.log(value);
+                }}
+              />
+            </div>
+            <div
+              style={{
+                flex: "1 1 0",
+                minWidth: 0,
+                borderRadius: "8px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <Textbox
+                  value={dummyTextTemplate}
+                  placeholder="テキスト"
+                  onValueInput={onDummyTextTemplateChange}
+                  spellCheck={false}
+                  style={{
+                    background: "var(--figma-color-bg-tertiary)",
+                    color: "var(--figma-color-text-primary)",
+                    border: "none",
+                    borderRadius: "8px",
+                    padding: "8px 12px 8px 12px",
                     gap: "8px",
-                    alignItems: "flex-start",
                   }}
-                >
-                  {row.slice.map((img, j) => {
-                    const globalIdx = row.offset + j;
-                    return (
-                      <div
-                        key={img.id ?? `g-${globalIdx}`}
-                        style={{
-                          width: THUMB,
-                          height: THUMB,
-                          flexShrink: 0,
-                          borderRadius: "4px",
-                          overflow: "hidden",
-                        }}
-                      >
-                        <Card
-                          image={img}
-                          isSelected={selectedIndices.has(globalIdx)}
-                          hideOnImageError
-                          compact
-                          onClick={() => onToggleSelect(globalIdx)}
-                          onDragStart={(image) => {
-                            void onDragPrepare(image);
-                          }}
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
+                />
               </div>
-            ))
-          : categorySlices.map((row) => (
               <div
-                key={`list-${row.label}`}
+                style={{
+                  flexShrink: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  padding: "4px",
+                }}
+                title="編集"
+              >
+                <IconEdit />
+              </div>
+            </div>
+          </div>
+
+          <div style={{ padding: "0 12px" }}>
+            <Divider />
+          </div>
+
+          {/* Musk Image */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              padding: "12px",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                gap: "20px",
+                alignItems: "center",
+                width: "100%",
+                boxSizing: "border-box",
+                justifyContent: "space-between",
+              }}
+            >
+              <div
                 style={{
                   display: "flex",
                   flexDirection: "column",
-                  gap: "8px",
-                  padding: "8px",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                  fontSize: "10px",
+                  color: "rgba(0,0,0,0.9)",
                 }}
               >
                 <div
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "4px",
-                    fontFamily: "Menlo, Monaco, monospace",
+                    fontFamily: "Inter, sans-serif",
+                    color: "var(--figma-color-text)",
                     fontWeight: 700,
-                    fontSize: "11px",
-                    color: "#000",
+                    height: "20px",
+                    display: "flex",
+                    flexGrow: 1,
                   }}
                 >
-                  <span>{row.emoji}</span>
-                  <span>{row.label}</span>
+                  Musk Image
                 </div>
-                {row.slice.map((img, j) => {
-                  const globalIdx = row.offset + j;
-                  return (
-                    <div
-                      key={img.id ?? `l-${globalIdx}`}
-                      role="button"
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "12px",
-                        padding: "4px 0",
-                        cursor: "pointer",
-                        borderRadius: "4px",
-                        background: selectedIndices.has(globalIdx)
-                          ? "var(--figma-color-bg-selected)"
-                          : "transparent",
-                      }}
-                      onClick={() => onToggleSelect(globalIdx)}
-                    >
-                      <div
-                        style={{
-                          width: 48,
-                          height: 48,
-                          flexShrink: 0,
-                          borderRadius: "4px",
-                          overflow: "hidden",
-                        }}
-                      >
-                        <Card
-                          image={img}
-                          isSelected={selectedIndices.has(globalIdx)}
-                          hideOnImageError
-                          compact
-                          onDragStart={(image) => {
-                            void onDragPrepare(image);
-                          }}
-                        />
-                      </div>
-                      <Text
-                        style={{
-                          fontSize: "11px",
-                          flex: 1,
-                          minWidth: 0,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {img.alt || "Image"}
-                      </Text>
-                    </div>
-                  );
-                })}
+                <div
+                  style={{
+                    fontFamily: 'Inter, "Noto Sans JP", system-ui, sans-serif',
+                    color: "var(--figma-color-text-secondary)",
+                    fontWeight: 400,
+                    minHeight: "20px",
+                    lineHeight: 1.35,
+                  }}
+                >
+                  選択した要素の画像要素にマスクを設定することができます
+                </div>
               </div>
-            ))}
+              <Toogle
+                value={true}
+                onChange={(value) => {
+                  console.log(value);
+                }}
+              />
+            </div>
+            <div
+              style={{
+                flex: "1 1 0",
+                minWidth: 0,
+                borderRadius: "8px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <TextboxColor
+                  hexColor={hexColor}
+                  onHexColorInput={handleHexColorInput}
+                  onOpacityInput={handleOpacityInput}
+                  opacity={opacity}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-
-      <Text
-        style={{
-          fontSize: "11px",
-          color: "var(--figma-color-text-secondary)",
-          padding: "4px 8px 0",
-          lineHeight: 1.4,
-        }}
-      >
-        フレームに適用：選択した1枚の画像を、枠の数だけ繰り返し入れます（各枠を画像の塗りで埋めます）
-      </Text>
     </div>
   );
 }

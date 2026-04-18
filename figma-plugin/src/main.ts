@@ -105,11 +105,13 @@ export default function () {
       images: Array<{ imageData: Uint8Array; width: number; height: number }>;
       seed: number;
       dummyTextTemplate: string;
+      maskColor?: string;
     }) => {
       await placeRandomContentInFrame(
         data.images,
         data.seed,
         data.dummyTextTemplate,
+        data.maskColor,
       );
     },
   );
@@ -298,6 +300,69 @@ async function applyDummyTextToFrameSubtree(
   return { replaced, skippedProtected };
 }
 
+function parseMaskColorHex(maskColor: string): RGB {
+  const withHash = maskColor.trim().startsWith("#")
+    ? maskColor.trim()
+    : `#${maskColor.trim()}`;
+  const normalized = /^#([0-9a-fA-F]{3})$/.test(withHash)
+    ? `#${withHash[1]}${withHash[1]}${withHash[2]}${withHash[2]}${withHash[3]}${withHash[3]}`
+    : withHash;
+  const match = normalized.match(/^#([0-9a-fA-F]{6})$/);
+  if (!match) {
+    return { r: 1, g: 0, b: 0 };
+  }
+  const hex = match[1];
+  return {
+    r: parseInt(hex.slice(0, 2), 16) / 255,
+    g: parseInt(hex.slice(2, 4), 16) / 255,
+    b: parseInt(hex.slice(4, 6), 16) / 255,
+  };
+}
+
+function collectMaskTargetNodes(root: SceneNode): Array<SceneNode & MinimalFillsMixin> {
+  const out: Array<SceneNode & MinimalFillsMixin> = [];
+  function visit(node: SceneNode): void {
+    if (
+      "fills" in node &&
+      node.fills !== figma.mixed &&
+      Array.isArray(node.fills) &&
+      /(mask|overlay|マスク)/i.test(node.name)
+    ) {
+      out.push(node as SceneNode & MinimalFillsMixin);
+    }
+    if ("children" in node) {
+      for (const child of node.children) {
+        visit(child);
+      }
+    }
+  }
+  visit(root);
+  return out;
+}
+
+function applyMaskColorToFrameSubtree(frame: FrameNode, maskColor: string): number {
+  const rgb = parseMaskColorHex(maskColor);
+  const targetNodes = collectMaskTargetNodes(frame);
+  let applied = 0;
+  for (const node of targetNodes) {
+    if (node.fills === figma.mixed || !Array.isArray(node.fills)) {
+      continue;
+    }
+    const nextFills = node.fills.map((fill: Paint) => {
+      if (fill.type !== "SOLID") {
+        return fill;
+      }
+      applied++;
+      return {
+        ...fill,
+        color: rgb,
+      };
+    });
+    node.fills = nextFills;
+  }
+  return applied;
+}
+
 /**
  * Random タブ用: フレーム内テキストをダミーにしたうえで、サンプル画像をプレースホルダーへ配置
  */
@@ -305,6 +370,7 @@ async function placeRandomContentInFrame(
   images: Array<{ imageData: Uint8Array; width: number; height: number }>,
   _seed: number,
   dummyTextTemplate: string,
+  maskColor = "#ff0000",
 ) {
   const selection = figma.currentPage.selection;
   let targetFrame: FrameNode | null = null;
@@ -321,6 +387,7 @@ async function placeRandomContentInFrame(
 
   const { replaced: textCount, skippedProtected } =
     await applyDummyTextToFrameSubtree(targetFrame, dummyTextTemplate);
+  const appliedMaskCount = applyMaskColorToFrameSubtree(targetFrame, maskColor);
   const imageResult = await placeImagesInFrame(images, {
     silent: true,
     sequentialImgPlaceholders: true,
@@ -340,8 +407,10 @@ async function placeRandomContentInFrame(
     skippedProtected > 0
       ? `（数字・記号を含む${skippedProtected}件のテキストはスキップ）`
       : "";
+  const maskHint =
+    appliedMaskCount > 0 ? `、マスク色を${appliedMaskCount}箇所に適用` : "";
   figma.notify(
-    `テキスト${textCount}件をダミーにし、画像を${imageResult.appliedCount}箇所に適用しました${skipHint}`,
+    `テキスト${textCount}件をダミーにし、画像を${imageResult.appliedCount}箇所に適用しました${maskHint}${skipHint}`,
   );
 }
 

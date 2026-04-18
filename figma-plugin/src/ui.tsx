@@ -121,6 +121,21 @@ function isEncrypted(data: string): boolean {
   }
 }
 
+function normalizeHexColor(value: string): string {
+  const trimmed = value.trim();
+  const withHash = trimmed.startsWith("#") ? trimmed : `#${trimmed}`;
+  const short = withHash.match(/^#([0-9a-fA-F]{3})$/);
+  if (short) {
+    const [r, g, b] = short[1].split("");
+    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+  }
+  const full = withHash.match(/^#([0-9a-fA-F]{6})$/);
+  if (full) {
+    return withHash.toLowerCase();
+  }
+  return "#ff0000";
+}
+
 // サービス名からロゴURLを取得する関数
 function getServiceLogoUrl(serviceName: string): string {
   if (!serviceName || serviceName === "Unknown") {
@@ -273,12 +288,21 @@ function Plugin() {
   );
 
   const DUMMY_TEXT_STORAGE_KEY = "image-fetcher-dummy-text-template";
+  const RANDOM_MASK_COLOR_STORAGE_KEY = "image-fetcher-random-mask-color";
   const [dummyTextTemplate, setDummyTextTemplate] = useState(() => {
     try {
       const v = localStorage.getItem(DUMMY_TEXT_STORAGE_KEY);
       return v != null && v !== "" ? v : "テキスト";
     } catch {
       return "テキスト";
+    }
+  });
+  const [randomMaskColor, setRandomMaskColor] = useState(() => {
+    try {
+      const saved = localStorage.getItem(RANDOM_MASK_COLOR_STORAGE_KEY);
+      return saved ? normalizeHexColor(saved) : "#ff0000";
+    } catch {
+      return "#ff0000";
     }
   });
   const [searchValue, setSearchValue] = useState<string>("");
@@ -295,6 +319,17 @@ function Plugin() {
       /* ignore */
     }
   }, [dummyTextTemplate]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        RANDOM_MASK_COLOR_STORAGE_KEY,
+        normalizeHexColor(randomMaskColor),
+      );
+    } catch {
+      /* ignore */
+    }
+  }, [randomMaskColor]);
 
   useEffect(() => {
     setSelectedRandomIndices(new Set());
@@ -811,6 +846,7 @@ function Plugin() {
             images: imagesToPlace,
             seed: randomDemoSeed,
             dummyTextTemplate,
+            maskColor: normalizeHexColor(randomMaskColor),
           });
           showStatus(
             "フレーム内のテキストと画像を更新しました（キャンバスで結果を確認してください）",
@@ -1257,10 +1293,10 @@ function Plugin() {
   useEffect(() => {
     const hasWideLayout = displayImages.length > 0 || tabValue === "Random";
     emit("RESIZE_UI", {
-      width: hasWideLayout ? 500 : 400,
-      height: hasWideLayout ? 820 : 151,
+      width: tabValue === "Random" ? 350 : hasWideLayout ? 500 : 400,
+      height: tabValue === "Random" ? 400 : hasWideLayout ? 820 : 157,
     });
-  }, [imagesToDisplay.length]);
+  }, [imagesToDisplay.length, tabValue]);
 
   const areAllDisplayImagesSelected: boolean =
     imagesToDisplay.length > 0 &&
@@ -1399,7 +1435,7 @@ function Plugin() {
         </div>
       )}
       {/* カスタムステータスタブ */}
-      {/* <div
+      <div
         style={{
           overflowX: "auto",
           whiteSpace: "nowrap",
@@ -1462,7 +1498,7 @@ function Plugin() {
             </button>
           ))}
         </div>
-      </div> */}
+      </div>
       {tabValue === "Top" && (
         <div>
           <div
@@ -1939,6 +1975,7 @@ function Plugin() {
                 </div>
               </div>
               <Footer
+                tabValue="Top"
                 matchAspectRatioForFrame={matchAspectRatioForFrame}
                 setMatchAspectRatioForFrame={setMatchAspectRatioForFrame}
                 selectAllCheckboxValue={selectAllCheckboxValue as boolean}
@@ -1958,7 +1995,7 @@ function Plugin() {
         </div>
       )}
 
-      {/* {tabValue === "Random" && (
+      {tabValue === "Random" && (
         <div
           style={{
             display: "flex",
@@ -1970,6 +2007,8 @@ function Plugin() {
             images={randomDemoImages}
             dummyTextTemplate={dummyTextTemplate}
             onDummyTextTemplateChange={setDummyTextTemplate}
+            maskColor={randomMaskColor}
+            onMaskColorChange={setRandomMaskColor}
             onShuffle={() => setRandomDemoSeed((s) => s + 1)}
             selectedIndices={selectedRandomIndices}
             onToggleSelect={toggleRandomImageSelect}
@@ -1985,6 +2024,14 @@ function Plugin() {
             }}
           />
           <Footer
+            tabValue="Random"
+            matchAspectRatioForFrame={matchAspectRatioForFrame}
+            setMatchAspectRatioForFrame={setMatchAspectRatioForFrame}
+            selectAllCheckboxValue={selectAllCheckboxValue as boolean}
+            handleSelectAllCheckboxValueChange={
+              handleSelectAllCheckboxValueChange
+            }
+            imagesToDisplay={randomDemoImages}
             // onApplyToSelection={handleApplyImage}
             onApplyAll={handlePlaceAllImagesInFrame}
             applyToSelectionDisabled={selectedRandomIndices.size === 0}
@@ -1994,7 +2041,7 @@ function Plugin() {
             applyAllLoading={applyButtonLoading}
           />
         </div>
-      )} */}
+      )}
     </div>
   );
 }

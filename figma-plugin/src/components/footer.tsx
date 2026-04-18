@@ -5,6 +5,7 @@ import { Toogle } from "./toggle";
 
 export interface FooterProps {
   // onApplyToSelection: () => void;
+  tabValue: "Random" | "Top";
   matchAspectRatioForFrame: boolean;
   setMatchAspectRatioForFrame: (checked: boolean) => void;
   selectAllCheckboxValue: boolean;
@@ -17,6 +18,7 @@ export interface FooterProps {
 }
 
 export function Footer({
+  tabValue,
   matchAspectRatioForFrame,
   setMatchAspectRatioForFrame,
   selectAllCheckboxValue,
@@ -70,25 +72,28 @@ export function Footer({
         </div> */}
 
         {/* 画像とサイズのアスペクト比が近しいものをマッチ */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            gap: "8px",
-            alignItems: "center",
-            padding: "12px 12px 12px 16px",
-            background: "var(--figma-color-bg-secondary)",
-            borderRadius: "28px",
-          }}
-        >
-          <div>
-            <Text>Match aspect ratio</Text>
+        {tabValue === "Top" && (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              gap: "8px",
+              alignItems: "center",
+              padding: "12px 12px 12px 16px",
+              background: "var(--figma-color-bg-secondary)",
+              borderRadius: "28px",
+            }}
+          >
+            <div>
+              <Text>Match aspect ratio</Text>
+            </div>
+            <Toogle
+              value={matchAspectRatioForFrame}
+              onChange={setMatchAspectRatioForFrame}
+            />
           </div>
-          <Toogle
-            value={matchAspectRatioForFrame}
-            onChange={setMatchAspectRatioForFrame}
-          />
-        </div>
+        )}
+
         <Button
           fullWidth
           loading={applyAllLoading}
