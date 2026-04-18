@@ -94,7 +94,7 @@ export interface RandomProps {
   githubUrl?: string;
 }
 
-export function Random({
+export function Dummy({
   images,
   dummyTextTemplate,
   onDummyTextTemplateChange,

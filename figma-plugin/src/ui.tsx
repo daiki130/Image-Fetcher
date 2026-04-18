@@ -20,7 +20,7 @@ import { Card } from "./components/card";
 import { Tooltip } from "./components/Tooltip";
 import { SettingsMenu } from "./components/SettingsMenu";
 import { Loading } from "./components/loading";
-import { Random } from "./components/random";
+import { Dummy } from "./components/dummy";
 import { Footer } from "./components/footer";
 // import "./styles.css";
 
@@ -336,7 +336,7 @@ function Plugin() {
   }, [randomDemoSeed]);
 
   useEffect(() => {
-    if (tabValue !== "Random") {
+    if (tabValue !== "Dummy") {
       setSelectedRandomIndices(new Set());
     }
   }, [tabValue]);
@@ -719,7 +719,7 @@ function Plugin() {
     });
   };
 
-  /** Random は1枚だけ選択（同じ画像をフレーム内の各 img 枠に繰り返し適用） */
+  /** Dummy は1枚だけ選択（同じ画像をフレーム内の各 img 枠に繰り返し適用） */
   const toggleRandomImageSelect = (index: number) => {
     setSelectedRandomIndices((prev) => {
       if (prev.has(index) && prev.size === 1) {
@@ -731,7 +731,7 @@ function Plugin() {
 
   // 選択ノードに適用（複数選択されている場合は最初の選択を適用）
   // const handleApplyImage = async () => {
-  //   if (tabValue === "Random") {
+  //   if (tabValue === "Dummy") {
   //     if (selectedRandomIndices.size === 0) {
   //       showStatus("画像を選択してください", "error");
   //       return;
@@ -781,7 +781,7 @@ function Plugin() {
     setApplyButtonLoading(true);
 
     let sourceImages: ImageData[];
-    if (tabValue === "Random") {
+    if (tabValue === "Dummy") {
       if (selectedRandomIndices.size === 0) {
         showStatus("フレームに入れる画像を1枚以上選択してください", "error");
         setApplyButtonLoading(false);
@@ -841,7 +841,7 @@ function Plugin() {
       }
 
       if (imagesToPlace.length > 0) {
-        if (tabValue === "Random") {
+        if (tabValue === "Dummy") {
           emit("PLACE_RANDOM_CONTENT_IN_FRAME", {
             images: imagesToPlace,
             seed: randomDemoSeed,
@@ -1013,8 +1013,8 @@ function Plugin() {
       value: "Top",
     },
     {
-      text: "Random",
-      value: "Random",
+      text: "Dummy",
+      value: "Dummy",
     },
   ];
 
@@ -1291,10 +1291,10 @@ function Plugin() {
   })();
 
   useEffect(() => {
-    const hasWideLayout = displayImages.length > 0 || tabValue === "Random";
+    const hasWideLayout = displayImages.length > 0 || tabValue === "Dummy";
     emit("RESIZE_UI", {
-      width: tabValue === "Random" ? 350 : hasWideLayout ? 500 : 400,
-      height: tabValue === "Random" ? 400 : hasWideLayout ? 820 : 157,
+      width: tabValue === "Dummy" ? 350 : hasWideLayout ? 500 : 350,
+      height: tabValue === "Dummy" ? 400 : hasWideLayout ? 820 : 200,
     });
   }, [imagesToDisplay.length, tabValue]);
 
@@ -1440,6 +1440,7 @@ function Plugin() {
           overflowX: "auto",
           whiteSpace: "nowrap",
           borderBottom: "1px solid var(--figma-color-border)",
+          padding: "4px 8px",
         }}
       >
         <div
@@ -1449,54 +1450,159 @@ function Plugin() {
             height: "40px",
             alignItems: "center",
             minWidth: "fit-content",
+            justifyContent: "space-between"
           }}
         >
-          {tabOptions.map((option) => (
-            <button
-              key={option.value}
-              onClick={() => setTabValue(option.value)}
-              style={{
-                background:
-                  tabValue === option.value
-                    ? "var(--figma-color-bg-secondary)"
-                    : "transparent",
-                color:
-                  tabValue === option.value
-                    ? "var(--figma-color-text)"
-                    : "var(--figma-color-text-secondary)",
-                border: "none",
-                borderRadius: "var(--border-radius-6)",
-                padding: "0 var(--space-8)",
-                height: "24px",
-                fontSize: "11px",
-                fontWeight: "400",
-                transition: "all 0.2s ease",
-                whiteSpace: "nowrap",
-              }}
-              onMouseEnter={(e) => {
-                if (tabValue !== option.value) {
-                  e.currentTarget.style.background =
-                    "var(--figma-color-bg-hover)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (tabValue !== option.value) {
-                  e.currentTarget.style.background = "transparent";
-                }
-              }}
-            >
-              <span
+          <div
+            style={{
+              backgroundColor: "var(--figma-color-bg-secondary)",
+              borderRadius: "9999px",
+              border: "0.05px solid var(--figma-color-border)",
+              padding: "4px",
+              width: "fit-content",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "34px",
+            }}
+          >
+            {tabOptions.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => setTabValue(option.value)}
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "var(--space-6)",
+                  background:
+                    tabValue === option.value
+                      ? "var(--figma-color-bg)"
+                      : "transparent",
+                  color:
+                    tabValue === option.value
+                      ? "var(--figma-color-text)"
+                      : "var(--figma-color-text-secondary)",
+                  border: "none",
+                  padding: "0 var(--space-8)",
+                  height: "24px",
+                  fontSize: "12px",
+                  fontWeight: tabValue === option.value ? "700" : "400",
+                  transition: "all 0.2s ease",
+                  whiteSpace: "nowrap",
+                  width: "63px",
+                  borderRadius: "9999px",
+                }}
+                onMouseEnter={(e) => {
+                  if (tabValue !== option.value) {
+                    e.currentTarget.style.background =
+                      "var(--figma-color-bg-hover)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (tabValue !== option.value) {
+                    e.currentTarget.style.background = "transparent";
+                  }
                 }}
               >
-                {option.text}
-              </span>
-            </button>
-          ))}
+                <span
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "var(--space-6)",
+                  }}
+                >
+                  {option.text}
+                </span>
+              </button>
+            ))}
+          </div>
+
+
+          {tabValue === "Top" && displayImages.length > 0 &&
+            (() => {
+              // ユニークなサービス名とfavicon（検索で絞り込んでも一覧は displayImages ベース）
+              const uniqueServices = new Map<string, string>();
+              displayImages.forEach((img) => {
+                const serviceName = img.service || "Unknown";
+                if (!uniqueServices.has(serviceName) && img.favicon) {
+                  uniqueServices.set(serviceName, img.favicon);
+                }
+              });
+
+              return (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  {Array.from(uniqueServices.entries()).map(
+                    ([serviceName, favicon]) => (
+                      <div
+                        key={serviceName}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          borderRadius: "6px",
+                          backgroundColor: "var(--figma-color-bg-secondary)",
+                          padding: "4px 8px",
+                          height: "34px",
+                          gap: "8px",
+                          border: "0.05px solid var(--figma-color-border)",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "8px",
+                          }}
+                        >
+                          <ServiceLogo
+                            serviceName={serviceName}
+                            favicon={favicon}
+                            size={20}
+                          />
+                          <div
+                            style={{
+                              fontSize: "13px",
+                              color: "var(--figma-color-text)",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              maxWidth: "140px",
+                            }}
+                          >
+                            {serviceName}
+                          </div>
+                          <span
+                            style={{
+                              fontSize: "10px",
+                              borderRadius: "4px",
+                              padding: "2px 8px",
+                              border: "1px solid var(--figma-color-border)",
+                              backgroundColor: "var(--figma-color-bg)",
+                            }}
+                          >
+                            {
+                              displayImages.filter(
+                                (i) => (i.service || "Unknown") === serviceName,
+                              ).length
+                            }{" "}
+                            images
+                          </span>
+                        </div>
+                        <Button
+                          danger
+                          onClick={() => handleDeleteService(serviceName)}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ),
+                  )}
+                </div>
+              );
+            })()}
         </div>
       </div>
       {tabValue === "Top" && (
@@ -1605,157 +1711,6 @@ function Plugin() {
                       flexDirection: "column",
                     }}
                   >
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      {Array.from(uniqueServices.entries()).map(
-                        ([serviceName, favicon]) => (
-                          <div
-                            key={serviceName}
-                            style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "center",
-                              borderRadius: "8px",
-                              backgroundColor:
-                                "var(--figma-color-bg-secondary)",
-                              padding: "8px",
-                              gap: "16px",
-                            }}
-                          >
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "8px",
-                              }}
-                            >
-                              <ServiceLogo
-                                serviceName={serviceName}
-                                favicon={favicon}
-                                size={20}
-                              />
-                              <div
-                                style={{
-                                  fontSize: "13px",
-                                  color: "var(--figma-color-text)",
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                  whiteSpace: "nowrap",
-                                  maxWidth: "150px",
-                                }}
-                              >
-                                {serviceName}
-                              </div>
-                              <span
-                                style={{
-                                  fontSize: "10px",
-                                  borderRadius: "4px",
-                                  padding: "2px 8px",
-                                  border: "1px solid var(--figma-color-border)",
-                                  backgroundColor: "var(--figma-color-bg)",
-                                }}
-                              >
-                                {
-                                  displayImages.filter(
-                                    (i) =>
-                                      (i.service || "Unknown") === serviceName,
-                                  ).length
-                                }{" "}
-                                images
-                              </span>
-                            </div>
-                            <Button
-                              danger
-                              onClick={() => handleDeleteService(serviceName)}
-                            >
-                              Remove
-                            </Button>
-                          </div>
-                        ),
-                      )}
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                        }}
-                      >
-                        <div
-                          ref={settingsMenuRef}
-                          style={{
-                            position: "relative",
-                            display: "inline-block",
-                          }}
-                          onMouseEnter={() => showTooltip("language")}
-                          onMouseLeave={() => hideTooltip("language")}
-                        >
-                          <IconToggleButton
-                            onChange={handleClick}
-                            value={isOpen}
-                          >
-                            <IconLanguageSmall24 />
-                          </IconToggleButton>
-                          {/* Tooltip */}
-                          {isTooltipVisible("language") && !isOpen && (
-                            <div
-                              style={{
-                                position: "absolute",
-                                top: "24px",
-                                right: "-4px",
-                                zIndex: 1000,
-                              }}
-                            >
-                              <Tooltip
-                                message="Language"
-                                arrowPosition="top"
-                                arrowOffset="74%"
-                              />
-                            </div>
-                          )}
-
-                          {/* Settings Menu */}
-                          {isOpen && (
-                            <div
-                              style={{
-                                position: "absolute",
-                                top: "28px",
-                                right: "-3px",
-                                zIndex: 1001,
-                              }}
-                            >
-                              <SettingsMenu
-                                sortHighEnabled={sortHighEnabled}
-                                sortLowEnabled={sortLowEnabled}
-                                sortLabelEnabled={sortLabelEnabled}
-                                availableImageSizes={availableImageSizes}
-                                selectedImageSizes={Array.from(
-                                  selectedImageSizes,
-                                )}
-                                showWithDueDate={showWithDueDate}
-                                showWithoutDueDate={showWithoutDueDate}
-                                availableLabels={availableLabels}
-                                selectedLabels={selectedLabels}
-                                onSortHighChange={handleSortHighChange}
-                                onSortLowChange={handleSortLowChange}
-                                onSortLabelChange={handleSortLabelChange}
-                                onImageSizeFilterChange={
-                                  handleImageSizeFilterChange
-                                }
-                                onDueDateFilterChange={
-                                  handleDueDateFilterChange
-                                }
-                                onLabelFilterChange={handleLabelFilterChange}
-                              />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
                     <div
                       style={{
                         display: "flex",
@@ -1995,7 +1950,7 @@ function Plugin() {
         </div>
       )}
 
-      {tabValue === "Random" && (
+      {tabValue === "Dummy" && (
         <div
           style={{
             display: "flex",
@@ -2003,7 +1958,7 @@ function Plugin() {
             flex: 1,
           }}
         >
-          <Random
+          <Dummy
             images={randomDemoImages}
             dummyTextTemplate={dummyTextTemplate}
             onDummyTextTemplateChange={setDummyTextTemplate}
@@ -2024,7 +1979,7 @@ function Plugin() {
             }}
           />
           <Footer
-            tabValue="Random"
+            tabValue="Dummy"
             matchAspectRatioForFrame={matchAspectRatioForFrame}
             setMatchAspectRatioForFrame={setMatchAspectRatioForFrame}
             selectAllCheckboxValue={selectAllCheckboxValue as boolean}

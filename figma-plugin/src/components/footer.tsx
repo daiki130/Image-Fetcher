@@ -5,7 +5,7 @@ import { Toogle } from "./toggle";
 
 export interface FooterProps {
   // onApplyToSelection: () => void;
-  tabValue: "Random" | "Top";
+  tabValue: "Dummy" | "Top";
   matchAspectRatioForFrame: boolean;
   setMatchAspectRatioForFrame: (checked: boolean) => void;
   selectAllCheckboxValue: boolean;
@@ -81,7 +81,8 @@ export function Footer({
               alignItems: "center",
               padding: "12px 12px 12px 16px",
               background: "var(--figma-color-bg-secondary)",
-              borderRadius: "28px",
+              borderRadius: "6px",
+              border: "0.01px solid var(--figma-color-border)",
             }}
           >
             <div>
