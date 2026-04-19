@@ -108,6 +108,9 @@ export function Dummy({
 }: RandomProps) {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
+  const [isDummyTextEnabled, setIsDummyTextEnabled] = useState(true);
+  const [isMaskColorEnabled, setIsMaskColorEnabled] = useState(true);
+
   const categorySlices = CATEGORY_ROWS.map((cat, catIdx) => ({
     ...cat,
     slice: images.slice(catIdx * COLS, catIdx * COLS + COLS),
@@ -133,8 +136,8 @@ export function Dummy({
         display: "flex",
         flexDirection: "column",
         width: "100%",
-        padding: "0 var(--space-extra-small)",
-        marginBottom: "12px",
+        padding: "var(--space-small) var(--space-extra-small)",
+        background: "var(--figma-color-bg-secondary)",
       }}
     >
       <div
@@ -146,31 +149,28 @@ export function Dummy({
       >
         <div style={{ fontSize: "13px", fontWeight: "600" }}>Settings</div>
 
-
         <div
           style={{
             display: "flex",
             flexDirection: "column",
-            gap: "4px",
-            background: "var(--figma-color-bg-secondary)",
+            background: "var(--figma-color-bg)",
             borderRadius: "8px",
             width: "100%",
             boxSizing: "border-box",
           }}
         >
-          {/* Sample Text */}
+          {/* Dummy Text */}
           <div
             style={{
               display: "flex",
               flexDirection: "column",
-              gap: "4px",
-              padding: "12px",
+              padding: "8px 12px",
             }}
           >
             <div
               style={{
                 display: "flex",
-                gap: "20px",
+                gap: "12px",
                 alignItems: "center",
                 width: "100%",
                 boxSizing: "border-box",
@@ -182,8 +182,7 @@ export function Dummy({
                   display: "flex",
                   flexDirection: "column",
                   justifyContent: "center",
-                  flexShrink: 0,
-                  fontSize: "10px",
+                  fontSize: "11px",
                   color: "rgba(0,0,0,0.9)",
                 }}
               >
@@ -192,12 +191,13 @@ export function Dummy({
                     fontFamily: "Inter, sans-serif",
                     color: "var(--figma-color-text)",
                     fontWeight: 700,
-                    height: "20px",
+                    height: "24px",
                     display: "flex",
+                    alignItems: "center",
                     flexGrow: 1,
                   }}
                 >
-                  Sample Text
+                  Dummy Text
                 </div>
                 <div
                   style={{
@@ -205,60 +205,60 @@ export function Dummy({
                     color: "var(--figma-color-text-secondary)",
                     fontWeight: 400,
                     minHeight: "20px",
-                    lineHeight: 1.35,
+                    lineHeight: 1.6,
                   }}
                 >
                   選択した要素のテキスト要素をこの文字に置き換えます
                 </div>
               </div>
               <Toogle
-                value={true}
+                value={isDummyTextEnabled}
                 onChange={(value) => {
-                  console.log(value);
+                  setIsDummyTextEnabled(value);
                 }}
               />
             </div>
-            <div
-              style={{
-                flex: "1 1 0",
-                minWidth: 0,
-                borderRadius: "8px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <Textbox
-                  value={dummyTextTemplate}
-                  placeholder="テキスト"
-                  onValueInput={onDummyTextTemplateChange}
-                  spellCheck={false}
-                  style={{
-                    background: "var(--figma-color-bg-tertiary)",
-                    color: "var(--figma-color-text-primary)",
-                    border: "none",
-                    borderRadius: "8px",
-                    padding: "8px 12px 8px 12px",
-                    gap: "8px",
-                  }}
-                />
-              </div>
+            {isDummyTextEnabled && (
               <div
                 style={{
-                  flexShrink: 0,
+                  flex: "1 1 0",
+                  minWidth: 0,
+                  borderRadius: "8px",
                   display: "flex",
                   alignItems: "center",
-                  padding: "4px",
+                  justifyContent: "space-between",
                 }}
-                title="編集"
               >
-                <IconEdit />
+                <div
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    height: "32px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <Textbox
+                    value={dummyTextTemplate}
+                    placeholder="テキスト"
+                    onValueInput={onDummyTextTemplateChange}
+                    spellCheck={false}
+                    style={{
+                      background: "var(--figma-color-bg-secondary)",
+                      color: "var(--figma-color-text-primary)",
+                      border: "none",
+                      borderRadius: "8px",
+                      padding: "8px 12px 8px 12px",
+                      gap: "8px",
+                    }}
+                  />
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
-          <div style={{ padding: "0 12px" }}>
+          <div style={{ padding: "4px 12px" }}>
             <Divider />
           </div>
 
@@ -267,13 +267,13 @@ export function Dummy({
             style={{
               display: "flex",
               flexDirection: "column",
-              padding: "12px",
+              padding: "8px 12px",
             }}
           >
             <div
               style={{
                 display: "flex",
-                gap: "20px",
+                gap: "12px",
                 alignItems: "center",
                 width: "100%",
                 boxSizing: "border-box",
@@ -285,7 +285,6 @@ export function Dummy({
                   display: "flex",
                   flexDirection: "column",
                   justifyContent: "center",
-                  flexShrink: 0,
                   fontSize: "10px",
                   color: "rgba(0,0,0,0.9)",
                 }}
@@ -295,9 +294,11 @@ export function Dummy({
                     fontFamily: "Inter, sans-serif",
                     color: "var(--figma-color-text)",
                     fontWeight: 700,
-                    height: "20px",
+                    height: "24px",
                     display: "flex",
+                    alignItems: "center",
                     flexGrow: 1,
+                    fontSize: "11px",
                   }}
                 >
                   Musk Image
@@ -308,38 +309,51 @@ export function Dummy({
                     color: "var(--figma-color-text-secondary)",
                     fontWeight: 400,
                     minHeight: "20px",
-                    lineHeight: 1.35,
+                    lineHeight: 1.6,
+                    fontSize: "11px",
                   }}
                 >
                   選択した要素の画像要素にマスクを設定することができます
                 </div>
               </div>
               <Toogle
-                value={true}
+                value={isMaskColorEnabled}
                 onChange={(value) => {
-                  console.log(value);
+                  setIsMaskColorEnabled(value);
                 }}
               />
             </div>
-            <div
-              style={{
-                flex: "1 1 0",
-                minWidth: 0,
-                borderRadius: "8px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <TextboxColor
-                  hexColor={hexColor}
-                  onHexColorInput={handleHexColorInput}
-                  onOpacityInput={handleOpacityInput}
-                  opacity={opacity}
-                />
+            {isMaskColorEnabled && (
+              <div
+                style={{
+                  flex: "1 1 0",
+                  minWidth: 0,
+                  borderRadius: "8px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  height: "32px",
+                }}
+              >
+                <div
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    height: "32px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <TextboxColor
+                    hexColor={hexColor}
+                    onHexColorInput={handleHexColorInput}
+                    onOpacityInput={handleOpacityInput}
+                    opacity={opacity}
+                  />
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

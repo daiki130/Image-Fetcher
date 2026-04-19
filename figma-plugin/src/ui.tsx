@@ -133,7 +133,7 @@ function normalizeHexColor(value: string): string {
   if (full) {
     return withHash.toLowerCase();
   }
-  return "#ff0000";
+  return "#C4C4C4";
 }
 
 // サービス名からロゴURLを取得する関数
@@ -300,9 +300,9 @@ function Plugin() {
   const [randomMaskColor, setRandomMaskColor] = useState(() => {
     try {
       const saved = localStorage.getItem(RANDOM_MASK_COLOR_STORAGE_KEY);
-      return saved ? normalizeHexColor(saved) : "#ff0000";
+      return saved ? normalizeHexColor(saved) : "#C4C4C4";
     } catch {
-      return "#ff0000";
+      return "#C4C4C4";
     }
   });
   const [searchValue, setSearchValue] = useState<string>("");
@@ -1017,6 +1017,12 @@ function Plugin() {
       value: "Dummy",
     },
   ];
+  const TAB_PILL_SEGMENT_PX = 63;
+  const tabPillPaddingPx = 4;
+  const activeTabIndex = Math.max(
+    0,
+    tabOptions.findIndex((o) => o.value === tabValue),
+  );
 
   // 表示用の値を計算する関数（最初の値のみ表示、残りは「...」）
   const getDisplayValue = (input: string): string => {
@@ -1455,26 +1461,48 @@ function Plugin() {
         >
           <div
             style={{
+              position: "relative",
               backgroundColor: "var(--figma-color-bg-secondary)",
               borderRadius: "9999px",
-              border: "0.05px solid var(--figma-color-border)",
-              padding: "4px",
+              // border: "1px solid var(--figma-color-border)",
+              padding: `${tabPillPaddingPx}px`,
               width: "fit-content",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               height: "34px",
+              boxSizing: "border-box",
             }}
           >
+            <div
+              aria-hidden
+              style={{
+                position: "absolute",
+                left: tabPillPaddingPx,
+                top: "50%",
+                width: TAB_PILL_SEGMENT_PX,
+                height: "28px",
+                boxSizing: "border-box",
+                borderRadius: "9999px",
+                background: "var(--figma-color-bg)",
+                border: "1px solid var(--figma-color-border)",
+                boxShadow: "0 1px 3px rgba(0, 0, 0, 0.12)",
+                transform: `translateX(${activeTabIndex * TAB_PILL_SEGMENT_PX}px) translateY(-50%)`,
+                transition:
+                  "transform 0.22s cubic-bezier(0.4, 0, 0.2, 1)",
+                pointerEvents: "none",
+                zIndex: 0,
+              }}
+            />
             {tabOptions.map((option) => (
               <button
                 key={option.value}
+                type="button"
                 onClick={() => setTabValue(option.value)}
                 style={{
-                  background:
-                    tabValue === option.value
-                      ? "var(--figma-color-bg)"
-                      : "transparent",
+                  position: "relative",
+                  zIndex: 1,
+                  background: "transparent",
                   color:
                     tabValue === option.value
                       ? "var(--figma-color-text)"
@@ -1484,21 +1512,10 @@ function Plugin() {
                   height: "24px",
                   fontSize: "12px",
                   fontWeight: tabValue === option.value ? "700" : "400",
-                  transition: "all 0.2s ease",
+                  transition: "color 0.2s ease, font-weight 0.15s ease",
                   whiteSpace: "nowrap",
-                  width: "63px",
+                  width: `${TAB_PILL_SEGMENT_PX}px`,
                   borderRadius: "9999px",
-                }}
-                onMouseEnter={(e) => {
-                  if (tabValue !== option.value) {
-                    e.currentTarget.style.background =
-                      "var(--figma-color-bg-hover)";
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (tabValue !== option.value) {
-                    e.currentTarget.style.background = "transparent";
-                  }
                 }}
               >
                 <span
@@ -1842,7 +1859,7 @@ function Plugin() {
               <div
                 ref={scrollContainerRef}
                 style={{
-                  maxHeight: "659px",
+                  height: "660px",
                   overflowY: "auto",
                   position: "relative",
                 }}

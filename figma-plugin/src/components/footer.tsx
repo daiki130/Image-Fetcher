@@ -1,7 +1,8 @@
 import { h } from "preact";
-import { Button, Checkbox, Text, Toggle } from "@create-figma-plugin/ui";
+import { Text } from "@create-figma-plugin/ui";
 import { ImageData } from "../types";
 import { Toogle } from "./toggle";
+import { Button } from "./parts/Button";
 
 export interface FooterProps {
   // onApplyToSelection: () => void;
@@ -48,71 +49,93 @@ export function Footer({
       <div
         style={{
           display: "flex",
+          flexDirection: "column",
           gap: "8px",
-          flex: 1,
-          justifyContent: "space-between",
-          alignItems: "center",
+          alignItems: "stretch",
+          width: "100%",
         }}
       >
-        {/* <div
+        <div
           style={{
             display: "flex",
             gap: "8px",
+            flex: 1,
+            justifyContent: "space-between",
             alignItems: "center",
-            minHeight: "32px",
+            width: "100%",
+            minWidth: 0,
           }}
         >
-          <Toggle
-            value={matchAspectRatioForFrame}
-            onValueChange={setMatchAspectRatioForFrame}
-            disabled={imagesToDisplay?.length === 0}
-          >
-            <Text>画像とサイズのアスペクト比が近しいものをマッチ</Text>
-          </Toggle>
-        </div> */}
-
-        {/* 画像とサイズのアスペクト比が近しいものをマッチ */}
-        {tabValue === "Top" && (
-          <div
+          {/* 画像とサイズのアスペクト比が近しいものをマッチ */}
+          {tabValue === "Top" && (
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                gap: "8px",
+                alignItems: "center",
+                padding: "12px 12px 12px 16px",
+                background: "var(--figma-color-bg-secondary)",
+                borderRadius: "6px",
+                border: "0.01px solid var(--figma-color-border)",
+              }}
+            >
+              <div>
+                <Text>Match aspect ratio</Text>
+              </div>
+              <Toogle
+                value={matchAspectRatioForFrame}
+                onChange={setMatchAspectRatioForFrame}
+              />
+            </div>
+          )}
+          <Button
+            fullWidth
+            loading={applyAllLoading}
+            onClick={onApplyAll}
+            disabled={applyAllDisabled}
             style={{
-              display: "flex",
-              justifyContent: "space-between",
-              gap: "8px",
-              alignItems: "center",
-              padding: "12px 12px 12px 16px",
-              background: "var(--figma-color-bg-secondary)",
-              borderRadius: "6px",
-              border: "0.01px solid var(--figma-color-border)",
+              color: "#fff",
+              height: "40px",
+              flex: 1,
+              minWidth: 0,
+              borderRadius: "8px",
+              fontSize: "13px",
+              backgroundColor: applyAllDisabled
+                ? "var(--figma-color-bg-disabled)"
+                : "var(--figma-color-bg-brand)",
             }}
           >
-            <div>
-              <Text>Match aspect ratio</Text>
-            </div>
-            <Toogle
-              value={matchAspectRatioForFrame}
-              onChange={setMatchAspectRatioForFrame}
-            />
-          </div>
-        )}
+            Apply
+          </Button>
 
-        <Button
-          fullWidth
-          loading={applyAllLoading}
-          onClick={onApplyAll}
-          disabled={applyAllDisabled}
+          {/* <Button
+            fullWidth
+            loading={applyAllLoading}
+            onClick={onApplyAll}
+            disabled={applyAllDisabled}
+            style={{
+              color: "#fff",
+              height: "40px",
+              flex: 1,
+              minWidth: 0,
+              borderRadius: "8px",
+              fontSize: "13px",
+            }}
+          >
+            Apply
+          </Button> */}
+        </div>
+        <div
           style={{
-            color: "#fff",
-            height: "40px",
-            width: "280px",
-            borderRadius: "8px",
-            fontSize: "13px",
+            fontSize: "11px",
+            color: "var(--figma-color-text-secondary)",
           }}
         >
-          Apply
-        </Button>
-      </div>
-      {/* 選択された画像のサムネイルスタック */}
-      {/* {selectedImageOrder.length > 0 && (
+          フレームを選択してください
+        </div>
+        {/* 選択された画像のサムネイルスタック */}
+        {/* {selectedImageOrder.length > 0 && (
         <div
           style={{
             position: "absolute",
@@ -194,6 +217,7 @@ export function Footer({
           })}
         </div>
       )} */}
+      </div>
     </div>
   );
 }
