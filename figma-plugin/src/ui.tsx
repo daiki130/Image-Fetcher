@@ -22,6 +22,7 @@ import { SettingsMenu } from "./components/SettingsMenu";
 import { Loading } from "./components/loading";
 import { Dummy } from "./components/dummy";
 import { Footer } from "./components/footer";
+import { ApplyImageLoadingModal } from "./components/ApplyImageLoadingModal";
 // import "./styles.css";
 
 // ImageData は types.ts からインポート
@@ -270,6 +271,11 @@ function Plugin() {
   const [isLoading, setIsLoading] = useState(false); // データ読み込み中かどうか
   const [loadingProgress, setLoadingProgress] = useState(0); // 進捗率（0-100）
   const [applyButtonLoading, setApplyButtonLoading] = useState(false); // 適用ボタンのローディング状態
+  /** Apply 実行中の進捗（プレビュー表示時は null） */
+  const [applyPlaceProgress, setApplyPlaceProgress] = useState<{
+    current: number;
+    total: number;
+  } | null>(null);
   /** Top タブの Apply: オンでアスペクト比が近い枠にマッチ、オフは選択画像を枠の順に割り当て */
   const [matchAspectRatioForFrame, setMatchAspectRatioForFrame] =
     useState(true);
@@ -779,6 +785,7 @@ function Plugin() {
   // フレーム内にすべての画像を自動配置
   const handlePlaceAllImagesInFrame = async () => {
     setApplyButtonLoading(true);
+    setApplyPlaceProgress(null);
 
     let sourceImages: ImageData[];
     if (tabValue === "Dummy") {
@@ -826,6 +833,9 @@ function Plugin() {
         height: number;
       }> = [];
 
+      const total = sourceImages.length;
+      setApplyPlaceProgress({ current: 0, total });
+
       for (let i = 0; i < sourceImages.length; i++) {
         const img = sourceImages[i];
         showStatus(`画像を処理中... (${i + 1}/${sourceImages.length})`, "info");
@@ -838,6 +848,7 @@ function Plugin() {
             height: img.height || 200,
           });
         }
+        setApplyPlaceProgress({ current: i + 1, total });
       }
 
       if (imagesToPlace.length > 0) {
@@ -865,11 +876,13 @@ function Plugin() {
       } else {
         showStatus("配置できる画像がありませんでした", "error");
       }
-      setApplyButtonLoading(false);
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "不明なエラー";
       showStatus(`エラー: ${errorMessage}`, "error");
+    } finally {
+      setApplyButtonLoading(false);
+      setApplyPlaceProgress(null);
     }
   };
 
@@ -1300,6 +1313,7 @@ function Plugin() {
     const hasWideLayout = displayImages.length > 0 || tabValue === "Dummy";
     emit("RESIZE_UI", {
       width: tabValue === "Dummy" ? 350 : hasWideLayout ? 500 : 350,
+      // width: tabValue === "Dummy" ? 350 : hasWideLayout ? 500 : 500,
       height: tabValue === "Dummy" ? 400 : hasWideLayout ? 820 : 200,
     });
   }, [imagesToDisplay.length, tabValue]);
@@ -1412,7 +1426,13 @@ function Plugin() {
         // backgroundColor: "#141414",
       }}
     >
-      {/* ローディング表示 */}
+
+      {/* Apply 押下〜処理完了まで */}
+      <ApplyImageLoadingModal
+        visible={applyButtonLoading}
+        progress={applyPlaceProgress}
+      />
+
       {isLoading && (
         <div
           style={{
