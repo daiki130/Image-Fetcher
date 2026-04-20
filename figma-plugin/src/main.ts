@@ -129,6 +129,23 @@ export default function () {
     },
   );
 
+  on(
+    "APPLY_DUMMY_CONTENT_IN_FRAME",
+    async (data: {
+      dummyTextTemplate: string;
+      maskColor: string;
+      applyDummyText: boolean;
+      applyMaskImage: boolean;
+    }) => {
+      await applyDummyContentInFrame(
+        data.dummyTextTemplate,
+        data.maskColor,
+        data.applyDummyText,
+        data.applyMaskImage,
+      );
+    },
+  );
+
   // ドラッグ&ドロップで画像を追加するリクエストを受け取る
   on(
     "DROP_IMAGE",
@@ -389,6 +406,49 @@ function applyMaskColorToFrameSubtree(
   return applied;
 }
 
+/**
+ * IMAGE fill を持つノードに対して、マスクカラーの SOLID fill を最上層に載せる。
+ * 複数回実行しても塗りが積み重ならないよう、既存の IMAGE fill を保持したうえで
+ * SOLID マスクをひとつだけ追加する形に置き換える。
+ */
+function applyMaskColorToImageFills(
+  frame: FrameNode,
+  maskColor: string,
+): number {
+  const rgb = parseMaskColorHex(maskColor);
+  let applied = 0;
+  function visit(node: SceneNode): void {
+    if (
+      "fills" in node &&
+      node.fills !== figma.mixed &&
+      Array.isArray(node.fills)
+    ) {
+      const imageFills = node.fills.filter(
+        (f): f is ImagePaint => f.type === "IMAGE",
+      );
+      if (imageFills.length > 0) {
+        const maskFill: SolidPaint = {
+          type: "SOLID",
+          color: rgb,
+          opacity: 1,
+        };
+        (node as SceneNode & MinimalFillsMixin).fills = [
+          ...imageFills,
+          maskFill,
+        ];
+        applied++;
+      }
+    }
+    if ("children" in node) {
+      for (const child of node.children) {
+        visit(child);
+      }
+    }
+  }
+  visit(frame);
+  return applied;
+}
+
 type PlaceRandomOptions = {
   applyDummyText?: boolean;
   applyMaskImage?: boolean;
@@ -472,6 +532,112 @@ async function placeRandomContentInFrame(
   }
   parts.push(`画像を${imageResult.appliedCount}箇所に適用`);
   figma.notify(`${parts.join("、")}しました${skipHint}`);
+}
+
+/**
+ * Dummy タブ用: 画像の配置は行わず、フラグに応じて Dummy Text / Mask Image のみ適用
+ */
+async function applyDummyContentInFrame(
+  dummyTextTemplate: string,
+  maskColor: string,
+  applyDummyText: boolean,
+  applyMaskImage: boolean,
+) {
+  const emitDone = (data: {
+    ok: boolean;
+    appliedText: number;
+    appliedMask: number;
+    skippedProtected: number;
+    errorMessage?: string;
+  }) => {
+    emit("APPLY_DUMMY_CONTENT_IN_FRAME_DONE", data);
+  };
+
+  if (!applyDummyText && !applyMaskImage) {
+    const msg = "Dummy Text か Mask Image のどちらかを ON にしてください";
+    figma.notify(msg, { error: true });
+    emitDone({
+      ok: false,
+      appliedText: 0,
+      appliedMask: 0,
+      skippedProtected: 0,
+      errorMessage: msg,
+    });
+    return;
+  }
+
+  const selection = figma.currentPage.selection;
+  let targetFrame: FrameNode | null = null;
+  for (const node of selection) {
+    if (node.type === "FRAME") {
+      targetFrame = node;
+      break;
+    }
+  }
+  if (!targetFrame) {
+    const msg = "フレームを選択してください";
+    figma.notify(msg, { error: true });
+    emitDone({
+      ok: false,
+      appliedText: 0,
+      appliedMask: 0,
+      skippedProtected: 0,
+      errorMessage: msg,
+    });
+    return;
+  }
+
+  try {
+    let textCount = 0;
+    let skippedProtected = 0;
+    if (applyDummyText) {
+      const r = await applyDummyTextToFrameSubtree(
+        targetFrame,
+        dummyTextTemplate,
+      );
+      textCount = r.replaced;
+      skippedProtected = r.skippedProtected;
+    }
+
+    let appliedMaskCount = 0;
+    if (applyMaskImage) {
+      // 1) 名前が mask/overlay/マスク のノード: 既存 SOLID fill の色を差し替え
+      const namedCount = applyMaskColorToFrameSubtree(targetFrame, maskColor);
+      // 2) IMAGE fill を持つノード: マスクカラーの SOLID を最上層に載せる
+      const imageCount = applyMaskColorToImageFills(targetFrame, maskColor);
+      appliedMaskCount = namedCount + imageCount;
+    }
+
+    const parts: string[] = [];
+    if (applyDummyText) {
+      parts.push(`テキスト${textCount}件をダミーに置換`);
+    }
+    if (applyMaskImage) {
+      parts.push(`マスク色を${appliedMaskCount}箇所に適用`);
+    }
+    const skipHint =
+      applyDummyText && skippedProtected > 0
+        ? `（数字・記号を含む${skippedProtected}件のテキストはスキップ）`
+        : "";
+    figma.notify(`${parts.join("、")}しました${skipHint}`);
+
+    emitDone({
+      ok: true,
+      appliedText: textCount,
+      appliedMask: appliedMaskCount,
+      skippedProtected,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "不明なエラー";
+    figma.notify(`エラー: ${msg}`, { error: true });
+    emitDone({
+      ok: false,
+      appliedText: 0,
+      appliedMask: 0,
+      skippedProtected: 0,
+      errorMessage: msg,
+    });
+  }
 }
 
 // 選択ノードに画像データを適用

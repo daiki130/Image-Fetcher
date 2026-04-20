@@ -809,36 +809,99 @@ function Plugin() {
     setApplyButtonLoading(true);
     setApplyPlaceProgress(null);
 
-    let sourceImages: ImageData[];
+    // Dummy タブは画像配置を行わず、applyDummyText / applyMaskImage のフラグに応じて
+    // テキスト置換・マスク色適用のみを実行する
     if (tabValue === "Dummy") {
-      if (selectedRandomIndices.size === 0) {
-        showStatus("フレームに入れる画像を1枚以上選択してください", "error");
-        setApplyButtonLoading(false);
-        return;
-      }
-      const idx = Array.from(selectedRandomIndices).sort((a, b) => a - b)[0];
-      const one = randomDemoImages[idx];
-      sourceImages = one != null ? [one] : [];
-    } else {
-      if (selectedImageIndices.size === 0) {
-        showStatus("フレームに入れる画像を選択してください", "error");
-        setApplyButtonLoading(false);
-        return;
-      }
-      const orderedIndices = selectedImageOrder.filter((i) =>
-        selectedImageIndices.has(i),
-      );
-      const seen = new Set(orderedIndices);
-      for (const i of Array.from(selectedImageIndices).sort((a, b) => a - b)) {
-        if (!seen.has(i)) {
-          orderedIndices.push(i);
-          seen.add(i);
+      showStatus("フレームに適用中...", "info");
+      // モーダルのスキャンライン等のアニメーションが1サイクル以上回るように
+      // 最低表示時間を確保する（セル毎の animation-delay が最大 2.6s なので
+      // それ以上に設定しないと「止まって見える」セルが出る）
+      const MIN_MODAL_MS = 2800;
+      const startedAt = Date.now();
+      try {
+        const result = await new Promise<{
+          ok: boolean;
+          appliedText: number;
+          appliedMask: number;
+          skippedProtected: number;
+          errorMessage?: string;
+        }>((resolve) => {
+          const off = on(
+            "APPLY_DUMMY_CONTENT_IN_FRAME_DONE",
+            (data: {
+              ok: boolean;
+              appliedText: number;
+              appliedMask: number;
+              skippedProtected: number;
+              errorMessage?: string;
+            }) => {
+              if (typeof off === "function") {
+                off();
+              }
+              resolve(data);
+            },
+          );
+          emit("APPLY_DUMMY_CONTENT_IN_FRAME", {
+            dummyTextTemplate,
+            maskColor: normalizeHexColor(randomMaskColor),
+            applyDummyText: dummyApplyDummyText,
+            applyMaskImage: dummyApplyMaskImage,
+          });
+        });
+
+        const elapsed = Date.now() - startedAt;
+        if (elapsed < MIN_MODAL_MS) {
+          await new Promise((r) => setTimeout(r, MIN_MODAL_MS - elapsed));
         }
+
+        if (result.ok) {
+          const parts: string[] = [];
+          if (dummyApplyDummyText) {
+            parts.push(`テキスト${result.appliedText}件`);
+          }
+          if (dummyApplyMaskImage) {
+            parts.push(`マスク色${result.appliedMask}箇所`);
+          }
+          const skipHint =
+            dummyApplyDummyText && result.skippedProtected > 0
+              ? `（数字・記号を含む${result.skippedProtected}件はスキップ）`
+              : "";
+          showStatus(
+            `${parts.join("と")}を適用しました${skipHint}`,
+            "success",
+          );
+        } else {
+          showStatus(result.errorMessage ?? "適用に失敗しました", "error");
+        }
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : "不明なエラー";
+        showStatus(`エラー: ${errorMessage}`, "error");
+      } finally {
+        setApplyButtonLoading(false);
       }
-      sourceImages = orderedIndices
-        .map((i) => images[i])
-        .filter((img): img is ImageData => img != null);
+      return;
     }
+
+    /** Top タブ用 */
+    if (selectedImageIndices.size === 0) {
+      showStatus("フレームに入れる画像を選択してください", "error");
+      setApplyButtonLoading(false);
+      return;
+    }
+    const orderedIndices = selectedImageOrder.filter((i) =>
+      selectedImageIndices.has(i),
+    );
+    const seen = new Set(orderedIndices);
+    for (const i of Array.from(selectedImageIndices).sort((a, b) => a - b)) {
+      if (!seen.has(i)) {
+        orderedIndices.push(i);
+        seen.add(i);
+      }
+    }
+    const sourceImages: ImageData[] = orderedIndices
+      .map((i) => images[i])
+      .filter((img): img is ImageData => img != null);
 
     if (sourceImages.length === 0) {
       showStatus("配置する画像がありません", "error");
@@ -874,29 +937,14 @@ function Plugin() {
       }
 
       if (imagesToPlace.length > 0) {
-        if (tabValue === "Dummy") {
-          emit("PLACE_RANDOM_CONTENT_IN_FRAME", {
-            images: imagesToPlace,
-            seed: randomDemoSeed,
-            dummyTextTemplate,
-            maskColor: normalizeHexColor(randomMaskColor),
-            applyDummyText: dummyApplyDummyText,
-            applyMaskImage: dummyApplyMaskImage,
-          });
-          showStatus(
-            "フレーム内のテキストと画像を更新しました（キャンバスで結果を確認してください）",
-            "success",
-          );
-        } else {
-          emit("PLACE_IMAGES_IN_FRAME", {
-            images: imagesToPlace,
-            matchAspectRatio: matchAspectRatioForFrame,
-          });
-          showStatus(
-            `${imagesToPlace.length}個の画像をフレーム内に配置しました`,
-            "success",
-          );
-        }
+        emit("PLACE_IMAGES_IN_FRAME", {
+          images: imagesToPlace,
+          matchAspectRatio: matchAspectRatioForFrame,
+        });
+        showStatus(
+          `${imagesToPlace.length}個の画像をフレーム内に配置しました`,
+          "success",
+        );
       } else {
         showStatus("配置できる画像がありませんでした", "error");
       }
@@ -2063,9 +2111,8 @@ function Plugin() {
             onApplyAll={handlePlaceAllImagesInFrame}
             applyToSelectionDisabled={selectedRandomIndices.size === 0}
             applyAllDisabled={
-              // randomDemoImages.length === 0 ||
-              // selectedRandomIndices.size === 0 ||
-              !canvasSelection.some((n) => n.type === "FRAME")
+              !canvasSelection.some((n) => n.type === "FRAME") ||
+              (!dummyApplyDummyText && !dummyApplyMaskImage)
             }
             applyAllLoading={applyButtonLoading}
             canvasSelection={canvasSelection}

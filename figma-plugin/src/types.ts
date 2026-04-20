@@ -70,6 +70,29 @@ export interface PlaceRandomContentInFrameHandler extends EventHandler {
   }) => void;
 }
 
+/** Dummy タブ用: 画像配置はせず、フラグに応じて Dummy Text と Mask Image のみ適用 */
+export interface ApplyDummyContentInFrameHandler extends EventHandler {
+  name: "APPLY_DUMMY_CONTENT_IN_FRAME";
+  handler: (data: {
+    dummyTextTemplate: string;
+    maskColor?: string;
+    applyDummyText: boolean;
+    applyMaskImage: boolean;
+  }) => void;
+}
+
+/** Dummy タブ用: main → UI 完了通知 */
+export interface ApplyDummyContentInFrameDoneHandler extends EventHandler {
+  name: "APPLY_DUMMY_CONTENT_IN_FRAME_DONE";
+  handler: (data: {
+    ok: boolean;
+    appliedText: number;
+    appliedMask: number;
+    skippedProtected: number;
+    errorMessage?: string;
+  }) => void;
+}
+
 /** キャンバス選択の main → UI 用サマリ（SceneNode は渡せない） */
 export type CanvasSelectionNodeSummary = {
   id: string;
