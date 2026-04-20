@@ -86,6 +86,12 @@ export interface RandomProps {
   onDummyTextTemplateChange: (value: string) => void;
   maskColor: string;
   onMaskColorChange: (value: string) => void;
+  /** Apply 時に Dummy Text を適用するか */
+  applyDummyText: boolean;
+  onApplyDummyTextChange: (value: boolean) => void;
+  /** Apply 時に Mask Image（マスク色）を適用するか */
+  applyMaskImage: boolean;
+  onApplyMaskImageChange: (value: boolean) => void;
   onShuffle: () => void;
   selectedIndices: Set<number>;
   onToggleSelect: (index: number) => void;
@@ -100,6 +106,10 @@ export function Dummy({
   onDummyTextTemplateChange,
   maskColor,
   onMaskColorChange,
+  applyDummyText,
+  onApplyDummyTextChange,
+  applyMaskImage,
+  onApplyMaskImageChange,
   onShuffle,
   selectedIndices,
   onToggleSelect,
@@ -107,9 +117,6 @@ export function Dummy({
   githubUrl,
 }: RandomProps) {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-
-  const [isDummyTextEnabled, setIsDummyTextEnabled] = useState(true);
-  const [isMaskColorEnabled, setIsMaskColorEnabled] = useState(true);
 
   const categorySlices = CATEGORY_ROWS.map((cat, catIdx) => ({
     ...cat,
@@ -212,13 +219,11 @@ export function Dummy({
                 </div>
               </div>
               <Toogle
-                value={isDummyTextEnabled}
-                onChange={(value) => {
-                  setIsDummyTextEnabled(value);
-                }}
+                value={applyDummyText}
+                onChange={onApplyDummyTextChange}
               />
             </div>
-            {isDummyTextEnabled && (
+            {applyDummyText && (
               <div
                 style={{
                   flex: "1 1 0",
@@ -317,13 +322,11 @@ export function Dummy({
                 </div>
               </div>
               <Toogle
-                value={isMaskColorEnabled}
-                onChange={(value) => {
-                  setIsMaskColorEnabled(value);
-                }}
+                value={applyMaskImage}
+                onChange={onApplyMaskImageChange}
               />
             </div>
-            {isMaskColorEnabled && (
+            {applyMaskImage && (
               <div
                 style={{
                   flex: "1 1 0",

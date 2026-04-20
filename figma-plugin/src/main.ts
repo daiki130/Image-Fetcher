@@ -1,6 +1,6 @@
 // Figma Plugin Main Code
 import { showUI, on, emit } from "@create-figma-plugin/utilities";
-import { ImageData } from "./types";
+import { CanvasSelectionNodeSummary, ImageData } from "./types";
 import { resolveDummyText } from "./randomDemoMode";
 
 const STORAGE_KEY = "savedImages";
@@ -106,12 +106,18 @@ export default function () {
       seed: number;
       dummyTextTemplate: string;
       maskColor?: string;
+      applyDummyText?: boolean;
+      applyMaskImage?: boolean;
     }) => {
       await placeRandomContentInFrame(
         data.images,
         data.seed,
         data.dummyTextTemplate,
         data.maskColor,
+        {
+          applyDummyText: data.applyDummyText,
+          applyMaskImage: data.applyMaskImage,
+        },
       );
     },
   );
@@ -190,7 +196,22 @@ export default function () {
     animate();
   });
 
+  function emitCanvasSelection() {
+    const sel = figma.currentPage.selection;
+    const nodes: CanvasSelectionNodeSummary[] = sel.map((node) => ({
+      id: node.id,
+      name: node.name,
+      type: node.type,
+    }));
+    emit("CANVAS_SELECTION_CHANGED", { nodes });
+  }
+
+  figma.on("selectionchange", emitCanvasSelection);
+
+  on("REQUEST_CANVAS_SELECTION", emitCanvasSelection);
+
   showUI({ width: 400, height: 500 });
+  emitCanvasSelection();
 }
 
 async function loadFontsForTextNode(node: TextNode): Promise<void> {
@@ -319,7 +340,9 @@ function parseMaskColorHex(maskColor: string): RGB {
   };
 }
 
-function collectMaskTargetNodes(root: SceneNode): Array<SceneNode & MinimalFillsMixin> {
+function collectMaskTargetNodes(
+  root: SceneNode,
+): Array<SceneNode & MinimalFillsMixin> {
   const out: Array<SceneNode & MinimalFillsMixin> = [];
   function visit(node: SceneNode): void {
     if (
@@ -340,7 +363,10 @@ function collectMaskTargetNodes(root: SceneNode): Array<SceneNode & MinimalFills
   return out;
 }
 
-function applyMaskColorToFrameSubtree(frame: FrameNode, maskColor: string): number {
+function applyMaskColorToFrameSubtree(
+  frame: FrameNode,
+  maskColor: string,
+): number {
   const rgb = parseMaskColorHex(maskColor);
   const targetNodes = collectMaskTargetNodes(frame);
   let applied = 0;
@@ -363,6 +389,11 @@ function applyMaskColorToFrameSubtree(frame: FrameNode, maskColor: string): numb
   return applied;
 }
 
+type PlaceRandomOptions = {
+  applyDummyText?: boolean;
+  applyMaskImage?: boolean;
+};
+
 /**
  * Random タブ用: フレーム内テキストをダミーにしたうえで、サンプル画像をプレースホルダーへ配置
  */
@@ -371,7 +402,11 @@ async function placeRandomContentInFrame(
   _seed: number,
   dummyTextTemplate: string,
   maskColor = "#ff0000",
+  options?: PlaceRandomOptions,
 ) {
+  const applyDummyText = options?.applyDummyText !== false;
+  const applyMaskImage = options?.applyMaskImage !== false;
+
   const selection = figma.currentPage.selection;
   let targetFrame: FrameNode | null = null;
   for (const node of selection) {
@@ -385,18 +420,38 @@ async function placeRandomContentInFrame(
     return;
   }
 
-  const { replaced: textCount, skippedProtected } =
-    await applyDummyTextToFrameSubtree(targetFrame, dummyTextTemplate);
-  const appliedMaskCount = applyMaskColorToFrameSubtree(targetFrame, maskColor);
+  let textCount = 0;
+  let skippedProtected = 0;
+  if (applyDummyText) {
+    const r = await applyDummyTextToFrameSubtree(
+      targetFrame,
+      dummyTextTemplate,
+    );
+    textCount = r.replaced;
+    skippedProtected = r.skippedProtected;
+  }
+
+  let appliedMaskCount = 0;
+  if (applyMaskImage) {
+    appliedMaskCount = applyMaskColorToFrameSubtree(targetFrame, maskColor);
+  }
+
   const imageResult = await placeImagesInFrame(images, {
     silent: true,
     sequentialImgPlaceholders: true,
   });
 
   if (imageResult.errorMessage) {
+    const pre: string[] = [];
+    if (applyDummyText && textCount > 0) {
+      pre.push(`テキスト${textCount}件をダミーにしました`);
+    }
+    if (applyMaskImage && appliedMaskCount > 0) {
+      pre.push(`マスク色を${appliedMaskCount}箇所に適用しました`);
+    }
     figma.notify(
-      textCount > 0
-        ? `テキスト${textCount}件をダミーにしました。画像は適用できませんでした（${imageResult.errorMessage}）`
+      pre.length > 0
+        ? `${pre.join("。")}。画像は適用できませんでした（${imageResult.errorMessage}）`
         : imageResult.errorMessage,
       { error: true },
     );
@@ -404,14 +459,19 @@ async function placeRandomContentInFrame(
   }
 
   const skipHint =
-    skippedProtected > 0
+    applyDummyText && skippedProtected > 0
       ? `（数字・記号を含む${skippedProtected}件のテキストはスキップ）`
       : "";
-  const maskHint =
-    appliedMaskCount > 0 ? `、マスク色を${appliedMaskCount}箇所に適用` : "";
-  figma.notify(
-    `テキスト${textCount}件をダミーにし、画像を${imageResult.appliedCount}箇所に適用しました${maskHint}${skipHint}`,
-  );
+
+  const parts: string[] = [];
+  if (applyDummyText) {
+    parts.push(`テキスト${textCount}件をダミーに置換`);
+  }
+  if (applyMaskImage && appliedMaskCount > 0) {
+    parts.push(`マスク色を${appliedMaskCount}箇所に適用`);
+  }
+  parts.push(`画像を${imageResult.appliedCount}箇所に適用`);
+  figma.notify(`${parts.join("、")}しました${skipHint}`);
 }
 
 // 選択ノードに画像データを適用

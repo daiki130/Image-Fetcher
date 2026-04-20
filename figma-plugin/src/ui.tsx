@@ -13,7 +13,11 @@ import { emit, on, MIXED_BOOLEAN } from "@create-figma-plugin/utilities";
 import { h, Fragment, JSX } from "preact";
 import { useState, useEffect, useRef, useMemo } from "preact/hooks";
 import CryptoJS from "crypto-js";
-import { ImageData, ImagesLoadedHandler } from "./types";
+import {
+  CanvasSelectionNodeSummary,
+  ImageData,
+  ImagesLoadedHandler,
+} from "./types";
 import { buildRandomDemoImages } from "./randomDemoMode";
 import { Data } from "./components/data";
 import { Card } from "./components/card";
@@ -311,6 +315,10 @@ function Plugin() {
       return "#C4C4C4";
     }
   });
+  /** Dummy タブ: Apply 時にダミーテキストを適用するか */
+  const [dummyApplyDummyText, setDummyApplyDummyText] = useState(true);
+  /** Dummy タブ: Apply 時にマスク色を適用するか */
+  const [dummyApplyMaskImage, setDummyApplyMaskImage] = useState(true);
   const [searchValue, setSearchValue] = useState<string>("");
   function handleSearchInput(event: JSX.TargetedEvent<HTMLInputElement>) {
     const newValue = event.currentTarget.value;
@@ -415,6 +423,20 @@ function Plugin() {
       }
     };
     on("IMAGES_LOADED", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** キャンバス上の選択（main の selectionchange / 起動時同期） */
+  const [canvasSelection, setCanvasSelection] = useState<
+    CanvasSelectionNodeSummary[]
+  >([]);
+
+  useEffect(() => {
+    const handler = (data: { nodes: CanvasSelectionNodeSummary[] }) => {
+      setCanvasSelection(data.nodes ?? []);
+    };
+    on("CANVAS_SELECTION_CHANGED", handler);
+    emit("REQUEST_CANVAS_SELECTION");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -858,6 +880,8 @@ function Plugin() {
             seed: randomDemoSeed,
             dummyTextTemplate,
             maskColor: normalizeHexColor(randomMaskColor),
+            applyDummyText: dummyApplyDummyText,
+            applyMaskImage: dummyApplyMaskImage,
           });
           showStatus(
             "フレーム内のテキストと画像を更新しました（キャンバスで結果を確認してください）",
@@ -1318,6 +1342,12 @@ function Plugin() {
     });
   }, [imagesToDisplay.length, tabValue]);
 
+  useEffect(() => {
+    emit("selectionchange", { dummyApplyDummyText });
+    console.log("dummyApplyDummyText", dummyApplyDummyText);
+    console.log("dummyApplyMaskImage", dummyApplyMaskImage);
+  }, [dummyApplyDummyText, dummyApplyMaskImage]);
+
   const areAllDisplayImagesSelected: boolean =
     imagesToDisplay.length > 0 &&
     imagesToDisplay.every((displayImg) => {
@@ -1426,7 +1456,6 @@ function Plugin() {
         // backgroundColor: "#141414",
       }}
     >
-
       {/* Apply 押下〜処理完了まで */}
       <ApplyImageLoadingModal
         visible={applyButtonLoading}
@@ -1476,7 +1505,7 @@ function Plugin() {
             height: "40px",
             alignItems: "center",
             minWidth: "fit-content",
-            justifyContent: "space-between"
+            justifyContent: "space-between",
           }}
         >
           <div
@@ -1508,8 +1537,7 @@ function Plugin() {
                 border: "1px solid var(--figma-color-border)",
                 boxShadow: "0 1px 3px rgba(0, 0, 0, 0.12)",
                 transform: `translateX(${activeTabIndex * TAB_PILL_SEGMENT_PX}px) translateY(-50%)`,
-                transition:
-                  "transform 0.22s cubic-bezier(0.4, 0, 0.2, 1)",
+                transition: "transform 0.22s cubic-bezier(0.4, 0, 0.2, 1)",
                 pointerEvents: "none",
                 zIndex: 0,
               }}
@@ -1552,8 +1580,8 @@ function Plugin() {
             ))}
           </div>
 
-
-          {tabValue === "Top" && displayImages.length > 0 &&
+          {tabValue === "Top" &&
+            displayImages.length > 0 &&
             (() => {
               // ユニークなサービス名とfavicon（検索で絞り込んでも一覧は displayImages ベース）
               const uniqueServices = new Map<string, string>();
@@ -1978,9 +2006,12 @@ function Plugin() {
                 onApplyAll={handlePlaceAllImagesInFrame}
                 applyToSelectionDisabled={selectedImageIndices.size === 0}
                 applyAllDisabled={
-                  displayImages.length === 0 || selectedImageIndices.size === 0
+                  displayImages.length === 0 ||
+                  selectedImageIndices.size === 0 ||
+                  !canvasSelection.some((n) => n.type === "FRAME")
                 }
                 applyAllLoading={applyButtonLoading}
+                canvasSelection={canvasSelection}
               />
             </div>
           )}
@@ -2001,6 +2032,10 @@ function Plugin() {
             onDummyTextTemplateChange={setDummyTextTemplate}
             maskColor={randomMaskColor}
             onMaskColorChange={setRandomMaskColor}
+            applyDummyText={dummyApplyDummyText}
+            onApplyDummyTextChange={setDummyApplyDummyText}
+            applyMaskImage={dummyApplyMaskImage}
+            onApplyMaskImageChange={setDummyApplyMaskImage}
             onShuffle={() => setRandomDemoSeed((s) => s + 1)}
             selectedIndices={selectedRandomIndices}
             onToggleSelect={toggleRandomImageSelect}
@@ -2028,9 +2063,12 @@ function Plugin() {
             onApplyAll={handlePlaceAllImagesInFrame}
             applyToSelectionDisabled={selectedRandomIndices.size === 0}
             applyAllDisabled={
-              randomDemoImages.length === 0 || selectedRandomIndices.size === 0
+              // randomDemoImages.length === 0 ||
+              // selectedRandomIndices.size === 0 ||
+              !canvasSelection.some((n) => n.type === "FRAME")
             }
             applyAllLoading={applyButtonLoading}
+            canvasSelection={canvasSelection}
           />
         </div>
       )}

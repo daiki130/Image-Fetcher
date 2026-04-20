@@ -1,8 +1,67 @@
-import { h } from "preact";
-import { Text } from "@create-figma-plugin/ui";
-import { ImageData } from "../types";
+import { h, Fragment, JSX } from "preact";
+import {
+  Text,
+  IconSection16,
+  IconFrame16,
+  IconComponent16,
+  IconComponentSet16,
+  IconText16,
+  IconRectangle16,
+  IconEllipse16,
+  IconLine16,
+  IconPolygon16,
+  IconStar16,
+  IconSlide16,
+  IconImage16,
+  IconBoolean16,
+  // IconVector24,
+  IconSticky16,
+  IconWidget16,
+} from "@create-figma-plugin/ui";
+import { CanvasSelectionNodeSummary, ImageData } from "../types";
 import { Toogle } from "./toggle";
 import { Button } from "./parts/Button";
+
+function NodeTypeIcon({ type }: { type: string }): JSX.Element {
+  switch (type) {
+    case "FRAME":
+      return <IconFrame16 />;
+    case "SECTION":
+      return <IconSection16 />;
+    case "GROUP":
+      return <IconFrame16 />;
+    case "COMPONENT":
+      return <IconComponent16 />;
+    case "COMPONENT_SET":
+      return <IconComponentSet16 />;
+    case "INSTANCE":
+      return <IconComponent16 />;
+    case "TEXT":
+      return <IconText16 />;
+    case "RECTANGLE":
+      return <IconRectangle16 />;
+    case "ELLIPSE":
+      return <IconEllipse16 />;
+    case "LINE":
+      return <IconLine16 />;
+    case "POLYGON":
+      return <IconPolygon16 />;
+    case "STAR":
+      return <IconStar16 />;
+    case "VECTOR":
+      // return <IconVectorBend16 />;
+    case "BOOLEAN_OPERATION":
+      return <IconBoolean16 />;
+    case "SLICE":
+      // return <IconSlice16 />;
+    case "STICKY":
+      return <IconSticky16 />;
+    case "WIDGET":
+      return <IconWidget16 />;
+    default:
+      return <IconImage16 />;
+  }
+}
 
 export interface FooterProps {
   // onApplyToSelection: () => void;
@@ -16,6 +75,8 @@ export interface FooterProps {
   applyToSelectionDisabled: boolean;
   applyAllDisabled: boolean;
   applyAllLoading: boolean;
+  /** キャンバス選択のサマリ（main 経由で同期） */
+  canvasSelection: CanvasSelectionNodeSummary[];
 }
 
 export function Footer({
@@ -29,6 +90,7 @@ export function Footer({
   applyToSelectionDisabled,
   applyAllDisabled,
   applyAllLoading,
+  canvasSelection,
 }: FooterProps) {
   return (
     <div
@@ -130,9 +192,50 @@ export function Footer({
           style={{
             fontSize: "11px",
             color: "var(--figma-color-text-secondary)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "4px",
+            overflow: "hidden",
+            whiteSpace: "nowrap",
+            height: "20px",
           }}
+          title={
+            canvasSelection.length === 0
+              ? undefined
+              : canvasSelection.map((n) => `${n.type}: ${n.name}`).join("\n")
+          }
         >
-          フレームを選択してください
+          {canvasSelection.length === 0 ? (
+            tabValue === "Top"
+              ? "適応する画像とフレームを選択してください"
+              : "フレームを選択してください"
+          ) : canvasSelection.length === 1 ? (
+            <>
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  flex: "0 0 auto",
+                }}
+              >
+                <NodeTypeIcon type={canvasSelection[0].type} />
+              </span>
+              <span
+                style={{
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  height: "20px",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
+                {canvasSelection[0].name}
+              </span>
+            </>
+          ) : (
+            `${canvasSelection.length}件選択中`
+          )}
         </div>
         {/* 選択された画像のサムネイルスタック */}
         {/* {selectedImageOrder.length > 0 && (
