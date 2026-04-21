@@ -1505,6 +1505,14 @@ function Plugin() {
       }}
     >
       {/* Apply 押下〜処理完了まで */}
+      {/* {
+        tabValue === "Dummy" && (
+          <ApplyImageLoadingModal
+            visible={true}
+            progress={applyPlaceProgress}
+          />
+        )
+      } */}
       <ApplyImageLoadingModal
         visible={applyButtonLoading}
         progress={applyPlaceProgress}

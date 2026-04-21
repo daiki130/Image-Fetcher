@@ -67,7 +67,18 @@ function GridBlock({ blockId }: { blockId: string }) {
         const tone = i % 12;
         const ac = AC[tone];
         const bg = BG[tone];
-        const stagger = (tone * (CELL_CYCLE_S / 12)) % CELL_CYCLE_S;
+        // 負の animation-delay を使うことで、各セルが「異なる位相から即座に再生開始」する。
+        // 正の値にすると遅延中は 0% フレームで停止するため、短時間しか表示されない
+        // Dummy タブではセルによってアニメーションが動き出さず止まって見える。
+        //
+        // さらに、i をそのまま使うと「i が大きいセル＝位相が進んでいる＝スキャンが先
+        // に進行している」となり、行メジャーで並んでいるこのグリッドでは「右→左」に
+        // 走って見えてしまう。グリッドの左上から順に適用されているように見せるため
+        // に、基準を (CELLS_IN_BLOCK - 1 - i) に反転させる（左上が最も位相が進んだ
+        // 状態から再生されるので、その後の各時刻では左のセルの方が先にスキャンが
+        // 完了するように見える）。
+        const idx = CELLS_IN_BLOCK - 1 - i;
+        const stagger = -((idx * (CELL_CYCLE_S / CELLS_IN_BLOCK)) % CELL_CYCLE_S);
         const cycle = `${CELL_CYCLE_S}s`;
 
         const cssVar = {
@@ -84,30 +95,86 @@ function GridBlock({ blockId }: { blockId: string }) {
               position: "relative",
               overflow: "hidden",
               borderRadius: "4px",
-              border: "1px dashed var(--figma-color-border)",
-              background: "var(--figma-color-bg-secondary)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              animation: `applyImgModal_cellSurface ${cycle} ease-in-out infinite`,
-              animationDelay: `${stagger}s`,
             }}
           >
-            {/* スキャンライン */}
+            {/* ベース面：枠・背景はセル本体ではなくオーバーレイに持たせる。
+                こうすることで、上に重ねるアクセント面（同サイズ・同形状）が
+                完全に覆い隠せるため、二重枠にならない。 */}
             <div
               style={{
                 position: "absolute",
-                left: 0,
-                right: 0,
-                height: "2px",
-                background: "var(--apply-ac)",
-                zIndex: 4,
+                inset: 0,
+                borderRadius: "4px",
+                border: "1px dashed var(--figma-color-border)",
+                background: "var(--figma-color-bg-secondary)",
+                boxSizing: "border-box",
                 pointerEvents: "none",
-                boxShadow: "0 0 6px var(--apply-ac)",
-                animation: `applyImgModal_scanLine ${cycle} ease-in-out infinite`,
-                animationDelay: `${stagger}s`,
+                zIndex: 0,
               }}
             />
+            {/* アクセント面：background / border-color を直接アニメすると paint が
+                走り main スレッドが詰まると止まる。代わりにセル全面を覆う不透明な
+                オーバーレイを opacity だけで fade in/out させることで、セル表面の
+                色・枠の「切り替え」を GPU コンポジタのみで表現する。 */}
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                borderRadius: "4px",
+                border: "1px solid var(--apply-ac)",
+                background: "var(--apply-bg)",
+                boxSizing: "border-box",
+                pointerEvents: "none",
+                zIndex: 0,
+                opacity: 0,
+                animation: `applyImgModal_cellAccent ${cycle} ease-in-out infinite`,
+                animationDelay: `${stagger}s`,
+                willChange: "opacity",
+              }}
+            />
+            {/* スキャンライン：
+                外側の wrapper（セル全体を覆い overflow:hidden で clip）、
+                真ん中の travel が transform:translateY で上→下へ移動（GPU コンポジタ）、
+                中のライン自体は opacity のフェードのみ（これも composited）。
+                `top` を使わずレイアウトを起こさないため、main スレッドが詰まって
+                いてもスキャンが止まらない。 */}
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                overflow: "hidden",
+                pointerEvents: "none",
+                zIndex: 4,
+              }}
+            >
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  animation: `applyImgModal_scanTravel ${cycle} ease-in-out infinite`,
+                  animationDelay: `${stagger}s`,
+                  willChange: "transform",
+                }}
+              >
+                <div
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    height: "2px",
+                    background: "var(--apply-ac)",
+                    boxShadow: "0 0 6px var(--apply-ac)",
+                    animation: `applyImgModal_scanFade ${cycle} ease-in-out infinite`,
+                    animationDelay: `${stagger}s`,
+                    willChange: "opacity",
+                  }}
+                />
+              </div>
+            </div>
             {/* 中央アイコン */}
             <div
               style={{
@@ -205,38 +272,24 @@ export function ApplyImageLoadingModal({
   from { transform: translateY(0); }
   to   { transform: translateY(-50%); }
 }
-/* セル：枠・背景がアクセントに切り替わり、終わりで戻る */
-@keyframes applyImgModal_cellSurface {
-  0%, 100% {
-    border-color: var(--figma-color-border);
-    background: var(--figma-color-bg-secondary);
-    border-style: dashed;
-  }
-  8% {
-    border-style: solid;
-    border-color: var(--apply-ac);
-    background: var(--apply-bg);
-  }
-  42% {
-    border-color: var(--apply-ac);
-    background: var(--apply-bg);
-    opacity: 1;
-  }
-  55% {
-    border-color: color-mix(in srgb, var(--apply-ac) 55%, var(--figma-color-border));
-  }
-  72%, 100% {
-    border-style: dashed;
-    border-color: var(--figma-color-border);
-    background: var(--figma-color-bg-secondary);
-  }
+/* セル：アクセント面（枠 + 背景）を opacity の fade で切り替える。
+   opacity は合成スレッド（GPU）で処理されるため、main スレッドが詰まっていても
+   なめらかに再生される。 */
+@keyframes applyImgModal_cellAccent {
+  0%, 6%    { opacity: 0; }
+  10%, 50%  { opacity: 1; }
+  72%, 100% { opacity: 0; }
 }
-@keyframes applyImgModal_scanLine {
-  0%, 7%  { top: 0; opacity: 0; }
-  9%  { opacity: 1; }
-  10% { top: 0; }
-  38% { top: calc(100% - 2px); opacity: 1; }
-  39%, 100% { opacity: 0; top: 100%; }
+/* スキャンラインの「移動」— transform: translateY のみで composited */
+@keyframes applyImgModal_scanTravel {
+  0%, 10% { transform: translateY(0); }
+  38%, 100% { transform: translateY(calc(100% - 2px)); }
+}
+/* スキャンラインの「フェード」— opacity のみで composited */
+@keyframes applyImgModal_scanFade {
+  0%, 7%  { opacity: 0; }
+  9%, 38% { opacity: 1; }
+  39%, 100% { opacity: 0; }
 }
 @keyframes applyImgModal_iconPulse {
   0%, 6%  { transform: scale(0.92); opacity: 0.65; }
