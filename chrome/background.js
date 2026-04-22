@@ -1,8 +1,31 @@
 // Service Worker - バックグラウンドで動作
 
-// 拡張機能がインストールされた時
 chrome.runtime.onInstalled.addListener(() => {
   console.log("image-fetcher installed");
+});
+
+// 拡張アイコンをクリックしたら、アクティブタブの content script に
+// パネルの開閉を依頼する。content script が未注入（拡張インストール直後の
+// 既存タブ等）なら executeScript で注入してから再送する。
+chrome.action.onClicked.addListener(async (tab) => {
+  if (!tab || tab.id == null) return;
+
+  try {
+    await chrome.tabs.sendMessage(tab.id, { type: "TOGGLE_PANEL" });
+  } catch (err) {
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ["content.js"],
+      });
+      await chrome.tabs.sendMessage(tab.id, { type: "TOGGLE_PANEL" });
+    } catch (injectErr) {
+      console.error(
+        "image-fetcher: failed to toggle panel",
+        injectErr instanceof Error ? injectErr.message : injectErr,
+      );
+    }
+  }
 });
 
 // メッセージリスナー - 他のスクリプトからの通信を受け取る
@@ -11,7 +34,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     chrome.storage.local.get(["images"], (result) => {
       sendResponse({ images: result.images || [] });
     });
-    return true; // 非同期レスポンスを示す
+    return true;
   }
 
   if (request.type === "SAVE_IMAGES") {
@@ -21,7 +44,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
-  // 画像をダウンロードしてbase64で返す
   if (request.type === "DOWNLOAD_IMAGE") {
     downloadImageAsBase64(request.url)
       .then((base64) => {
@@ -54,10 +76,9 @@ chrome.runtime.onMessageExternal.addListener(
         });
       return true;
     }
-  }
+  },
 );
 
-// 画像をダウンロードしてbase64で返す
 async function downloadImageAsBase64(url) {
   const response = await fetch(url);
   if (!response.ok) {

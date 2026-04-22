@@ -50,7 +50,7 @@ document.getElementById("collectBtn").addEventListener("click", async () => {
 
         updateStatus(
           `${collectedImages.length}個の画像を収集しました`,
-          "success"
+          "success",
         );
         displayImages(collectedImages);
         document.getElementById("copyBtn").disabled = false;
@@ -65,7 +65,7 @@ document.getElementById("collectBtn").addEventListener("click", async () => {
 
         updateStatus(
           `${collectedImages.length}個の画像を収集しました(※ストレージ保存失敗)`,
-          "info"
+          "info",
         );
         displayImages(collectedImages);
         document.getElementById("copyBtn").disabled = false;
@@ -238,7 +238,7 @@ async function encryptData(data) {
       ENCRYPTION_KEY,
       { name: "AES-CBC", length: 256 },
       false,
-      ["encrypt"]
+      ["encrypt"],
     );
 
     // AES-CBCではIVは16バイト
@@ -249,7 +249,7 @@ async function encryptData(data) {
     const encrypted = await crypto.subtle.encrypt(
       { name: "AES-CBC", iv: iv },
       key,
-      encodedData
+      encodedData,
     );
 
     // IVと暗号化データを結合してBase64エンコード
@@ -313,7 +313,7 @@ async function exportToImageFetcherFile(images) {
 
       // サービス名を取得（最初の画像のサービス名を使用、複数のサービスが混在している場合は"mixed"）
       const services = new Set(
-        imagesWithBase64.map((img) => img.service).filter(Boolean)
+        imagesWithBase64.map((img) => img.service).filter(Boolean),
       );
       let serviceName = "";
       if (services.size === 1) {
@@ -356,13 +356,13 @@ async function exportToImageFetcherFile(images) {
           `✅ ${successCount}個の画像を.imagefetcherファイルに保存しました!${
             failCount > 0 ? ` (${failCount}個失敗)` : ""
           }`,
-          "success"
+          "success",
         );
       } catch (downloadError) {
         console.error("Download error:", downloadError);
         updateStatus(
           `❌ ファイルのダウンロードに失敗しました: ${downloadError.message}`,
-          "error"
+          "error",
         );
       }
     } else {
@@ -425,7 +425,7 @@ document.getElementById("copyBtn").addEventListener("click", async () => {
         `✅ ${successCount}個の画像をコピーしました!${
           failCount > 0 ? ` (${failCount}個失敗)` : ""
         }`,
-        "success"
+        "success",
       );
     } else {
       updateStatus("❌ 全ての画像取得に失敗しました", "error");
@@ -467,7 +467,7 @@ chrome.storage.local.get(["images"], (result) => {
     document.getElementById("copyBtn").disabled = false;
     updateStatus(
       `保存済み: ${window.collectedImages.length}個の画像`,
-      "success"
+      "success",
     );
   }
 });
@@ -475,9 +475,35 @@ chrome.storage.local.get(["images"], (result) => {
 // ステータス更新
 function updateStatus(message, type = "info") {
   const statusEl = document.getElementById("statusText");
+  const statusCard = document.getElementById("status");
   statusEl.textContent = message;
-  statusEl.style.color =
-    type === "error" ? "#d32f2f" : type === "success" ? "#388e3c" : "#666";
+  // 先頭の絵文字（成功/失敗のプレフィックス）は data-state で表現するので取り除く
+  const cleaned = String(message).replace(/^[\s]*(✅|❌|⚠️|ℹ️)\s*/u, "");
+  statusEl.textContent = cleaned || message;
+  if (statusCard) {
+    const nextState =
+      type === "error"
+        ? "error"
+        : type === "success"
+          ? "success"
+          : type === "loading"
+            ? "loading"
+            : "idle";
+    statusCard.setAttribute("data-state", nextState);
+  }
+}
+
+// ヘッダー右上の件数ピル
+function updateCountPill(count) {
+  const pill = document.getElementById("countPill");
+  const num = document.getElementById("countNumber");
+  if (!pill || !num) return;
+  if (count > 0) {
+    num.textContent = String(count);
+    pill.classList.remove("is-hidden");
+  } else {
+    pill.classList.add("is-hidden");
+  }
 }
 
 function escapeHtmlAttr(s) {
@@ -491,6 +517,7 @@ function escapeHtmlAttr(s) {
 function displayImages(images) {
   const listEl = document.getElementById("imageList");
   listEl.innerHTML = "";
+  updateCountPill(images.length);
 
   images.forEach((img, index) => {
     const itemEl = document.createElement("div");
@@ -502,14 +529,14 @@ function displayImages(images) {
       : "";
     itemEl.innerHTML = `
       <img src="${img.src}" alt="Image ${
-      index + 1
-    }" onerror="this.style.display='none'">
+        index + 1
+      }" onerror="this.style.display='none'">
       <div class="image-info">
         <div><strong>Size:</strong> ${img.width} × ${img.height}</div>
         ${titleHtml}
         <div class="image-url" title="${escapeHtmlAttr(img.src)}">${escapeHtmlAttr(
-      img.src,
-    )}</div>
+          img.src,
+        )}</div>
       </div>
     `;
     listEl.appendChild(itemEl);
@@ -523,7 +550,7 @@ async function collectImagesFromPage() {
     // 優先順位に従ってfaviconを探す
     // 1. <link rel="icon"> または <link rel="shortcut icon">
     const iconLinks = document.querySelectorAll(
-      'link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]'
+      'link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]',
     );
 
     for (const link of iconLinks) {
@@ -797,7 +824,7 @@ async function collectImagesFromPage() {
     // 3. CSSのbackground-imageから画像を収集（div, section, article, figureなどの主要な要素のみ）
     // 主要な要素をチェック（パフォーマンスのため）
     const elementsToCheck = document.querySelectorAll(
-      "div, section, article, figure, header, main"
+      "div, section, article, figure, header, main",
     );
     elementsToCheck.forEach((element) => {
       const bgUrl = extractBackgroundImageUrl(element);
