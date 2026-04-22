@@ -2,6 +2,7 @@
 import { showUI, on, emit } from "@create-figma-plugin/utilities";
 import { CanvasSelectionNodeSummary, ImageData } from "./types";
 import { resolveDummyText } from "./randomDemoMode";
+import { getSolidColorImageHash } from "./solidColorImage";
 
 const STORAGE_KEY = "savedImages";
 
@@ -380,6 +381,36 @@ function collectMaskTargetNodes(
   return out;
 }
 
+/**
+ * fill 配列内の IMAGE fill を「指定色の単色画像」へ差し替える。
+ * scaleMode など IMAGE fill のプロパティは保持したまま imageHash のみ入れ替えるため、
+ * 元の画像データはノードから取り除かれる。
+ * 置き換えた枚数を返す。
+ */
+function replaceImageFillsWithSolidColorImage(
+  fills: ReadonlyArray<Paint>,
+  rgb: RGB,
+): { nextFills: Paint[]; replaced: number } {
+  let replaced = 0;
+  let solidColorHash: string | null = null;
+  const nextFills = fills.map((fill) => {
+    if (fill.type !== "IMAGE") {
+      return fill;
+    }
+    if (solidColorHash == null) {
+      solidColorHash = getSolidColorImageHash(rgb);
+    }
+    replaced++;
+    const nextFill: ImagePaint = {
+      ...fill,
+      imageHash: solidColorHash,
+      filters: undefined,
+    };
+    return nextFill;
+  });
+  return { nextFills, replaced };
+}
+
 function applyMaskColorToFrameSubtree(
   frame: FrameNode,
   maskColor: string,
@@ -391,25 +422,34 @@ function applyMaskColorToFrameSubtree(
     if (node.fills === figma.mixed || !Array.isArray(node.fills)) {
       continue;
     }
-    const nextFills = node.fills.map((fill: Paint) => {
+    let nodeChanged = false;
+    let nextFills: Paint[] = node.fills.map((fill: Paint) => {
       if (fill.type !== "SOLID") {
         return fill;
       }
-      applied++;
+      nodeChanged = true;
       return {
         ...fill,
         color: rgb,
       };
     });
-    node.fills = nextFills;
+    const imageReplaced = replaceImageFillsWithSolidColorImage(nextFills, rgb);
+    nextFills = imageReplaced.nextFills;
+    if (imageReplaced.replaced > 0) {
+      nodeChanged = true;
+    }
+    if (nodeChanged) {
+      node.fills = nextFills;
+      applied++;
+    }
   }
   return applied;
 }
 
 /**
- * IMAGE fill を持つノードに対して、マスクカラーの SOLID fill を最上層に載せる。
- * 複数回実行しても塗りが積み重ならないよう、既存の IMAGE fill を保持したうえで
- * SOLID マスクをひとつだけ追加する形に置き換える。
+ * IMAGE fill を持つノードに対して、元の画像を「マスクカラーの単色画像」に差し替える。
+ * scaleMode 等 IMAGE fill の構造は保ったまま imageHash のみ入れ替えるので、
+ * 元の画像はノードから取り除かれ、見た目はマスク色のベタ塗りになる。
  */
 function applyMaskColorToImageFills(
   frame: FrameNode,
@@ -423,19 +463,12 @@ function applyMaskColorToImageFills(
       node.fills !== figma.mixed &&
       Array.isArray(node.fills)
     ) {
-      const imageFills = node.fills.filter(
-        (f): f is ImagePaint => f.type === "IMAGE",
+      const { nextFills, replaced } = replaceImageFillsWithSolidColorImage(
+        node.fills,
+        rgb,
       );
-      if (imageFills.length > 0) {
-        const maskFill: SolidPaint = {
-          type: "SOLID",
-          color: rgb,
-          opacity: 1,
-        };
-        (node as SceneNode & MinimalFillsMixin).fills = [
-          ...imageFills,
-          maskFill,
-        ];
+      if (replaced > 0) {
+        (node as SceneNode & MinimalFillsMixin).fills = nextFills;
         applied++;
       }
     }
