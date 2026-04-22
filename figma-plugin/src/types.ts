@@ -63,5 +63,50 @@ export interface PlaceRandomContentInFrameHandler extends EventHandler {
     images: Array<{ imageData: Uint8Array; width: number; height: number }>;
     seed: number;
     dummyTextTemplate: string;
+    /** 省略時は true（Dummy Text をフレーム内に適用） */
+    applyDummyText?: boolean;
+    /** 省略時は true（Mask Image をフレーム内に適用） */
+    applyMaskImage?: boolean;
   }) => void;
+}
+
+/** Dummy タブ用: 画像配置はせず、フラグに応じて Dummy Text と Mask Image のみ適用 */
+export interface ApplyDummyContentInFrameHandler extends EventHandler {
+  name: "APPLY_DUMMY_CONTENT_IN_FRAME";
+  handler: (data: {
+    dummyTextTemplate: string;
+    maskColor?: string;
+    applyDummyText: boolean;
+    applyMaskImage: boolean;
+  }) => void;
+}
+
+/** Dummy タブ用: main → UI 完了通知 */
+export interface ApplyDummyContentInFrameDoneHandler extends EventHandler {
+  name: "APPLY_DUMMY_CONTENT_IN_FRAME_DONE";
+  handler: (data: {
+    ok: boolean;
+    appliedText: number;
+    appliedMask: number;
+    skippedProtected: number;
+    errorMessage?: string;
+  }) => void;
+}
+
+/** キャンバス選択の main → UI 用サマリ（SceneNode は渡せない） */
+export type CanvasSelectionNodeSummary = {
+  id: string;
+  name: string;
+  type: string;
+};
+
+export interface CanvasSelectionChangedHandler extends EventHandler {
+  name: "CANVAS_SELECTION_CHANGED";
+  handler: (data: { nodes: CanvasSelectionNodeSummary[] }) => void;
+}
+
+/** UI 初期化後に現在の選択を main へ問い合わせる */
+export interface RequestCanvasSelectionHandler extends EventHandler {
+  name: "REQUEST_CANVAS_SELECTION";
+  handler: () => void;
 }

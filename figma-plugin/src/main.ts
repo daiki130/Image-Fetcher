@@ -1,7 +1,8 @@
 // Figma Plugin Main Code
 import { showUI, on, emit } from "@create-figma-plugin/utilities";
-import { ImageData } from "./types";
+import { CanvasSelectionNodeSummary, ImageData } from "./types";
 import { resolveDummyText } from "./randomDemoMode";
+import { getSolidColorImageHash } from "./solidColorImage";
 
 const STORAGE_KEY = "savedImages";
 
@@ -105,11 +106,19 @@ export default function () {
       images: Array<{ imageData: Uint8Array; width: number; height: number }>;
       seed: number;
       dummyTextTemplate: string;
+      maskColor?: string;
+      applyDummyText?: boolean;
+      applyMaskImage?: boolean;
     }) => {
       await placeRandomContentInFrame(
         data.images,
         data.seed,
         data.dummyTextTemplate,
+        data.maskColor,
+        {
+          applyDummyText: data.applyDummyText,
+          applyMaskImage: data.applyMaskImage,
+        },
       );
     },
   );
@@ -118,6 +127,23 @@ export default function () {
     "APPLY_DUMMY_TEXT_TO_SELECTION",
     async (data: { dummyTextTemplate: string }) => {
       await applyDummyTextToSelection(data.dummyTextTemplate);
+    },
+  );
+
+  on(
+    "APPLY_DUMMY_CONTENT_IN_FRAME",
+    async (data: {
+      dummyTextTemplate: string;
+      maskColor: string;
+      applyDummyText: boolean;
+      applyMaskImage: boolean;
+    }) => {
+      await applyDummyContentInFrame(
+        data.dummyTextTemplate,
+        data.maskColor,
+        data.applyDummyText,
+        data.applyMaskImage,
+      );
     },
   );
 
@@ -188,7 +214,22 @@ export default function () {
     animate();
   });
 
+  function emitCanvasSelection() {
+    const sel = figma.currentPage.selection;
+    const nodes: CanvasSelectionNodeSummary[] = sel.map((node) => ({
+      id: node.id,
+      name: node.name,
+      type: node.type,
+    }));
+    emit("CANVAS_SELECTION_CHANGED", { nodes });
+  }
+
+  figma.on("selectionchange", emitCanvasSelection);
+
+  on("REQUEST_CANVAS_SELECTION", emitCanvasSelection);
+
   showUI({ width: 400, height: 500 });
+  emitCanvasSelection();
 }
 
 async function loadFontsForTextNode(node: TextNode): Promise<void> {
@@ -298,6 +339,154 @@ async function applyDummyTextToFrameSubtree(
   return { replaced, skippedProtected };
 }
 
+function parseMaskColorHex(maskColor: string): RGB {
+  const withHash = maskColor.trim().startsWith("#")
+    ? maskColor.trim()
+    : `#${maskColor.trim()}`;
+  const normalized = /^#([0-9a-fA-F]{3})$/.test(withHash)
+    ? `#${withHash[1]}${withHash[1]}${withHash[2]}${withHash[2]}${withHash[3]}${withHash[3]}`
+    : withHash;
+  const match = normalized.match(/^#([0-9a-fA-F]{6})$/);
+  if (!match) {
+    return { r: 1, g: 0, b: 0 };
+  }
+  const hex = match[1];
+  return {
+    r: parseInt(hex.slice(0, 2), 16) / 255,
+    g: parseInt(hex.slice(2, 4), 16) / 255,
+    b: parseInt(hex.slice(4, 6), 16) / 255,
+  };
+}
+
+function collectMaskTargetNodes(
+  root: SceneNode,
+): Array<SceneNode & MinimalFillsMixin> {
+  const out: Array<SceneNode & MinimalFillsMixin> = [];
+  function visit(node: SceneNode): void {
+    if (
+      "fills" in node &&
+      node.fills !== figma.mixed &&
+      Array.isArray(node.fills) &&
+      /(mask|overlay|マスク)/i.test(node.name)
+    ) {
+      out.push(node as SceneNode & MinimalFillsMixin);
+    }
+    if ("children" in node) {
+      for (const child of node.children) {
+        visit(child);
+      }
+    }
+  }
+  visit(root);
+  return out;
+}
+
+/**
+ * fill 配列内の IMAGE fill を「指定色の単色画像」へ差し替える。
+ * scaleMode など IMAGE fill のプロパティは保持したまま imageHash のみ入れ替えるため、
+ * 元の画像データはノードから取り除かれる。
+ * 置き換えた枚数を返す。
+ */
+function replaceImageFillsWithSolidColorImage(
+  fills: ReadonlyArray<Paint>,
+  rgb: RGB,
+): { nextFills: Paint[]; replaced: number } {
+  let replaced = 0;
+  let solidColorHash: string | null = null;
+  const nextFills = fills.map((fill) => {
+    if (fill.type !== "IMAGE") {
+      return fill;
+    }
+    if (solidColorHash == null) {
+      solidColorHash = getSolidColorImageHash(rgb);
+    }
+    replaced++;
+    const nextFill: ImagePaint = {
+      ...fill,
+      imageHash: solidColorHash,
+      filters: undefined,
+    };
+    return nextFill;
+  });
+  return { nextFills, replaced };
+}
+
+function applyMaskColorToFrameSubtree(
+  frame: FrameNode,
+  maskColor: string,
+): number {
+  const rgb = parseMaskColorHex(maskColor);
+  const targetNodes = collectMaskTargetNodes(frame);
+  let applied = 0;
+  for (const node of targetNodes) {
+    if (node.fills === figma.mixed || !Array.isArray(node.fills)) {
+      continue;
+    }
+    let nodeChanged = false;
+    let nextFills: Paint[] = node.fills.map((fill: Paint) => {
+      if (fill.type !== "SOLID") {
+        return fill;
+      }
+      nodeChanged = true;
+      return {
+        ...fill,
+        color: rgb,
+      };
+    });
+    const imageReplaced = replaceImageFillsWithSolidColorImage(nextFills, rgb);
+    nextFills = imageReplaced.nextFills;
+    if (imageReplaced.replaced > 0) {
+      nodeChanged = true;
+    }
+    if (nodeChanged) {
+      node.fills = nextFills;
+      applied++;
+    }
+  }
+  return applied;
+}
+
+/**
+ * IMAGE fill を持つノードに対して、元の画像を「マスクカラーの単色画像」に差し替える。
+ * scaleMode 等 IMAGE fill の構造は保ったまま imageHash のみ入れ替えるので、
+ * 元の画像はノードから取り除かれ、見た目はマスク色のベタ塗りになる。
+ */
+function applyMaskColorToImageFills(
+  frame: FrameNode,
+  maskColor: string,
+): number {
+  const rgb = parseMaskColorHex(maskColor);
+  let applied = 0;
+  function visit(node: SceneNode): void {
+    if (
+      "fills" in node &&
+      node.fills !== figma.mixed &&
+      Array.isArray(node.fills)
+    ) {
+      const { nextFills, replaced } = replaceImageFillsWithSolidColorImage(
+        node.fills,
+        rgb,
+      );
+      if (replaced > 0) {
+        (node as SceneNode & MinimalFillsMixin).fills = nextFills;
+        applied++;
+      }
+    }
+    if ("children" in node) {
+      for (const child of node.children) {
+        visit(child);
+      }
+    }
+  }
+  visit(frame);
+  return applied;
+}
+
+type PlaceRandomOptions = {
+  applyDummyText?: boolean;
+  applyMaskImage?: boolean;
+};
+
 /**
  * Random タブ用: フレーム内テキストをダミーにしたうえで、サンプル画像をプレースホルダーへ配置
  */
@@ -305,7 +494,12 @@ async function placeRandomContentInFrame(
   images: Array<{ imageData: Uint8Array; width: number; height: number }>,
   _seed: number,
   dummyTextTemplate: string,
+  maskColor = "#ff0000",
+  options?: PlaceRandomOptions,
 ) {
+  const applyDummyText = options?.applyDummyText !== false;
+  const applyMaskImage = options?.applyMaskImage !== false;
+
   const selection = figma.currentPage.selection;
   let targetFrame: FrameNode | null = null;
   for (const node of selection) {
@@ -319,17 +513,38 @@ async function placeRandomContentInFrame(
     return;
   }
 
-  const { replaced: textCount, skippedProtected } =
-    await applyDummyTextToFrameSubtree(targetFrame, dummyTextTemplate);
+  let textCount = 0;
+  let skippedProtected = 0;
+  if (applyDummyText) {
+    const r = await applyDummyTextToFrameSubtree(
+      targetFrame,
+      dummyTextTemplate,
+    );
+    textCount = r.replaced;
+    skippedProtected = r.skippedProtected;
+  }
+
+  let appliedMaskCount = 0;
+  if (applyMaskImage) {
+    appliedMaskCount = applyMaskColorToFrameSubtree(targetFrame, maskColor);
+  }
+
   const imageResult = await placeImagesInFrame(images, {
     silent: true,
     sequentialImgPlaceholders: true,
   });
 
   if (imageResult.errorMessage) {
+    const pre: string[] = [];
+    if (applyDummyText && textCount > 0) {
+      pre.push(`テキスト${textCount}件をダミーにしました`);
+    }
+    if (applyMaskImage && appliedMaskCount > 0) {
+      pre.push(`マスク色を${appliedMaskCount}箇所に適用しました`);
+    }
     figma.notify(
-      textCount > 0
-        ? `テキスト${textCount}件をダミーにしました。画像は適用できませんでした（${imageResult.errorMessage}）`
+      pre.length > 0
+        ? `${pre.join("。")}。画像は適用できませんでした（${imageResult.errorMessage}）`
         : imageResult.errorMessage,
       { error: true },
     );
@@ -337,12 +552,125 @@ async function placeRandomContentInFrame(
   }
 
   const skipHint =
-    skippedProtected > 0
+    applyDummyText && skippedProtected > 0
       ? `（数字・記号を含む${skippedProtected}件のテキストはスキップ）`
       : "";
-  figma.notify(
-    `テキスト${textCount}件をダミーにし、画像を${imageResult.appliedCount}箇所に適用しました${skipHint}`,
-  );
+
+  const parts: string[] = [];
+  if (applyDummyText) {
+    parts.push(`テキスト${textCount}件をダミーに置換`);
+  }
+  if (applyMaskImage && appliedMaskCount > 0) {
+    parts.push(`マスク色を${appliedMaskCount}箇所に適用`);
+  }
+  parts.push(`画像を${imageResult.appliedCount}箇所に適用`);
+  figma.notify(`${parts.join("、")}しました${skipHint}`);
+}
+
+/**
+ * Dummy タブ用: 画像の配置は行わず、フラグに応じて Dummy Text / Mask Image のみ適用
+ */
+async function applyDummyContentInFrame(
+  dummyTextTemplate: string,
+  maskColor: string,
+  applyDummyText: boolean,
+  applyMaskImage: boolean,
+) {
+  const emitDone = (data: {
+    ok: boolean;
+    appliedText: number;
+    appliedMask: number;
+    skippedProtected: number;
+    errorMessage?: string;
+  }) => {
+    emit("APPLY_DUMMY_CONTENT_IN_FRAME_DONE", data);
+  };
+
+  if (!applyDummyText && !applyMaskImage) {
+    const msg = "Dummy Text か Mask Image のどちらかを ON にしてください";
+    figma.notify(msg, { error: true });
+    emitDone({
+      ok: false,
+      appliedText: 0,
+      appliedMask: 0,
+      skippedProtected: 0,
+      errorMessage: msg,
+    });
+    return;
+  }
+
+  const selection = figma.currentPage.selection;
+  let targetFrame: FrameNode | null = null;
+  for (const node of selection) {
+    if (node.type === "FRAME") {
+      targetFrame = node;
+      break;
+    }
+  }
+  if (!targetFrame) {
+    const msg = "フレームを選択してください";
+    figma.notify(msg, { error: true });
+    emitDone({
+      ok: false,
+      appliedText: 0,
+      appliedMask: 0,
+      skippedProtected: 0,
+      errorMessage: msg,
+    });
+    return;
+  }
+
+  try {
+    let textCount = 0;
+    let skippedProtected = 0;
+    if (applyDummyText) {
+      const r = await applyDummyTextToFrameSubtree(
+        targetFrame,
+        dummyTextTemplate,
+      );
+      textCount = r.replaced;
+      skippedProtected = r.skippedProtected;
+    }
+
+    let appliedMaskCount = 0;
+    if (applyMaskImage) {
+      // 1) 名前が mask/overlay/マスク のノード: 既存 SOLID fill の色を差し替え
+      const namedCount = applyMaskColorToFrameSubtree(targetFrame, maskColor);
+      // 2) IMAGE fill を持つノード: マスクカラーの SOLID を最上層に載せる
+      const imageCount = applyMaskColorToImageFills(targetFrame, maskColor);
+      appliedMaskCount = namedCount + imageCount;
+    }
+
+    const parts: string[] = [];
+    if (applyDummyText) {
+      parts.push(`テキスト${textCount}件をダミーに置換`);
+    }
+    if (applyMaskImage) {
+      parts.push(`マスク色を${appliedMaskCount}箇所に適用`);
+    }
+    const skipHint =
+      applyDummyText && skippedProtected > 0
+        ? `（数字・記号を含む${skippedProtected}件のテキストはスキップ）`
+        : "";
+    figma.notify(`${parts.join("、")}しました${skipHint}`);
+
+    emitDone({
+      ok: true,
+      appliedText: textCount,
+      appliedMask: appliedMaskCount,
+      skippedProtected,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "不明なエラー";
+    figma.notify(`エラー: ${msg}`, { error: true });
+    emitDone({
+      ok: false,
+      appliedText: 0,
+      appliedMask: 0,
+      skippedProtected: 0,
+      errorMessage: msg,
+    });
+  }
 }
 
 // 選択ノードに画像データを適用

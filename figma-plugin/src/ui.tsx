@@ -13,15 +13,20 @@ import { emit, on, MIXED_BOOLEAN } from "@create-figma-plugin/utilities";
 import { h, Fragment, JSX } from "preact";
 import { useState, useEffect, useRef, useMemo } from "preact/hooks";
 import CryptoJS from "crypto-js";
-import { ImageData, ImagesLoadedHandler } from "./types";
+import {
+  CanvasSelectionNodeSummary,
+  ImageData,
+  ImagesLoadedHandler,
+} from "./types";
 import { buildRandomDemoImages } from "./randomDemoMode";
 import { Data } from "./components/data";
 import { Card } from "./components/card";
 import { Tooltip } from "./components/Tooltip";
 import { SettingsMenu } from "./components/SettingsMenu";
 import { Loading } from "./components/loading";
-import { Random } from "./components/random";
+import { Dummy } from "./components/dummy";
 import { Footer } from "./components/footer";
+import { ApplyImageLoadingModal } from "./components/ApplyImageLoadingModal";
 // import "./styles.css";
 
 // ImageData は types.ts からインポート
@@ -119,6 +124,21 @@ function isEncrypted(data: string): boolean {
     const base64Pattern = /^[A-Za-z0-9+/=]+$/;
     return base64Pattern.test(data.trim());
   }
+}
+
+function normalizeHexColor(value: string): string {
+  const trimmed = value.trim();
+  const withHash = trimmed.startsWith("#") ? trimmed : `#${trimmed}`;
+  const short = withHash.match(/^#([0-9a-fA-F]{3})$/);
+  if (short) {
+    const [r, g, b] = short[1].split("");
+    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+  }
+  const full = withHash.match(/^#([0-9a-fA-F]{6})$/);
+  if (full) {
+    return withHash.toLowerCase();
+  }
+  return "#C4C4C4";
 }
 
 // サービス名からロゴURLを取得する関数
@@ -255,6 +275,11 @@ function Plugin() {
   const [isLoading, setIsLoading] = useState(false); // データ読み込み中かどうか
   const [loadingProgress, setLoadingProgress] = useState(0); // 進捗率（0-100）
   const [applyButtonLoading, setApplyButtonLoading] = useState(false); // 適用ボタンのローディング状態
+  /** Apply 実行中の進捗（プレビュー表示時は null） */
+  const [applyPlaceProgress, setApplyPlaceProgress] = useState<{
+    current: number;
+    total: number;
+  } | null>(null);
   /** Top タブの Apply: オンでアスペクト比が近い枠にマッチ、オフは選択画像を枠の順に割り当て */
   const [matchAspectRatioForFrame, setMatchAspectRatioForFrame] =
     useState(true);
@@ -273,6 +298,7 @@ function Plugin() {
   );
 
   const DUMMY_TEXT_STORAGE_KEY = "image-fetcher-dummy-text-template";
+  const RANDOM_MASK_COLOR_STORAGE_KEY = "image-fetcher-random-mask-color";
   const [dummyTextTemplate, setDummyTextTemplate] = useState(() => {
     try {
       const v = localStorage.getItem(DUMMY_TEXT_STORAGE_KEY);
@@ -281,6 +307,18 @@ function Plugin() {
       return "テキスト";
     }
   });
+  const [randomMaskColor, setRandomMaskColor] = useState(() => {
+    try {
+      const saved = localStorage.getItem(RANDOM_MASK_COLOR_STORAGE_KEY);
+      return saved ? normalizeHexColor(saved) : "#C4C4C4";
+    } catch {
+      return "#C4C4C4";
+    }
+  });
+  /** Dummy タブ: Apply 時にダミーテキストを適用するか */
+  const [dummyApplyDummyText, setDummyApplyDummyText] = useState(true);
+  /** Dummy タブ: Apply 時にマスク色を適用するか */
+  const [dummyApplyMaskImage, setDummyApplyMaskImage] = useState(true);
   const [searchValue, setSearchValue] = useState<string>("");
   function handleSearchInput(event: JSX.TargetedEvent<HTMLInputElement>) {
     const newValue = event.currentTarget.value;
@@ -297,11 +335,22 @@ function Plugin() {
   }, [dummyTextTemplate]);
 
   useEffect(() => {
+    try {
+      localStorage.setItem(
+        RANDOM_MASK_COLOR_STORAGE_KEY,
+        normalizeHexColor(randomMaskColor),
+      );
+    } catch {
+      /* ignore */
+    }
+  }, [randomMaskColor]);
+
+  useEffect(() => {
     setSelectedRandomIndices(new Set());
   }, [randomDemoSeed]);
 
   useEffect(() => {
-    if (tabValue !== "Random") {
+    if (tabValue !== "Dummy") {
       setSelectedRandomIndices(new Set());
     }
   }, [tabValue]);
@@ -374,6 +423,20 @@ function Plugin() {
       }
     };
     on("IMAGES_LOADED", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** キャンバス上の選択（main の selectionchange / 起動時同期） */
+  const [canvasSelection, setCanvasSelection] = useState<
+    CanvasSelectionNodeSummary[]
+  >([]);
+
+  useEffect(() => {
+    const handler = (data: { nodes: CanvasSelectionNodeSummary[] }) => {
+      setCanvasSelection(data.nodes ?? []);
+    };
+    on("CANVAS_SELECTION_CHANGED", handler);
+    emit("REQUEST_CANVAS_SELECTION");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -684,7 +747,7 @@ function Plugin() {
     });
   };
 
-  /** Random は1枚だけ選択（同じ画像をフレーム内の各 img 枠に繰り返し適用） */
+  /** Dummy は1枚だけ選択（同じ画像をフレーム内の各 img 枠に繰り返し適用） */
   const toggleRandomImageSelect = (index: number) => {
     setSelectedRandomIndices((prev) => {
       if (prev.has(index) && prev.size === 1) {
@@ -696,7 +759,7 @@ function Plugin() {
 
   // 選択ノードに適用（複数選択されている場合は最初の選択を適用）
   // const handleApplyImage = async () => {
-  //   if (tabValue === "Random") {
+  //   if (tabValue === "Dummy") {
   //     if (selectedRandomIndices.size === 0) {
   //       showStatus("画像を選択してください", "error");
   //       return;
@@ -744,37 +807,101 @@ function Plugin() {
   // フレーム内にすべての画像を自動配置
   const handlePlaceAllImagesInFrame = async () => {
     setApplyButtonLoading(true);
+    setApplyPlaceProgress(null);
 
-    let sourceImages: ImageData[];
-    if (tabValue === "Random") {
-      if (selectedRandomIndices.size === 0) {
-        showStatus("フレームに入れる画像を1枚以上選択してください", "error");
-        setApplyButtonLoading(false);
-        return;
-      }
-      const idx = Array.from(selectedRandomIndices).sort((a, b) => a - b)[0];
-      const one = randomDemoImages[idx];
-      sourceImages = one != null ? [one] : [];
-    } else {
-      if (selectedImageIndices.size === 0) {
-        showStatus("フレームに入れる画像を選択してください", "error");
-        setApplyButtonLoading(false);
-        return;
-      }
-      const orderedIndices = selectedImageOrder.filter((i) =>
-        selectedImageIndices.has(i),
-      );
-      const seen = new Set(orderedIndices);
-      for (const i of Array.from(selectedImageIndices).sort((a, b) => a - b)) {
-        if (!seen.has(i)) {
-          orderedIndices.push(i);
-          seen.add(i);
+    // Dummy タブは画像配置を行わず、applyDummyText / applyMaskImage のフラグに応じて
+    // テキスト置換・マスク色適用のみを実行する
+    if (tabValue === "Dummy") {
+      showStatus("フレームに適用中...", "info");
+      // モーダルのスキャンライン等のアニメーションが1サイクル以上回るように
+      // 最低表示時間を確保する（セル毎の animation-delay が最大 2.6s なので
+      // それ以上に設定しないと「止まって見える」セルが出る）
+      const MIN_MODAL_MS = 2800;
+      const startedAt = Date.now();
+      try {
+        const result = await new Promise<{
+          ok: boolean;
+          appliedText: number;
+          appliedMask: number;
+          skippedProtected: number;
+          errorMessage?: string;
+        }>((resolve) => {
+          const off = on(
+            "APPLY_DUMMY_CONTENT_IN_FRAME_DONE",
+            (data: {
+              ok: boolean;
+              appliedText: number;
+              appliedMask: number;
+              skippedProtected: number;
+              errorMessage?: string;
+            }) => {
+              if (typeof off === "function") {
+                off();
+              }
+              resolve(data);
+            },
+          );
+          emit("APPLY_DUMMY_CONTENT_IN_FRAME", {
+            dummyTextTemplate,
+            maskColor: normalizeHexColor(randomMaskColor),
+            applyDummyText: dummyApplyDummyText,
+            applyMaskImage: dummyApplyMaskImage,
+          });
+        });
+
+        const elapsed = Date.now() - startedAt;
+        if (elapsed < MIN_MODAL_MS) {
+          await new Promise((r) => setTimeout(r, MIN_MODAL_MS - elapsed));
         }
+
+        if (result.ok) {
+          const parts: string[] = [];
+          if (dummyApplyDummyText) {
+            parts.push(`テキスト${result.appliedText}件`);
+          }
+          if (dummyApplyMaskImage) {
+            parts.push(`マスク色${result.appliedMask}箇所`);
+          }
+          const skipHint =
+            dummyApplyDummyText && result.skippedProtected > 0
+              ? `（数字・記号を含む${result.skippedProtected}件はスキップ）`
+              : "";
+          showStatus(
+            `${parts.join("と")}を適用しました${skipHint}`,
+            "success",
+          );
+        } else {
+          showStatus(result.errorMessage ?? "適用に失敗しました", "error");
+        }
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : "不明なエラー";
+        showStatus(`エラー: ${errorMessage}`, "error");
+      } finally {
+        setApplyButtonLoading(false);
       }
-      sourceImages = orderedIndices
-        .map((i) => images[i])
-        .filter((img): img is ImageData => img != null);
+      return;
     }
+
+    /** Top タブ用 */
+    if (selectedImageIndices.size === 0) {
+      showStatus("フレームに入れる画像を選択してください", "error");
+      setApplyButtonLoading(false);
+      return;
+    }
+    const orderedIndices = selectedImageOrder.filter((i) =>
+      selectedImageIndices.has(i),
+    );
+    const seen = new Set(orderedIndices);
+    for (const i of Array.from(selectedImageIndices).sort((a, b) => a - b)) {
+      if (!seen.has(i)) {
+        orderedIndices.push(i);
+        seen.add(i);
+      }
+    }
+    const sourceImages: ImageData[] = orderedIndices
+      .map((i) => images[i])
+      .filter((img): img is ImageData => img != null);
 
     if (sourceImages.length === 0) {
       showStatus("配置する画像がありません", "error");
@@ -791,6 +918,9 @@ function Plugin() {
         height: number;
       }> = [];
 
+      const total = sourceImages.length;
+      setApplyPlaceProgress({ current: 0, total });
+
       for (let i = 0; i < sourceImages.length; i++) {
         const img = sourceImages[i];
         showStatus(`画像を処理中... (${i + 1}/${sourceImages.length})`, "info");
@@ -803,37 +933,28 @@ function Plugin() {
             height: img.height || 200,
           });
         }
+        setApplyPlaceProgress({ current: i + 1, total });
       }
 
       if (imagesToPlace.length > 0) {
-        if (tabValue === "Random") {
-          emit("PLACE_RANDOM_CONTENT_IN_FRAME", {
-            images: imagesToPlace,
-            seed: randomDemoSeed,
-            dummyTextTemplate,
-          });
-          showStatus(
-            "フレーム内のテキストと画像を更新しました（キャンバスで結果を確認してください）",
-            "success",
-          );
-        } else {
-          emit("PLACE_IMAGES_IN_FRAME", {
-            images: imagesToPlace,
-            matchAspectRatio: matchAspectRatioForFrame,
-          });
-          showStatus(
-            `${imagesToPlace.length}個の画像をフレーム内に配置しました`,
-            "success",
-          );
-        }
+        emit("PLACE_IMAGES_IN_FRAME", {
+          images: imagesToPlace,
+          matchAspectRatio: matchAspectRatioForFrame,
+        });
+        showStatus(
+          `${imagesToPlace.length}個の画像をフレーム内に配置しました`,
+          "success",
+        );
       } else {
         showStatus("配置できる画像がありませんでした", "error");
       }
-      setApplyButtonLoading(false);
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "不明なエラー";
       showStatus(`エラー: ${errorMessage}`, "error");
+    } finally {
+      setApplyButtonLoading(false);
+      setApplyPlaceProgress(null);
     }
   };
 
@@ -977,10 +1098,16 @@ function Plugin() {
       value: "Top",
     },
     {
-      text: "Random",
-      value: "Random",
+      text: "Dummy",
+      value: "Dummy",
     },
   ];
+  const TAB_PILL_SEGMENT_PX = 63;
+  const tabPillPaddingPx = 4;
+  const activeTabIndex = Math.max(
+    0,
+    tabOptions.findIndex((o) => o.value === tabValue),
+  );
 
   // 表示用の値を計算する関数（最初の値のみ表示、残りは「...」）
   const getDisplayValue = (input: string): string => {
@@ -1255,12 +1382,19 @@ function Plugin() {
   })();
 
   useEffect(() => {
-    const hasWideLayout = displayImages.length > 0 || tabValue === "Random";
+    const hasWideLayout = displayImages.length > 0 || tabValue === "Dummy";
     emit("RESIZE_UI", {
-      width: hasWideLayout ? 500 : 400,
-      height: hasWideLayout ? 820 : 151,
+      width: tabValue === "Dummy" ? 350 : hasWideLayout ? 500 : 350,
+      // width: tabValue === "Dummy" ? 350 : hasWideLayout ? 500 : 500,
+      height: tabValue === "Dummy" ? 400 : hasWideLayout ? 820 : 200,
     });
-  }, [imagesToDisplay.length]);
+  }, [imagesToDisplay.length, tabValue]);
+
+  useEffect(() => {
+    emit("selectionchange", { dummyApplyDummyText });
+    console.log("dummyApplyDummyText", dummyApplyDummyText);
+    console.log("dummyApplyMaskImage", dummyApplyMaskImage);
+  }, [dummyApplyDummyText, dummyApplyMaskImage]);
 
   const areAllDisplayImagesSelected: boolean =
     imagesToDisplay.length > 0 &&
@@ -1370,7 +1504,20 @@ function Plugin() {
         // backgroundColor: "#141414",
       }}
     >
-      {/* ローディング表示 */}
+      {/* Apply 押下〜処理完了まで */}
+      {/* {
+        tabValue === "Dummy" && (
+          <ApplyImageLoadingModal
+            visible={true}
+            progress={applyPlaceProgress}
+          />
+        )
+      } */}
+      <ApplyImageLoadingModal
+        visible={applyButtonLoading}
+        progress={applyPlaceProgress}
+      />
+
       {isLoading && (
         <div
           style={{
@@ -1399,11 +1546,12 @@ function Plugin() {
         </div>
       )}
       {/* カスタムステータスタブ */}
-      {/* <div
+      <div
         style={{
           overflowX: "auto",
           whiteSpace: "nowrap",
           borderBottom: "1px solid var(--figma-color-border)",
+          padding: "4px 8px",
         }}
       >
         <div
@@ -1413,56 +1561,171 @@ function Plugin() {
             height: "40px",
             alignItems: "center",
             minWidth: "fit-content",
+            justifyContent: "space-between",
           }}
         >
-          {tabOptions.map((option) => (
-            <button
-              key={option.value}
-              onClick={() => setTabValue(option.value)}
+          <div
+            style={{
+              position: "relative",
+              backgroundColor: "var(--figma-color-bg-secondary)",
+              borderRadius: "9999px",
+              // border: "1px solid var(--figma-color-border)",
+              padding: `${tabPillPaddingPx}px`,
+              width: "fit-content",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "34px",
+              boxSizing: "border-box",
+            }}
+          >
+            <div
+              aria-hidden
               style={{
-                background:
-                  tabValue === option.value
-                    ? "var(--figma-color-bg-secondary)"
-                    : "transparent",
-                color:
-                  tabValue === option.value
-                    ? "var(--figma-color-text)"
-                    : "var(--figma-color-text-secondary)",
-                border: "none",
-                borderRadius: "var(--border-radius-6)",
-                padding: "0 var(--space-8)",
-                height: "24px",
-                fontSize: "11px",
-                fontWeight: "400",
-                transition: "all 0.2s ease",
-                whiteSpace: "nowrap",
+                position: "absolute",
+                left: tabPillPaddingPx,
+                top: "50%",
+                width: TAB_PILL_SEGMENT_PX,
+                height: "28px",
+                boxSizing: "border-box",
+                borderRadius: "9999px",
+                background: "var(--figma-color-bg)",
+                border: "1px solid var(--figma-color-border)",
+                boxShadow: "0 1px 3px rgba(0, 0, 0, 0.12)",
+                transform: `translateX(${activeTabIndex * TAB_PILL_SEGMENT_PX}px) translateY(-50%)`,
+                transition: "transform 0.22s cubic-bezier(0.4, 0, 0.2, 1)",
+                pointerEvents: "none",
+                zIndex: 0,
               }}
-              onMouseEnter={(e) => {
-                if (tabValue !== option.value) {
-                  e.currentTarget.style.background =
-                    "var(--figma-color-bg-hover)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (tabValue !== option.value) {
-                  e.currentTarget.style.background = "transparent";
-                }
-              }}
-            >
-              <span
+            />
+            {tabOptions.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setTabValue(option.value)}
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "var(--space-6)",
+                  position: "relative",
+                  zIndex: 1,
+                  background: "transparent",
+                  color:
+                    tabValue === option.value
+                      ? "var(--figma-color-text)"
+                      : "var(--figma-color-text-secondary)",
+                  border: "none",
+                  padding: "0 var(--space-8)",
+                  height: "24px",
+                  fontSize: "12px",
+                  fontWeight: tabValue === option.value ? "700" : "400",
+                  transition: "color 0.2s ease, font-weight 0.15s ease",
+                  whiteSpace: "nowrap",
+                  width: `${TAB_PILL_SEGMENT_PX}px`,
+                  borderRadius: "9999px",
                 }}
               >
-                {option.text}
-              </span>
-            </button>
-          ))}
+                <span
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "var(--space-6)",
+                  }}
+                >
+                  {option.text}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {tabValue === "Top" &&
+            displayImages.length > 0 &&
+            (() => {
+              // ユニークなサービス名とfavicon（検索で絞り込んでも一覧は displayImages ベース）
+              const uniqueServices = new Map<string, string>();
+              displayImages.forEach((img) => {
+                const serviceName = img.service || "Unknown";
+                if (!uniqueServices.has(serviceName) && img.favicon) {
+                  uniqueServices.set(serviceName, img.favicon);
+                }
+              });
+
+              return (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  {Array.from(uniqueServices.entries()).map(
+                    ([serviceName, favicon]) => (
+                      <div
+                        key={serviceName}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          borderRadius: "6px",
+                          backgroundColor: "var(--figma-color-bg-secondary)",
+                          padding: "4px 8px",
+                          height: "34px",
+                          gap: "8px",
+                          border: "0.05px solid var(--figma-color-border)",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "8px",
+                          }}
+                        >
+                          <ServiceLogo
+                            serviceName={serviceName}
+                            favicon={favicon}
+                            size={20}
+                          />
+                          <div
+                            style={{
+                              fontSize: "13px",
+                              color: "var(--figma-color-text)",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              maxWidth: "140px",
+                            }}
+                          >
+                            {serviceName}
+                          </div>
+                          <span
+                            style={{
+                              fontSize: "10px",
+                              borderRadius: "4px",
+                              padding: "2px 8px",
+                              border: "1px solid var(--figma-color-border)",
+                              backgroundColor: "var(--figma-color-bg)",
+                            }}
+                          >
+                            {
+                              displayImages.filter(
+                                (i) => (i.service || "Unknown") === serviceName,
+                              ).length
+                            }{" "}
+                            images
+                          </span>
+                        </div>
+                        <Button
+                          danger
+                          onClick={() => handleDeleteService(serviceName)}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ),
+                  )}
+                </div>
+              );
+            })()}
         </div>
-      </div> */}
+      </div>
       {tabValue === "Top" && (
         <div>
           <div
@@ -1569,157 +1832,6 @@ function Plugin() {
                       flexDirection: "column",
                     }}
                   >
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      {Array.from(uniqueServices.entries()).map(
-                        ([serviceName, favicon]) => (
-                          <div
-                            key={serviceName}
-                            style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "center",
-                              borderRadius: "8px",
-                              backgroundColor:
-                                "var(--figma-color-bg-secondary)",
-                              padding: "8px",
-                              gap: "16px",
-                            }}
-                          >
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "8px",
-                              }}
-                            >
-                              <ServiceLogo
-                                serviceName={serviceName}
-                                favicon={favicon}
-                                size={20}
-                              />
-                              <div
-                                style={{
-                                  fontSize: "13px",
-                                  color: "var(--figma-color-text)",
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                  whiteSpace: "nowrap",
-                                  maxWidth: "150px",
-                                }}
-                              >
-                                {serviceName}
-                              </div>
-                              <span
-                                style={{
-                                  fontSize: "10px",
-                                  borderRadius: "4px",
-                                  padding: "2px 8px",
-                                  border: "1px solid var(--figma-color-border)",
-                                  backgroundColor: "var(--figma-color-bg)",
-                                }}
-                              >
-                                {
-                                  displayImages.filter(
-                                    (i) =>
-                                      (i.service || "Unknown") === serviceName,
-                                  ).length
-                                }{" "}
-                                images
-                              </span>
-                            </div>
-                            <Button
-                              danger
-                              onClick={() => handleDeleteService(serviceName)}
-                            >
-                              Remove
-                            </Button>
-                          </div>
-                        ),
-                      )}
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                        }}
-                      >
-                        <div
-                          ref={settingsMenuRef}
-                          style={{
-                            position: "relative",
-                            display: "inline-block",
-                          }}
-                          onMouseEnter={() => showTooltip("language")}
-                          onMouseLeave={() => hideTooltip("language")}
-                        >
-                          <IconToggleButton
-                            onChange={handleClick}
-                            value={isOpen}
-                          >
-                            <IconLanguageSmall24 />
-                          </IconToggleButton>
-                          {/* Tooltip */}
-                          {isTooltipVisible("language") && !isOpen && (
-                            <div
-                              style={{
-                                position: "absolute",
-                                top: "24px",
-                                right: "-4px",
-                                zIndex: 1000,
-                              }}
-                            >
-                              <Tooltip
-                                message="Language"
-                                arrowPosition="top"
-                                arrowOffset="74%"
-                              />
-                            </div>
-                          )}
-
-                          {/* Settings Menu */}
-                          {isOpen && (
-                            <div
-                              style={{
-                                position: "absolute",
-                                top: "28px",
-                                right: "-3px",
-                                zIndex: 1001,
-                              }}
-                            >
-                              <SettingsMenu
-                                sortHighEnabled={sortHighEnabled}
-                                sortLowEnabled={sortLowEnabled}
-                                sortLabelEnabled={sortLabelEnabled}
-                                availableImageSizes={availableImageSizes}
-                                selectedImageSizes={Array.from(
-                                  selectedImageSizes,
-                                )}
-                                showWithDueDate={showWithDueDate}
-                                showWithoutDueDate={showWithoutDueDate}
-                                availableLabels={availableLabels}
-                                selectedLabels={selectedLabels}
-                                onSortHighChange={handleSortHighChange}
-                                onSortLowChange={handleSortLowChange}
-                                onSortLabelChange={handleSortLabelChange}
-                                onImageSizeFilterChange={
-                                  handleImageSizeFilterChange
-                                }
-                                onDueDateFilterChange={
-                                  handleDueDateFilterChange
-                                }
-                                onLabelFilterChange={handleLabelFilterChange}
-                              />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
                     <div
                       style={{
                         display: "flex",
@@ -1851,7 +1963,7 @@ function Plugin() {
               <div
                 ref={scrollContainerRef}
                 style={{
-                  maxHeight: "659px",
+                  height: "660px",
                   overflowY: "auto",
                   position: "relative",
                 }}
@@ -1939,6 +2051,7 @@ function Plugin() {
                 </div>
               </div>
               <Footer
+                tabValue="Top"
                 matchAspectRatioForFrame={matchAspectRatioForFrame}
                 setMatchAspectRatioForFrame={setMatchAspectRatioForFrame}
                 selectAllCheckboxValue={selectAllCheckboxValue as boolean}
@@ -1949,16 +2062,19 @@ function Plugin() {
                 onApplyAll={handlePlaceAllImagesInFrame}
                 applyToSelectionDisabled={selectedImageIndices.size === 0}
                 applyAllDisabled={
-                  displayImages.length === 0 || selectedImageIndices.size === 0
+                  displayImages.length === 0 ||
+                  selectedImageIndices.size === 0 ||
+                  !canvasSelection.some((n) => n.type === "FRAME")
                 }
                 applyAllLoading={applyButtonLoading}
+                canvasSelection={canvasSelection}
               />
             </div>
           )}
         </div>
       )}
 
-      {/* {tabValue === "Random" && (
+      {tabValue === "Dummy" && (
         <div
           style={{
             display: "flex",
@@ -1966,10 +2082,16 @@ function Plugin() {
             flex: 1,
           }}
         >
-          <Random
+          <Dummy
             images={randomDemoImages}
             dummyTextTemplate={dummyTextTemplate}
             onDummyTextTemplateChange={setDummyTextTemplate}
+            maskColor={randomMaskColor}
+            onMaskColorChange={setRandomMaskColor}
+            applyDummyText={dummyApplyDummyText}
+            onApplyDummyTextChange={setDummyApplyDummyText}
+            applyMaskImage={dummyApplyMaskImage}
+            onApplyMaskImageChange={setDummyApplyMaskImage}
             onShuffle={() => setRandomDemoSeed((s) => s + 1)}
             selectedIndices={selectedRandomIndices}
             onToggleSelect={toggleRandomImageSelect}
@@ -1985,16 +2107,26 @@ function Plugin() {
             }}
           />
           <Footer
+            tabValue="Dummy"
+            matchAspectRatioForFrame={matchAspectRatioForFrame}
+            setMatchAspectRatioForFrame={setMatchAspectRatioForFrame}
+            selectAllCheckboxValue={selectAllCheckboxValue as boolean}
+            handleSelectAllCheckboxValueChange={
+              handleSelectAllCheckboxValueChange
+            }
+            imagesToDisplay={randomDemoImages}
             // onApplyToSelection={handleApplyImage}
             onApplyAll={handlePlaceAllImagesInFrame}
             applyToSelectionDisabled={selectedRandomIndices.size === 0}
             applyAllDisabled={
-              randomDemoImages.length === 0 || selectedRandomIndices.size === 0
+              !canvasSelection.some((n) => n.type === "FRAME") ||
+              (!dummyApplyDummyText && !dummyApplyMaskImage)
             }
             applyAllLoading={applyButtonLoading}
+            canvasSelection={canvasSelection}
           />
         </div>
-      )} */}
+      )}
     </div>
   );
 }

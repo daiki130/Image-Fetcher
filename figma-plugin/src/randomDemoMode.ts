@@ -1,22 +1,34 @@
 import { ImageData } from "./types";
 
 /**
- * 数字・中点（・・・）・箇条書き・記号などを含む場合はダミーにしない。
- * - 0-9 / 全角数字
+ * 全体が数値のみで構成されるテキストはダミーにしない。
+ * 例: "3.7" / "100" / "1,000" / "2026" / "50%" / "-3.14" / "3.7.1"(版数)
+ * 文章中に数字が含まれるだけ（例: "2026年", "バージョン 3.7"）は置換対象にする。
+ * 先頭・末尾の半角/全角スペースは許容する。
+ */
+const NUMERIC_ONLY_PATTERN =
+  /^[\s\u3000]*[-−+]?[0-9０-９]+([.．,，][0-9０-９]+)*[%％]?[\s\u3000]*$/;
+
+/**
+ * 箇条書き・注釈・装飾記号で「始まる」テキストはダミーにしない。
+ * 言葉の中にある中黒（例: "ジャン・ポール"）などは置換したいので先頭限定にしている。
+ * 先頭の半角スペース・全角スペース・タブは許容して判定する。
  * - ・ · • ‧ ･ … ‥ ․ などの中点・省略記号
  * - ※ ★ ☆ ○ ● ■ □ などよく使う UI 記号
  */
-const SKIP_DUMMY_TEXT_PATTERN =
-  /[0-9０-９\u30FB\u00B7\u2022\u2027\uFF65\u2024\u2025\u2026\u203B\u2605\u2606\u25A0\u25A1\u25CB\u25CF]/;
+const STARTS_WITH_SYMBOL_PATTERN =
+  /^[\s\u3000]*[\u30FB\u00B7\u2022\u2027\uFF65\u2024\u2025\u2026\u203B\u2605\u2606\u25A0\u25A1\u25CB\u25CF]/;
 
-/** 原文に数字や上記記号が含まれる場合は true（ダミー置換しない） */
+/** 原文が「全体が数値のみ」または「記号で始まる」場合は true（ダミー置換しない） */
 export function shouldSkipDummyReplacement(
   text: string | undefined | null,
 ): boolean {
   if (text == null || typeof text !== "string") {
     return false;
   }
-  return SKIP_DUMMY_TEXT_PATTERN.test(text);
+  return (
+    NUMERIC_ONLY_PATTERN.test(text) || STARTS_WITH_SYMBOL_PATTERN.test(text)
+  );
 }
 
 const DEFAULT_DUMMY_TEMPLATE = "テキスト";
