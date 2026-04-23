@@ -1,25 +1,26 @@
 // =============================================================================
 // Image Fetcher - Content Script
 // -----------------------------------------------------------------------------
-// ポップアップ方式をやめ、ページ右上に Shadow DOM でフローティングパネルを
-// 注入する DeepL 風の UI。パネルの表示/非表示は拡張アイコンのクリック（→
-// background.js から TOGGLE_PANEL メッセージが届く）で切り替える。
+// Injects a DeepL-style floating panel into the top-right of the page using
+// Shadow DOM instead of a popup. The panel is toggled by clicking the
+// extension icon (background.js sends a TOGGLE_PANEL message).
 //
-// ページ側の CSS/JS から隔離するため、UI 全体は Shadow DOM 内に閉じ込める。
-// 画像の収集は content script の特権で直接 DOM を走査する。
+// The entire UI is sealed inside Shadow DOM to isolate it from the page's
+// CSS/JS. Image collection runs with content script privileges and scans the
+// DOM directly.
 // =============================================================================
 
 (function () {
-  // 二重注入ガード: manifest の content_scripts で自動注入された後に、
-  // background.js の executeScript でもう一度同じファイルが実行される
-  // ケースがあるため、グローバルフラグで 1 回だけ実際の初期化を行う。
+  // Guard against double injection: the content script may be auto-injected
+  // via manifest content_scripts and then re-executed by background.js via
+  // executeScript, so a global flag ensures init only runs once.
   if (window.__imageFetcherContentInjected) {
     return;
   }
   window.__imageFetcherContentInjected = true;
 
   // ---------------------------------------------------------------------------
-  // Figma プラグインとの postMessage ブリッジ（既存互換）
+  // postMessage bridge for the Figma plugin (backward compatible)
   // ---------------------------------------------------------------------------
   window.addEventListener("message", (event) => {
     if (event.data && event.data.type === "GET_IMAGES_FROM_EXTENSION") {
@@ -36,22 +37,22 @@
   });
 
   // ---------------------------------------------------------------------------
-  // Shadow DOM ホストの作成
+  // Create the Shadow DOM host
   // ---------------------------------------------------------------------------
   const host = document.createElement("div");
   host.id = "image-fetcher-host";
   host.setAttribute("data-image-fetcher", "");
-  // ホスト自身はレイアウトに影響を与えず、内側の .panel が position:fixed で
-  // 視認位置を決める。ページ側の CSS で継承されないよう all:initial を上で宣言。
+  // The host itself has no layout impact; the inner .panel uses position:fixed
+  // to place itself. all:initial prevents page CSS from inheriting into it.
   host.style.cssText = "all: initial;";
-  // html 直下に置くことで、ページ CSS（transform 等）の影響で fixed が
-  // ずれるのを最小化する。
+  // Attaching directly under <html> minimizes fixed-positioning drift caused
+  // by page CSS (e.g. transform on ancestor elements).
   (document.documentElement || document.body).appendChild(host);
 
   const shadow = host.attachShadow({ mode: "open" });
 
   // ---------------------------------------------------------------------------
-  // スタイル定義（popup.html から移植 + Shadow DOM 向け調整）
+  // Styles (ported from popup.html, adjusted for Shadow DOM)
   // ---------------------------------------------------------------------------
   const styleMarkup = `
     :host,
@@ -60,7 +61,65 @@
     }
     :host {
       all: initial;
-      color-scheme: light;
+      color-scheme: light dark;
+
+      --if-bg: #ffffff;
+      --if-bg-subtle: #fafafa;
+      --if-bg-muted: #f5f5f5;
+      --if-bg-item: #fafafa;
+      --if-text: #1e1e1e;
+      --if-text-muted: #4b5563;
+      --if-text-subtle: #6b7280;
+      --if-text-faint: #666;
+      --if-border: rgba(0, 0, 0, 0.08);
+      --if-border-strong: rgba(0, 0, 0, 0.12);
+      --if-border-soft: rgba(0, 0, 0, 0.06);
+      --if-border-dashed: rgba(0, 0, 0, 0.15);
+      --if-hover-overlay: rgba(0, 0, 0, 0.06);
+      --if-shadow: 0 12px 32px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.1);
+      --if-pill-bg: #eef2ff;
+      --if-pill-text: #3730a3;
+      --if-img-placeholder: #e5e7eb;
+      --if-label-text: rgba(0, 0, 0, 0.55);
+      --if-scrim: rgba(0, 0, 0, 0.72);
+      --if-error-bg: #fef2f2;
+      --if-error-border: #fecaca;
+      --if-error-text: #991b1b;
+      --if-success-bg: #f0fdf4;
+      --if-success-border: #bbf7d0;
+      --if-success-text: #166534;
+      --if-mask-color: black;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :host {
+        --if-bg: #1e1e1e;
+        --if-bg-subtle: #242424;
+        --if-bg-muted: #2a2a2a;
+        --if-bg-item: #262626;
+        --if-text: #e5e7eb;
+        --if-text-muted: #b3b8c2;
+        --if-text-subtle: #9ca3af;
+        --if-text-faint: #9ca3af;
+        --if-border: rgba(255, 255, 255, 0.1);
+        --if-border-strong: rgba(255, 255, 255, 0.18);
+        --if-border-soft: rgba(255, 255, 255, 0.08);
+        --if-border-dashed: rgba(255, 255, 255, 0.18);
+        --if-hover-overlay: rgba(255, 255, 255, 0.08);
+        --if-shadow: 0 12px 32px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.4);
+        --if-pill-bg: #312e81;
+        --if-pill-text: #c7d2fe;
+        --if-img-placeholder: #3f3f46;
+        --if-label-text: rgba(255, 255, 255, 0.6);
+        --if-scrim: rgba(0, 0, 0, 0.82);
+        --if-error-bg: #3f1111;
+        --if-error-border: #7f1d1d;
+        --if-error-text: #fecaca;
+        --if-success-bg: #0c2a15;
+        --if-success-border: #166534;
+        --if-success-text: #bbf7d0;
+        --if-mask-color: white;
+      }
     }
 
     .panel {
@@ -74,13 +133,11 @@
       display: flex;
       flex-direction: column;
       gap: 0;
-      background: #ffffff;
-      color: #1e1e1e;
-      border: 1px solid rgba(0, 0, 0, 0.08);
+      background: var(--if-bg);
+      color: var(--if-text);
+      border: 1px solid var(--if-border);
       border-radius: 16px;
-      box-shadow:
-        0 12px 32px rgba(0, 0, 0, 0.18),
-        0 2px 8px rgba(0, 0, 0, 0.1);
+      box-shadow: var(--if-shadow);
       overflow: hidden;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
         Oxygen, Ubuntu, Cantarell, "Helvetica Neue", "Hiragino Sans",
@@ -110,8 +167,8 @@
       align-items: center;
       gap: 8px;
       padding: 12px 12px 10px;
-      border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-      background: #fafafa;
+      border-bottom: 1px solid var(--if-border-soft);
+      background: var(--if-bg-subtle);
     }
     .header-title {
       display: flex;
@@ -126,7 +183,7 @@
       margin: 0;
       font-size: 13px;
       font-weight: 700;
-      color: #1e1e1e;
+      color: var(--if-text);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -135,8 +192,8 @@
       margin-left: auto;
       padding: 2px 8px;
       border-radius: 999px;
-      background: #eef2ff;
-      color: #3730a3;
+      background: var(--if-pill-bg);
+      color: var(--if-pill-text);
       font-size: 11px;
       font-weight: 600;
       display: inline-flex;
@@ -150,7 +207,7 @@
       appearance: none;
       border: 1px solid transparent;
       background: transparent;
-      color: #666;
+      color: var(--if-text-faint);
       width: 24px;
       height: 24px;
       border-radius: 6px;
@@ -163,8 +220,8 @@
       padding: 0;
     }
     .close-btn:hover {
-      background: rgba(0, 0, 0, 0.06);
-      color: #1e1e1e;
+      background: var(--if-hover-overlay);
+      color: var(--if-text);
     }
 
     /* ---------- Main ---------- */
@@ -205,16 +262,17 @@
       background: #007be5;
     }
     .btn-secondary {
-      background: #ffffff;
-      color: #1e1e1e;
-      border-color: rgba(0, 0, 0, 0.12);
+      background: var(--if-bg);
+      color: var(--if-text);
+      border-color: var(--if-border-strong);
     }
     .btn-secondary:hover:not(:disabled) {
-      background: #f5f5f5;
+      background: var(--if-bg-muted);
     }
     .btn-secondary:disabled {
-      color: #999;
+      color: var(--if-text-subtle);
       cursor: not-allowed;
+      opacity: 0.7;
     }
 
     .status-card {
@@ -223,9 +281,9 @@
       gap: 8px;
       padding: 10px;
       border-radius: 8px;
-      background: #f5f5f5;
-      border: 1px solid rgba(0, 0, 0, 0.06);
-      color: #1e1e1e;
+      background: var(--if-bg-muted);
+      border: 1px solid var(--if-border-soft);
+      color: var(--if-text);
       font-size: 12px;
       line-height: 1.4;
     }
@@ -247,14 +305,14 @@
       background: #ef4444;
     }
     .status-card[data-state="error"] {
-      background: #fef2f2;
-      border-color: #fecaca;
-      color: #991b1b;
+      background: var(--if-error-bg);
+      border-color: var(--if-error-border);
+      color: var(--if-error-text);
     }
     .status-card[data-state="success"] {
-      background: #f0fdf4;
-      border-color: #bbf7d0;
-      color: #166534;
+      background: var(--if-success-bg);
+      border-color: var(--if-success-border);
+      color: var(--if-success-text);
     }
     @keyframes dotPulse {
       0%,
@@ -276,8 +334,8 @@
       display: flex;
       gap: 8px;
       padding: 8px;
-      background: #fafafa;
-      border: 1px solid rgba(0, 0, 0, 0.06);
+      background: var(--if-bg-item);
+      border: 1px solid var(--if-border-soft);
       border-radius: 8px;
     }
     .image-item img {
@@ -286,19 +344,19 @@
       border-radius: 6px;
       object-fit: cover;
       flex-shrink: 0;
-      background: #e5e7eb;
+      background: var(--if-img-placeholder);
     }
     .image-info {
       flex: 1 1 auto;
       min-width: 0;
       font-size: 11px;
-      color: #4b5563;
+      color: var(--if-text-muted);
       display: flex;
       flex-direction: column;
       gap: 2px;
     }
     .image-info strong {
-      color: #1e1e1e;
+      color: var(--if-text);
       font-weight: 600;
     }
     .image-title {
@@ -310,7 +368,7 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      color: #6b7280;
+      color: var(--if-text-subtle);
       font-size: 10px;
     }
 
@@ -320,12 +378,12 @@
       flex-direction: column;
       gap: 6px;
       padding: 10px 12px 12px;
-      border-top: 1px solid rgba(0, 0, 0, 0.06);
-      background: #fafafa;
+      border-top: 1px solid var(--if-border-soft);
+      background: var(--if-bg-subtle);
     }
     .footer-hint {
       font-size: 10px;
-      color: #6b7280;
+      color: var(--if-text-subtle);
       text-align: center;
       min-height: 12px;
     }
@@ -335,7 +393,7 @@
       position: fixed;
       inset: 0;
       z-index: 2147483647;
-      background: rgba(0, 0, 0, 0.72);
+      background: var(--if-scrim);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -345,13 +403,13 @@
     }
     .scan-modal-panel {
       position: relative;
-      background: #ffffff;
-      border: 1px solid rgba(0, 0, 0, 0.08);
+      background: var(--if-bg);
+      border: 1px solid var(--if-border);
       border-radius: 12px;
       padding: 12px;
       width: calc(100% - 48px);
       max-width: 420px;
-      color: #1e1e1e;
+      color: var(--if-text);
       animation: scanModal_modalIn 0.25s ease;
       font-family: inherit;
     }
@@ -364,7 +422,7 @@
     .scan-modal-title {
       font-size: 13px;
       font-weight: 700;
-      color: #1e1e1e;
+      color: var(--if-text);
     }
     .scan-modal-dots {
       margin-left: auto;
@@ -388,10 +446,10 @@
       margin-bottom: 12px;
       padding: 8px 10px;
       border-radius: 6px;
-      background: #f5f5f5;
-      border: 1px solid rgba(0, 0, 0, 0.08);
+      background: var(--if-bg-muted);
+      border: 1px solid var(--if-border);
       font-size: 12px;
-      color: #1e1e1e;
+      color: var(--if-text);
       text-align: center;
       font-variant-numeric: tabular-nums;
     }
@@ -402,7 +460,7 @@
       font-weight: 600;
     }
     .scan-modal-progress .secondary {
-      color: #6b7280;
+      color: var(--if-text-subtle);
     }
     .scan-grid-wrap {
       position: relative;
@@ -412,15 +470,15 @@
       -webkit-mask-image: linear-gradient(
         to bottom,
         transparent 0%,
-        black 10%,
-        black 90%,
+        var(--if-mask-color) 10%,
+        var(--if-mask-color) 90%,
         transparent 100%
       );
       mask-image: linear-gradient(
         to bottom,
         transparent 0%,
-        black 10%,
-        black 90%,
+        var(--if-mask-color) 10%,
+        var(--if-mask-color) 90%,
         transparent 100%
       );
     }
@@ -448,8 +506,8 @@
       position: absolute;
       inset: 0;
       border-radius: 4px;
-      border: 1px dashed rgba(0, 0, 0, 0.15);
-      background: #f5f5f5;
+      border: 1px dashed var(--if-border-dashed);
+      background: var(--if-bg-muted);
       box-sizing: border-box;
       pointer-events: none;
       z-index: 0;
@@ -502,7 +560,7 @@
       left: 2px;
       right: 2px;
       font-size: 6px;
-      color: rgba(0, 0, 0, 0.55);
+      color: var(--if-label-text);
       font-family: monospace;
       text-align: center;
       line-height: 1.1;
@@ -584,43 +642,43 @@
   `;
 
   // ---------------------------------------------------------------------------
-  // 初期 UI マークアップ
+  // Initial UI markup
   // ---------------------------------------------------------------------------
   const panelMarkup = `
     <style>${styleMarkup}</style>
     <div class="panel" id="panel" hidden role="dialog" aria-label="Image Fetcher">
       <header class="header">
         <div class="header-title">
-          <span class="emoji" aria-hidden="true">📸</span>
+          <img src="${chrome.runtime.getURL("assets/icon.png")}" alt="Image Fetcher" class="icon" style="width: 20px; height: 20px; border-radius: 4px;">
           <h1>Image Fetcher</h1>
         </div>
         <span class="count-pill is-hidden" id="countPill">
-          <strong id="countNumber">0</strong>枚
+          <strong id="countNumber">0</strong>
         </span>
-        <button type="button" class="close-btn" id="closeBtn" aria-label="閉じる" title="閉じる">×</button>
+        <button type="button" class="close-btn" id="closeBtn" aria-label="Close" title="Close">×</button>
       </header>
 
       <main class="main">
-        <button type="button" class="btn btn-primary" id="collectBtn">画像を収集</button>
+        <button type="button" class="btn btn-primary" id="collectBtn">Collect Images</button>
 
         <div class="status-card" id="status" data-state="idle">
           <span class="status-dot" aria-hidden="true"></span>
-          <div id="statusText">「画像を収集」ボタンをクリックしてください</div>
+          <div id="statusText">Click "Collect Images" to start</div>
         </div>
 
         <div id="imageList" class="image-list"></div>
       </main>
 
       <footer class="footer">
-        <button type="button" class="btn btn-secondary" id="copyBtn" disabled>全てコピー</button>
-        <div class="footer-hint">収集後、クリップボードにコピーできます</div>
+        <button type="button" class="btn btn-secondary" id="copyBtn" disabled>Copy All</button>
+        <div class="footer-hint">Copy to clipboard after collecting</div>
       </footer>
     </div>
 
-    <div class="scan-modal" id="scanModal" hidden role="alertdialog" aria-busy="true" aria-label="画像をスキャン中">
+    <div class="scan-modal" id="scanModal" hidden role="alertdialog" aria-busy="true" aria-label="Scanning images">
       <div class="scan-modal-panel">
         <div class="scan-modal-header">
-          <div class="scan-modal-title">画像をスキャン中...</div>
+          <div class="scan-modal-title">Scanning images...</div>
           <div class="scan-modal-dots" aria-hidden="true">
             <span></span><span></span><span></span>
           </div>
@@ -629,7 +687,7 @@
           <strong id="scanProgressCurrent">0</strong>
           <span class="secondary"> / </span>
           <strong id="scanProgressTotal">0</strong>
-          <span class="secondary"> 件をスキャン完了</span>
+          <span class="secondary"> scanned</span>
         </div>
         <div class="scan-grid-wrap">
           <div class="scan-grid-track" id="scanGridTrack"></div>
@@ -640,18 +698,18 @@
 
   shadow.innerHTML = panelMarkup;
 
-  // Shadow 内要素参照ヘルパー
+  // Helper to look up elements inside the shadow root
   const $ = (id) => shadow.getElementById(id);
   const panel = $("panel");
 
   // ===========================================================================
-  // ここから popup.js から移植したロジック
+  // Logic ported from popup.js
   // ===========================================================================
 
   let collectedImages = [];
 
   // ---------------------------------------------------------------------------
-  // ステータス表示
+  // Status display
   // ---------------------------------------------------------------------------
   function updateStatus(message, type) {
     const statusEl = $("statusText");
@@ -690,7 +748,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // 画像リスト表示
+  // Render the image list
   // ---------------------------------------------------------------------------
   function displayImages(images) {
     const listEl = $("imageList");
@@ -717,7 +775,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // 暗号化キーとサービス名推定
+  // Encryption key and service-name detection
   // ---------------------------------------------------------------------------
   const ENCRYPTION_KEY = new Uint8Array([
     0x2a, 0x7f, 0x9c, 0x3e, 0x1b, 0x8d, 0x4f, 0x6a, 0x5c, 0x2e, 0x9a, 0x1d,
@@ -868,7 +926,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // スキャンモーダル（ApplyImageLoadingModal 相当）
+  // Scan modal (equivalent to ApplyImageLoadingModal)
   // ---------------------------------------------------------------------------
   const SCAN_NAMES = [
     "Hero", "Card 01", "Banner", "Promo", "Card 02", "Thumb A",
@@ -970,12 +1028,12 @@
   }
 
   // ---------------------------------------------------------------------------
-  // .imagefetcher エクスポート
+  // .imagefetcher export
   // ---------------------------------------------------------------------------
   async function exportToImageFetcherFile(images) {
     if (!images || images.length === 0) return;
 
-    updateStatus(`${images.length}個の画像をスキャン中...`, "loading");
+    updateStatus(`Scanning ${images.length} images...`, "loading");
     showScanModal(images.length);
 
     try {
@@ -987,7 +1045,7 @@
         const img = images[i];
         try {
           updateScanProgress(i, images.length);
-          updateStatus(`画像をスキャン中... (${i + 1}/${images.length})`, "loading");
+          updateStatus(`Scanning images... (${i + 1}/${images.length})`, "loading");
           const base64 = await fetchImageAsBase64(img.src);
           const serviceName = extractServiceName(img.src, img.pageUrl);
           imagesWithBase64.push({
@@ -1039,29 +1097,29 @@
           document.body.removeChild(a);
           URL.revokeObjectURL(blobUrl);
           updateStatus(
-            `✅ ${successCount}個の画像を.imagefetcherファイルに保存しました!${failCount > 0 ? ` (${failCount}個失敗)` : ""}`,
+            `Saved ${successCount} images to .imagefetcher file!${failCount > 0 ? ` (${failCount} failed)` : ""}`,
             "success",
           );
         } catch (downloadError) {
           console.error("Download error:", downloadError);
           updateStatus(
-            `❌ ファイルのダウンロードに失敗しました: ${downloadError.message}`,
+            `Failed to download file: ${downloadError.message}`,
             "error",
           );
         }
       } else {
-        updateStatus("❌ 全ての画像取得に失敗しました", "error");
+        updateStatus("Failed to fetch images", "error");
       }
     } catch (error) {
       console.error("Export error:", error);
-      updateStatus(`❌ エクスポートに失敗しました: ${error.message}`, "error");
+      updateStatus(`Export failed: ${error.message}`, "error");
     } finally {
       hideScanModal();
     }
   }
 
   // ---------------------------------------------------------------------------
-  // ページ内画像収集（スクロールしながら）
+  // Collect images from the page (while scrolling)
   // ---------------------------------------------------------------------------
   async function collectImagesFromPage() {
     function getFaviconFromPage() {
@@ -1228,8 +1286,8 @@
       const images = [];
       const seenSrcs = new Set();
 
-      // content script から自身の Shadow DOM 内の <img>（ロゴ等）を収集
-      // しないよう、ホスト以下はスキップする。
+      // Skip anything inside our own host so we don't collect <img> tags
+      // (e.g. the logo) from this content script's Shadow DOM.
       const imageElements = document.querySelectorAll("img");
       imageElements.forEach((img) => {
         if (host.contains(img)) return;
@@ -1360,14 +1418,14 @@
   }
 
   // ---------------------------------------------------------------------------
-  // イベントバインド
+  // Event bindings
   // ---------------------------------------------------------------------------
   $("closeBtn").addEventListener("click", () => {
     if (panel) panel.hidden = true;
   });
 
   $("collectBtn").addEventListener("click", async () => {
-    updateStatus("画像を収集中...", "loading");
+    updateStatus("Collecting images...", "loading");
     try {
       const result = await collectImagesFromPage();
       let images = result.images || [];
@@ -1393,7 +1451,7 @@
         await chrome.storage.local.clear();
         await chrome.storage.local.set({ images: simplifiedImages });
         collectedImages = images;
-        updateStatus(`${collectedImages.length}個の画像を収集しました`, "success");
+        updateStatus(`Collected ${collectedImages.length} images`, "success");
         displayImages(collectedImages);
         $("copyBtn").disabled = false;
         await exportToImageFetcherFile(collectedImages);
@@ -1401,7 +1459,7 @@
         console.error("Storage error:", storageError);
         collectedImages = images;
         updateStatus(
-          `${collectedImages.length}個の画像を収集しました(※ストレージ保存失敗)`,
+          `Collected ${collectedImages.length} images (storage save failed)`,
           "info",
         );
         displayImages(collectedImages);
@@ -1410,17 +1468,17 @@
       }
     } catch (error) {
       console.error("Error:", error);
-      updateStatus(`エラー: ${error.message}`, "error");
+      updateStatus(`Error: ${error.message}`, "error");
     }
   });
 
   $("copyBtn").addEventListener("click", async () => {
     const images = collectedImages || [];
     if (images.length === 0) {
-      updateStatus("画像がありません", "error");
+      updateStatus("No images found", "error");
       return;
     }
-    updateStatus(`${images.length}個の画像をスキャン中...`, "loading");
+    updateStatus(`Scanning ${images.length} images...`, "loading");
     showScanModal(images.length);
 
     try {
@@ -1431,7 +1489,7 @@
         const img = images[i];
         try {
           updateScanProgress(i, images.length);
-          updateStatus(`画像をスキャン中... (${i + 1}/${images.length})`, "loading");
+          updateStatus(`Scanning images... (${i + 1}/${images.length})`, "loading");
           const base64 = await fetchImageAsBase64(img.src);
           const serviceName = extractServiceName(img.src, img.pageUrl);
           imagesWithBase64.push({
@@ -1456,22 +1514,22 @@
         const encryptedData = await encryptData(jsonString);
         await navigator.clipboard.writeText(encryptedData);
         updateStatus(
-          `✅ ${successCount}個の画像をコピーしました!${failCount > 0 ? ` (${failCount}個失敗)` : ""}`,
+          `Copied ${successCount} images!${failCount > 0 ? ` (${failCount} failed)` : ""}`,
           "success",
         );
       } else {
-        updateStatus("❌ 全ての画像取得に失敗しました", "error");
+        updateStatus("Failed to fetch images", "error");
       }
     } catch (error) {
       console.error("Copy error:", error);
-      updateStatus(`❌ コピーに失敗しました: ${error.message}`, "error");
+      updateStatus(`Copy failed: ${error.message}`, "error");
     } finally {
       hideScanModal();
     }
   });
 
   // ---------------------------------------------------------------------------
-  // 起動時: 保存済み画像の復元
+  // On startup: restore previously saved images
   // ---------------------------------------------------------------------------
   chrome.storage.local.get(["images"], (result) => {
     if (result && result.images && result.images.length > 0) {
@@ -1484,12 +1542,12 @@
       }));
       displayImages(collectedImages);
       $("copyBtn").disabled = false;
-      updateStatus(`保存済み: ${collectedImages.length}個の画像`, "success");
+      updateStatus(`Loaded ${collectedImages.length} saved images`, "success");
     }
   });
 
   // ---------------------------------------------------------------------------
-  // background からの TOGGLE_PANEL メッセージ
+  // Handle TOGGLE_PANEL messages from background
   // ---------------------------------------------------------------------------
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request && request.type === "TOGGLE_PANEL") {
