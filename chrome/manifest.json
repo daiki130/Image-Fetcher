@@ -3,10 +3,13 @@
   "name": "image-fetcher",
   "version": "1.0.0",
   "description": "Webページから画像を収集してFigmaに送信",
-  "permissions": ["activeTab", "storage", "scripting"],
+  "permissions": ["activeTab", "storage", "scripting", "sidePanel", "tabs"],
   "host_permissions": ["<all_urls>"],
   "action": {
     "default_title": "Image Fetcher"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
   },
   "background": {
     "service_worker": "background.js"

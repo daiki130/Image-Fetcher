@@ -1,32 +1,23 @@
 // Service Worker - バックグラウンドで動作
 
+// 拡張アイコンのクリックでサイドパネルを開くように設定する
 chrome.runtime.onInstalled.addListener(() => {
   console.log("image-fetcher installed");
-});
-
-// 拡張アイコンをクリックしたら、アクティブタブの content script に
-// パネルの開閉を依頼する。content script が未注入（拡張インストール直後の
-// 既存タブ等）なら executeScript で注入してから再送する。
-chrome.action.onClicked.addListener(async (tab) => {
-  if (!tab || tab.id == null) return;
-
-  try {
-    await chrome.tabs.sendMessage(tab.id, { type: "TOGGLE_PANEL" });
-  } catch (err) {
-    try {
-      await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        files: ["content.js"],
-      });
-      await chrome.tabs.sendMessage(tab.id, { type: "TOGGLE_PANEL" });
-    } catch (injectErr) {
-      console.error(
-        "image-fetcher: failed to toggle panel",
-        injectErr instanceof Error ? injectErr.message : injectErr,
-      );
-    }
+  if (chrome.sidePanel && chrome.sidePanel.setPanelBehavior) {
+    chrome.sidePanel
+      .setPanelBehavior({ openPanelOnActionClick: true })
+      .catch((err) => console.error("setPanelBehavior failed:", err));
   }
 });
+
+// 起動時にも反映されるよう、リスナーの外でも一度呼んでおく
+if (chrome.sidePanel && chrome.sidePanel.setPanelBehavior) {
+  chrome.sidePanel
+    .setPanelBehavior({ openPanelOnActionClick: true })
+    .catch(() => {
+      /* ignore */
+    });
+}
 
 // メッセージリスナー - 他のスクリプトからの通信を受け取る
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
