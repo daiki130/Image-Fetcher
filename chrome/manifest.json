@@ -1,8 +1,14 @@
 {
   "manifest_version": 3,
   "name": "image-fetcher",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Webページから画像を収集してFigmaに送信",
+  "icons": {
+    "16": "assets/icon.png",
+    "32": "assets/icon.png",
+    "48": "assets/icon.png",
+    "128": "assets/icon.png"
+  },
   "permissions": ["activeTab", "storage", "scripting", "sidePanel", "tabs"],
   "host_permissions": ["<all_urls>"],
   "action": {
