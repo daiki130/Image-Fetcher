@@ -208,7 +208,7 @@ export function Footer({
         >
           {canvasSelection.length === 0 ? (
             tabValue === "Top"
-              ? "適応する画像とフレームを選択してください"
+              ? "画像と、フレーム / コンポーネント / シェイプを選択してください"
               : "フレームを選択してください"
           ) : canvasSelection.length === 1 ? (
             <>

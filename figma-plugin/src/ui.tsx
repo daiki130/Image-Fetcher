@@ -40,6 +40,26 @@ const ENCRYPTION_KEY_BYTES = new Uint8Array([
 ]);
 const ENCRYPTION_KEY = CryptoJS.lib.WordArray.create(ENCRYPTION_KEY_BYTES);
 
+// Apply 対象として許容するノードタイプ
+// - コンテナ系: Frame/Section/Group/Component/ComponentSet/Instance
+//   （配下の画像プレースホルダーを探索する）
+// - 直接ターゲット系: Rectangle/Ellipse/Polygon/Star/Vector/BooleanOperation
+//   （そのノード自体を画像で塗る）
+const APPLYABLE_NODE_TYPES: ReadonlySet<string> = new Set([
+  "FRAME",
+  "SECTION",
+  "GROUP",
+  "COMPONENT",
+  "COMPONENT_SET",
+  "INSTANCE",
+  "RECTANGLE",
+  "ELLIPSE",
+  "POLYGON",
+  "STAR",
+  "VECTOR",
+  "BOOLEAN_OPERATION",
+]);
+
 // 復号化関数
 function decryptData(encryptedBase64: string): string | null {
   try {
@@ -2064,7 +2084,9 @@ function Plugin() {
                 applyAllDisabled={
                   displayImages.length === 0 ||
                   selectedImageIndices.size === 0 ||
-                  !canvasSelection.some((n) => n.type === "FRAME")
+                  !canvasSelection.some((n) =>
+                    APPLYABLE_NODE_TYPES.has(n.type),
+                  )
                 }
                 applyAllLoading={applyButtonLoading}
                 canvasSelection={canvasSelection}

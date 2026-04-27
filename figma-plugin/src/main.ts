@@ -893,21 +893,68 @@ const matchImagesToPlaceholders = (
   return pairs;
 };
 
-// フレーム内の画像プレースホルダーを検出する関数
-function findImagePlaceholders(frame: FrameNode): Array<{
+type PlaceholderItem = {
   node: SceneNode;
   x: number;
   y: number;
   width: number;
   height: number;
-}> {
-  const placeholders: Array<{
-    node: SceneNode;
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  }> = [];
+};
+
+// そのノードが子ノードを持ち、内部を探索する価値があるコンテナかどうか
+function isImagePlaceholderContainer(node: SceneNode): boolean {
+  return (
+    node.type === "FRAME" ||
+    node.type === "SECTION" ||
+    node.type === "GROUP" ||
+    node.type === "COMPONENT" ||
+    node.type === "COMPONENT_SET" ||
+    node.type === "INSTANCE"
+  );
+}
+
+// そのノード自体に IMAGE fill を直接適用できるか
+function canApplyImageFill(node: SceneNode): boolean {
+  if (!("fills" in node)) return false;
+  const fillableTypes: ReadonlyArray<SceneNode["type"]> = [
+    "RECTANGLE",
+    "ELLIPSE",
+    "POLYGON",
+    "STAR",
+    "VECTOR",
+    "BOOLEAN_OPERATION",
+    "FRAME",
+    "COMPONENT",
+    "INSTANCE",
+  ];
+  return fillableTypes.indexOf(node.type) !== -1;
+}
+
+function getNodeBox(node: SceneNode): {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+} {
+  const nodeAny = node as unknown as {
+    x?: number;
+    y?: number;
+    width?: number;
+    height?: number;
+  };
+  return {
+    x: typeof nodeAny.x === "number" ? nodeAny.x : 0,
+    y: typeof nodeAny.y === "number" ? nodeAny.y : 0,
+    width: typeof nodeAny.width === "number" ? nodeAny.width : 0,
+    height: typeof nodeAny.height === "number" ? nodeAny.height : 0,
+  };
+}
+
+// コンテナ内部の画像プレースホルダーを検出する関数
+function findImagePlaceholdersIn(
+  root: SceneNode & ChildrenMixin,
+): Array<PlaceholderItem> {
+  const placeholders: Array<PlaceholderItem> = [];
 
   function traverse(node: SceneNode) {
     // 画像プレースホルダーとして検出する条件：
@@ -949,25 +996,13 @@ function findImagePlaceholders(frame: FrameNode): Array<{
 
         // レイヤー名に "img" または "画像" が含まれている、または既に画像が含まれている場合のみ
         if (hasImageName || hasImageFill) {
-          // 画像フィルがない場合はプレースホルダーとみなす
-          if (!hasImageFill) {
-            placeholders.push({
-              node,
-              x: nodeWithSize.x,
-              y: nodeWithSize.y,
-              width: nodeWithSize.width,
-              height: nodeWithSize.height,
-            });
-          } else {
-            // 既に画像が含まれている場合も、置き換え可能なノードとして追加
-            placeholders.push({
-              node,
-              x: nodeWithSize.x,
-              y: nodeWithSize.y,
-              width: nodeWithSize.width,
-              height: nodeWithSize.height,
-            });
-          }
+          placeholders.push({
+            node,
+            x: nodeWithSize.x,
+            y: nodeWithSize.y,
+            width: nodeWithSize.width,
+            height: nodeWithSize.height,
+          });
         }
       }
     }
@@ -980,8 +1015,8 @@ function findImagePlaceholders(frame: FrameNode): Array<{
     }
   }
 
-  // フレーム内のすべてのノードを探索
-  for (const child of frame.children) {
+  // コンテナ内のすべての子ノードを探索
+  for (const child of root.children) {
     traverse(child);
   }
 
@@ -993,6 +1028,38 @@ function findImagePlaceholders(frame: FrameNode): Array<{
     }
     return a.y - b.y;
   });
+
+  return placeholders;
+}
+
+// 選択ノード群から画像適用対象のプレースホルダーリストを組み立てる
+// - Frame / Section / Group / Component / ComponentSet / Instance → 内部を探索
+//   （見つからなければ呼び出し側で existingImageNodes へのフォールバックに任せる）
+// - Rectangle / Ellipse / Polygon / Star / Vector / BooleanOperation
+//   → そのノード自体を直接ターゲットとして扱う
+function collectPlaceholdersFromSelection(
+  selection: ReadonlyArray<SceneNode>,
+): Array<PlaceholderItem> {
+  const placeholders: Array<PlaceholderItem> = [];
+  const seen = new Set<string>();
+  const addUnique = (item: PlaceholderItem) => {
+    if (seen.has(item.node.id)) return;
+    seen.add(item.node.id);
+    placeholders.push(item);
+  };
+
+  for (const node of selection) {
+    if (isImagePlaceholderContainer(node) && "children" in node) {
+      const inner = findImagePlaceholdersIn(node as SceneNode & ChildrenMixin);
+      for (const ph of inner) addUnique(ph);
+      continue;
+    }
+
+    // 直接選択された図形（Rectangle, Ellipse 等）は常にそのノードを対象にする
+    if (canApplyImageFill(node)) {
+      addUnique({ node, ...getNodeBox(node) });
+    }
+  }
 
   return placeholders;
 }
@@ -1024,23 +1091,18 @@ async function placeImagesInFrame(
 
   const selection = figma.currentPage.selection;
 
-  let targetFrame: FrameNode | null = null;
-  for (const node of selection) {
-    if (node.type === "FRAME") {
-      targetFrame = node;
-      break;
-    }
-  }
-
-  if (!targetFrame) {
-    notify("フレームを選択してください", true);
-    return { appliedCount: 0, errorMessage: "フレームを選択してください" };
+  if (selection.length === 0) {
+    const msg =
+      "画像を適用するフレーム・コンポーネント・シェイプを選択してください";
+    notify(msg, true);
+    return { appliedCount: 0, errorMessage: msg };
   }
 
   try {
-    const placeholders = findImagePlaceholders(targetFrame);
+    const placeholders = collectPlaceholdersFromSelection(selection);
 
     if (placeholders.length === 0) {
+      // 選択ノード配下から既存の画像 fill を持つノードを収集し、その差し替え先を探す
       const existingImageNodes: SceneNode[] = [];
       const findImageNodes = (node: SceneNode) => {
         if (
@@ -1060,8 +1122,8 @@ async function placeImagesInFrame(
           }
         }
       };
-      for (const child of targetFrame.children) {
-        findImageNodes(child);
+      for (const root of selection) {
+        findImageNodes(root);
       }
 
       if (existingImageNodes.length > 0) {
@@ -1125,7 +1187,7 @@ async function placeImagesInFrame(
       }
 
       const errMsg =
-        "画像を適用できる要素が見つかりませんでした。画像プレースホルダー（img、画像などの名前が含まれる要素）を用意してください。";
+        "画像を適用できる要素が見つかりませんでした。画像プレースホルダー（img、画像などの名前が含まれる要素）を用意するか、画像を入れたい Rectangle / コンポーネント / シェイプを直接選択してください。";
       notify(errMsg, true);
       return { appliedCount: 0, errorMessage: errMsg };
     }
