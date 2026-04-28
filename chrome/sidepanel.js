@@ -589,6 +589,71 @@ function collectImagesFromPage() {
     }
     return out.join(" ");
   }
+  // ある要素の中で「カードのタイトルとして使える」見出しを探す。
+  // ul のように複数カードを束ねる祖先まで遡ったときに別カードの見出しを拾わないよう
+  // 見出しが 1 つしか含まれていないコンテナだけ採用する。
+  function findScopedHeadingText(container) {
+    if (!container || !container.querySelectorAll) return "";
+    const headings = container.querySelectorAll("h1, h2, h3, h4, h5, h6");
+    if (!headings || headings.length !== 1) return "";
+    const t = normalizeLabel(headings[0].textContent);
+    if (!t || t.length > 200) return "";
+    return t;
+  }
+
+  // バッジ・グラデーション・オーバーレイなどタイトルではない装飾要素の判定。
+  // Prime Video の「人気上昇中 / セール」バッジや Amazon の eocGradient,
+  // card-overlay などを誤ってタイトルとして拾わないために使う。
+  function isMetadataBadgeLike(el) {
+    if (!el || !el.getAttribute) return false;
+    const testid = el.getAttribute("data-testid") || "";
+    if (/badge|overlay|gradient/i.test(testid)) return true;
+    const cls =
+      el.className && typeof el.className === "string" ? el.className : "";
+    if (/badge|gradient|overlay|eocAndTextMetadata|statusBadge/i.test(cls)) {
+      return true;
+    }
+    return false;
+  }
+
+  // 画像と同じカード内の兄弟要素から「タイトル」候補を取り出す。
+  // - aria-label / title / data-card-title などの属性
+  // - <a> / <button> のテキスト
+  // - 単独見出し（h1-h6）
+  // - 短いテキスト（<= 80 chars）
+  function getTitleFromSibling(sib) {
+    if (!sib || !sib.getAttribute) return "";
+    if (isMetadataBadgeLike(sib)) return "";
+
+    const al = normalizeLabel(sib.getAttribute("aria-label"));
+    if (al) return al;
+    const ti = normalizeLabel(sib.getAttribute("title"));
+    if (ti) return ti;
+
+    const dataAttrs = [
+      "data-card-title",
+      "data-title",
+      "data-card-name",
+      "data-name",
+    ];
+    for (const attr of dataAttrs) {
+      const v = normalizeLabel(sib.getAttribute(attr));
+      if (v) return v;
+    }
+
+    const h = findScopedHeadingText(sib);
+    if (h) return h;
+
+    if (sib.tagName === "A" || sib.tagName === "BUTTON") {
+      const t = normalizeLabel(sib.textContent || "");
+      if (t && t.length > 0 && t.length <= 120) return t;
+    }
+
+    const txt = normalizeLabel(sib.innerText || sib.textContent || "");
+    if (txt && txt.length > 0 && txt.length <= 80) return txt;
+    return "";
+  }
+
   function getImageTitleFromImg(img) {
     const direct = [
       normalizeLabel(img.getAttribute("aria-label")),
@@ -599,8 +664,10 @@ function collectImagesFromPage() {
     for (let i = 0; i < direct.length; i++) {
       if (direct[i]) return direct[i];
     }
+
     let p = img.parentElement;
-    for (let depth = 0; depth < 8 && p; depth++) {
+    let prev = img;
+    for (let depth = 0; depth < 10 && p; depth++) {
       if (p.tagName === "FIGURE") {
         const cap = p.querySelector("figcaption");
         if (cap) {
@@ -608,10 +675,49 @@ function collectImagesFromPage() {
           if (t) return t;
         }
       }
-      const a = normalizeLabel(p.getAttribute("aria-label"));
-      if (a) return a;
-      const tt = normalizeLabel(p.getAttribute("title"));
-      if (tt) return tt;
+
+      const al = normalizeLabel(p.getAttribute("aria-label"));
+      if (al) return al;
+      const ti = normalizeLabel(p.getAttribute("title"));
+      if (ti) return ti;
+
+      // Amazon Prime Video など、カードのルート article に
+      // data-card-title でタイトルが埋め込まれているケース。
+      const ancestorDataAttrs = [
+        "data-card-title",
+        "data-title",
+        "data-card-name",
+        "data-name",
+      ];
+      for (const attr of ancestorDataAttrs) {
+        const v = normalizeLabel(p.getAttribute(attr));
+        if (v) return v;
+      }
+
+      // 祖先 p の兄弟（= prev と並ぶ要素）からタイトル候補を探す。
+      // Amazon Prime Video のカード:
+      //   <div class="packshot">
+      //     <button aria-label="..."></button>     ← これがマッチ
+      //     <a class="detailLink">タイトル</a>     ← フォールバック
+      //     <div class="imageContainer">          ← prev
+      //       <picture><img/></picture>
+      //     </div>
+      //     <span data-testid="metadata-badge">..</span>  ← 除外
+      //   </div>
+      if (p.children && p.children.length) {
+        for (let i = 0; i < p.children.length; i++) {
+          const sib = p.children[i];
+          if (sib === prev) continue;
+          const t = getTitleFromSibling(sib);
+          if (t) return t;
+        }
+      }
+
+      // フォールバック: 祖先カード内に単独の見出しがあればそれをタイトルとする。
+      const headingText = findScopedHeadingText(p);
+      if (headingText) return headingText;
+
+      prev = p;
       p = p.parentElement;
     }
     return "";
