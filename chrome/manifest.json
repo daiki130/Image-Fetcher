@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "image-fetcher",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Webページから画像を収集してFigmaに送信",
   "icons": {
     "16": "assets/icon.png",
