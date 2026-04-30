@@ -77,6 +77,8 @@ export interface FooterProps {
   applyAllLoading: boolean;
   /** キャンバス選択のサマリ（main 経由で同期） */
   canvasSelection: CanvasSelectionNodeSummary[];
+  /** 画像が1件以上選択されているかどうか */
+  hasSelectedImages: boolean;
 }
 
 export function Footer({
@@ -91,6 +93,7 @@ export function Footer({
   applyAllDisabled,
   applyAllLoading,
   canvasSelection,
+  hasSelectedImages,
 }: FooterProps) {
   return (
     <div
@@ -112,7 +115,6 @@ export function Footer({
         style={{
           display: "flex",
           flexDirection: "column",
-          gap: "8px",
           alignItems: "stretch",
           width: "100%",
         }}
@@ -188,55 +190,54 @@ export function Footer({
             Apply
           </Button> */}
         </div>
-        <div
-          style={{
-            fontSize: "11px",
-            color: "var(--figma-color-text-secondary)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "4px",
-            overflow: "hidden",
-            whiteSpace: "nowrap",
-            height: "20px",
-          }}
-          title={
-            canvasSelection.length === 0
-              ? undefined
-              : canvasSelection.map((n) => `${n.type}: ${n.name}`).join("\n")
-          }
-        >
-          {canvasSelection.length === 0 ? (
-            tabValue === "Top"
-              ? "画像と、フレーム / コンポーネント / シェイプを選択してください"
-              : "フレームを選択してください"
-          ) : canvasSelection.length === 1 ? (
-            <>
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  flex: "0 0 auto",
-                }}
-              >
-                <NodeTypeIcon type={canvasSelection[0].type} />
-              </span>
-              <span
-                style={{
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  height: "20px",
-                  display: "flex",
-                  alignItems: "center",
-                }}
-              >
-                {canvasSelection[0].name}
-              </span>
-            </>
-          ) : (
-            `${canvasSelection.length}件選択中`
-          )}
-        </div>
+        {(() => {
+          const isMessageHidden =
+            canvasSelection.length > 0 &&
+            (tabValue === "Dummy" || hasSelectedImages);
+          return (
+            <div
+              style={{
+                fontSize: "11px",
+                color: "var(--figma-color-text-secondary)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "4px",
+                overflow: "hidden",
+                whiteSpace: "nowrap",
+                height: isMessageHidden ? 0 : "20px",
+                marginTop: isMessageHidden ? 0 : "8px",
+                opacity: isMessageHidden ? 0 : 1,
+                pointerEvents: isMessageHidden ? "none" : "auto",
+                transition:
+                  "height 200ms ease, margin-top 200ms ease, opacity 150ms ease",
+              }}
+              title={
+                canvasSelection.length === 0
+                  ? undefined
+                  : canvasSelection
+                      .map((n) => `${n.type}: ${n.name}`)
+                      .join("\n")
+              }
+            >
+            {canvasSelection.length === 0 ? (
+              tabValue === "Top"
+                ? hasSelectedImages
+                  ? "要素を選択してください"
+                  : "画像・要素を選択してください"
+                : "フレームを選択してください"
+            ) : (
+              <Fragment>
+                {tabValue === "Top" && !hasSelectedImages && (
+                  <span style={{ flex: "0 0 auto" }}>
+                    画像を選択してください
+                  </span>
+                )}
+              </Fragment>
+            )}
+            </div>
+          );
+        })()}
         {/* 選択された画像のサムネイルスタック */}
         {/* {selectedImageOrder.length > 0 && (
         <div

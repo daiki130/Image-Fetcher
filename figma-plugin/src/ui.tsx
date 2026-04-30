@@ -2090,6 +2090,7 @@ function Plugin() {
                 }
                 applyAllLoading={applyButtonLoading}
                 canvasSelection={canvasSelection}
+                hasSelectedImages={selectedImageIndices.size > 0}
               />
             </div>
           )}
@@ -2146,6 +2147,7 @@ function Plugin() {
             }
             applyAllLoading={applyButtonLoading}
             canvasSelection={canvasSelection}
+            hasSelectedImages={selectedRandomIndices.size > 0}
           />
         </div>
       )}
