@@ -21,6 +21,7 @@ import {
 import { CanvasSelectionNodeSummary, ImageData } from "../types";
 import { Toogle } from "./toggle";
 import { Button } from "./parts/Button";
+import { useI18n } from "../i18n";
 
 function NodeTypeIcon({ type }: { type: string }): JSX.Element {
   switch (type) {
@@ -95,6 +96,7 @@ export function Footer({
   canvasSelection,
   hasSelectedImages,
 }: FooterProps) {
+  const { t } = useI18n();
   return (
     <div
       style={{
@@ -145,7 +147,7 @@ export function Footer({
               }}
             >
               <div>
-                <Text>Match aspect ratio</Text>
+                <Text>{t("ui.matchAspectRatio")}</Text>
               </div>
               <Toogle
                 value={matchAspectRatioForFrame}
@@ -170,7 +172,7 @@ export function Footer({
                 : "var(--figma-color-bg-brand)",
             }}
           >
-            Apply
+            {t("common.apply")}
           </Button>
 
           {/* <Button
@@ -223,14 +225,14 @@ export function Footer({
             {canvasSelection.length === 0 ? (
               tabValue === "Top"
                 ? hasSelectedImages
-                  ? "要素を選択してください"
-                  : "画像・要素を選択してください"
-                : "フレームを選択してください"
+                  ? t("ui.selectElement")
+                  : t("ui.selectImagesAndElements")
+                : t("ui.selectFrame")
             ) : (
               <Fragment>
                 {tabValue === "Top" && !hasSelectedImages && (
                   <span style={{ flex: "0 0 auto" }}>
-                    画像を選択してください
+                    {t("ui.selectImage")}
                   </span>
                 )}
               </Fragment>

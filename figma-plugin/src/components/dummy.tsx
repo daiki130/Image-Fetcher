@@ -10,6 +10,7 @@ import { useState } from "preact/hooks";
 import { ImageData } from "../types";
 import { Card } from "./card";
 import { Toogle } from "./toggle";
+import { useI18n } from "../i18n";
 
 const CATEGORY_ROWS: ReadonlyArray<{ emoji: string; label: string }> = [
   { emoji: "🐶", label: "Dog" },
@@ -116,6 +117,7 @@ export function Dummy({
   onDragPrepare,
   githubUrl,
 }: RandomProps) {
+  const { t } = useI18n();
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   const categorySlices = CATEGORY_ROWS.map((cat, catIdx) => ({
@@ -155,7 +157,9 @@ export function Dummy({
           gap: "8px",
         }}
       >
-        <div style={{ fontSize: "13px", fontWeight: "600" }}>Settings</div>
+        <div style={{ fontSize: "13px", fontWeight: "600" }}>
+          {t("ui.settings")}
+        </div>
 
         <div
           style={{
@@ -205,7 +209,7 @@ export function Dummy({
                     flexGrow: 1,
                   }}
                 >
-                  Dummy Text
+                  {t("ui.dummyTextLabel")}
                 </div>
                 <div
                   style={{
@@ -216,7 +220,7 @@ export function Dummy({
                     lineHeight: 1.6,
                   }}
                 >
-                  選択した要素のテキストを、元の文字数のまま指定した文字で埋めます
+                  {t("ui.dummyTextDesc")}
                 </div>
               </div>
               <Toogle
@@ -247,7 +251,7 @@ export function Dummy({
                 >
                   <Textbox
                     value={dummyTextTemplate}
-                    placeholder="テキスト"
+                    placeholder={t("ui.dummyTextPlaceholder")}
                     onValueInput={onDummyTextTemplateChange}
                     spellCheck={false}
                     style={{
@@ -307,7 +311,7 @@ export function Dummy({
                     fontSize: "11px",
                   }}
                 >
-                  Musk Image
+                  {t("ui.maskImageLabel")}
                 </div>
                 <div
                   style={{
@@ -319,7 +323,7 @@ export function Dummy({
                     fontSize: "11px",
                   }}
                 >
-                  選択した要素の画像要素にマスクを設定することができます
+                  {t("ui.maskImageDesc")}
                 </div>
               </div>
               <Toogle

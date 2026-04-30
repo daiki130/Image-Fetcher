@@ -1,6 +1,7 @@
 import { Muted, Text, Divider, IconCheck16 } from "@create-figma-plugin/ui";
 import { h } from "preact";
 import { useState } from "preact/hooks";
+import { useI18n } from "../i18n";
 
 interface SettingsMenuProps {
   sortHighEnabled: boolean;
@@ -122,6 +123,7 @@ export function SettingsMenu({
   onDueDateFilterChange,
   onLabelFilterChange,
 }: SettingsMenuProps) {
+  const { t } = useI18n();
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
 
   // 排他的選択でありながら選択解除も可能なハンドラー
@@ -205,7 +207,7 @@ export function SettingsMenu({
           ))
         ) : (
           <div style={{ ...styles.label, opacity: 0.6 }}>
-            画像サイズがありません
+            {t("ui.noImageSizes")}
           </div>
         )}
       </div>
@@ -218,7 +220,7 @@ export function SettingsMenu({
       <MenuItem
         key="__ALL__"
         id="imageSize-__ALL__"
-        label="All"
+        label={t("common.all")}
         isSelected={selectedImageSizes.includes("__ALL__")}
         hoveredItem={hoveredItem}
         onHover={setHoveredItem}

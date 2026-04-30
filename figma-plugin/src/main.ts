@@ -3,6 +3,12 @@ import { showUI, on, emit } from "@create-figma-plugin/utilities";
 import { CanvasSelectionNodeSummary, ImageData } from "./types";
 import { resolveDummyText } from "./randomDemoMode";
 import { getSolidColorImageHash } from "./solidColorImage";
+import {
+  DEFAULT_LANG,
+  Lang,
+  TranslationKey,
+  translate,
+} from "./i18n/messages";
 
 const STORAGE_KEY = "savedImages";
 
@@ -11,7 +17,22 @@ let currentUIWidth = 400;
 let currentUIHeight = 1000;
 let isAnimating = false;
 
+/** UI から `SET_LANGUAGE` で同期される現在言語。未受信時は日本語にフォールバック。 */
+let currentLang: Lang = DEFAULT_LANG;
+function t(
+  key: TranslationKey,
+  params?: Record<string, string | number>,
+): string {
+  return translate(currentLang, key, params);
+}
+
 export default function () {
+  on("SET_LANGUAGE", (data: { lang: Lang }) => {
+    if (data && typeof data.lang === "string") {
+      currentLang = data.lang;
+    }
+  });
+
   // UIから変換済み画像を受け取る
   on(
     "APPLY_IMAGE_DATA",
@@ -39,12 +60,14 @@ export default function () {
       // base64データを除外して保存（サイズ制限を回避）
       const imagesToSave = images.map(({ base64, ...rest }) => rest);
       await figma.clientStorage.setAsync(STORAGE_KEY, imagesToSave);
-      figma.notify(`${images.length}個の画像を保存しました`);
+      figma.notify(t("main.imagesSaved", { count: images.length }));
     } catch (error) {
       console.error("保存エラー:", error);
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      figma.notify(`保存エラー: ${errorMessage}`, { error: true });
+      figma.notify(t("main.saveError", { msg: errorMessage }), {
+        error: true,
+      });
     }
   });
 
@@ -63,7 +86,9 @@ export default function () {
       console.error("読み込みエラー:", error);
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      figma.notify(`読み込みエラー: ${errorMessage}`, { error: true });
+      figma.notify(t("main.loadError", { msg: errorMessage }), {
+        error: true,
+      });
       emit("IMAGES_LOADED", []);
     }
   });
@@ -162,8 +187,10 @@ export default function () {
       } catch (error) {
         console.error("Error adding image to Figma:", error);
         const errorMessage =
-          error instanceof Error ? error.message : "不明なエラー";
-        figma.notify(`エラー: ${errorMessage}`, { error: true });
+          error instanceof Error
+            ? error.message
+            : t("common.unknownError");
+        figma.notify(t("main.error", { msg: errorMessage }), { error: true });
       }
     },
   );
@@ -256,7 +283,7 @@ async function loadFontsForTextNode(node: TextNode): Promise<void> {
 async function applyDummyTextToSelection(dummyTextTemplate: string) {
   const selection = figma.currentPage.selection;
   if (selection.length === 0) {
-    figma.notify("ノードを選択してください", { error: true });
+    figma.notify(t("main.selectNode"), { error: true });
     return;
   }
 
@@ -285,14 +312,11 @@ async function applyDummyTextToSelection(dummyTextTemplate: string) {
   }
 
   if (replaced > 0) {
-    figma.notify(`${replaced}件のテキストをダミーに置き換えました`);
+    figma.notify(t("main.dummyTextReplaced", { count: replaced }));
   } else if (skippedProtected > 0) {
-    figma.notify(
-      "数字や記号を含むテキストは置換しませんでした（該当しないテキストを選択してください）",
-      { error: true },
-    );
+    figma.notify(t("main.dummyTextSkipped"), { error: true });
   } else {
-    figma.notify("テキストレイヤーが選択されていません", { error: true });
+    figma.notify(t("main.noTextSelected"), { error: true });
   }
 }
 
@@ -509,7 +533,7 @@ async function placeRandomContentInFrame(
     }
   }
   if (!targetFrame) {
-    figma.notify("フレームを選択してください", { error: true });
+    figma.notify(t("main.selectFrame"), { error: true });
     return;
   }
 
@@ -537,14 +561,19 @@ async function placeRandomContentInFrame(
   if (imageResult.errorMessage) {
     const pre: string[] = [];
     if (applyDummyText && textCount > 0) {
-      pre.push(`テキスト${textCount}件をダミーにしました`);
+      pre.push(t("main.partsTextDummyReplaced", { count: textCount }));
     }
     if (applyMaskImage && appliedMaskCount > 0) {
-      pre.push(`マスク色を${appliedMaskCount}箇所に適用しました`);
+      pre.push(
+        t("main.partsMaskColorApplied", { count: appliedMaskCount }),
+      );
     }
     figma.notify(
       pre.length > 0
-        ? `${pre.join("。")}。画像は適用できませんでした（${imageResult.errorMessage}）`
+        ? t("main.partsAppliedWithFailure", {
+            parts: pre.join(" / "),
+            error: imageResult.errorMessage,
+          })
         : imageResult.errorMessage,
       { error: true },
     );
@@ -553,18 +582,20 @@ async function placeRandomContentInFrame(
 
   const skipHint =
     applyDummyText && skippedProtected > 0
-      ? `（数字・記号を含む${skippedProtected}件のテキストはスキップ）`
+      ? t("main.skipHintProtected", { count: skippedProtected })
       : "";
 
   const parts: string[] = [];
   if (applyDummyText) {
-    parts.push(`テキスト${textCount}件をダミーに置換`);
+    parts.push(t("main.partsTextDummyReplaced", { count: textCount }));
   }
   if (applyMaskImage && appliedMaskCount > 0) {
-    parts.push(`マスク色を${appliedMaskCount}箇所に適用`);
+    parts.push(t("main.partsMaskColorApplied", { count: appliedMaskCount }));
   }
-  parts.push(`画像を${imageResult.appliedCount}箇所に適用`);
-  figma.notify(`${parts.join("、")}しました${skipHint}`);
+  parts.push(
+    t("main.partsImageApplied", { count: imageResult.appliedCount }),
+  );
+  figma.notify(t("main.partsApplied", { parts: parts.join(" / "), skipHint }));
 }
 
 /**
@@ -587,7 +618,7 @@ async function applyDummyContentInFrame(
   };
 
   if (!applyDummyText && !applyMaskImage) {
-    const msg = "Dummy Text か Mask Image のどちらかを ON にしてください";
+    const msg = t("main.dummyOrMaskRequired");
     figma.notify(msg, { error: true });
     emitDone({
       ok: false,
@@ -608,7 +639,7 @@ async function applyDummyContentInFrame(
     }
   }
   if (!targetFrame) {
-    const msg = "フレームを選択してください";
+    const msg = t("main.selectFrame");
     figma.notify(msg, { error: true });
     emitDone({
       ok: false,
@@ -643,16 +674,20 @@ async function applyDummyContentInFrame(
 
     const parts: string[] = [];
     if (applyDummyText) {
-      parts.push(`テキスト${textCount}件をダミーに置換`);
+      parts.push(t("main.partsTextDummyReplaced", { count: textCount }));
     }
     if (applyMaskImage) {
-      parts.push(`マスク色を${appliedMaskCount}箇所に適用`);
+      parts.push(
+        t("main.partsMaskColorApplied", { count: appliedMaskCount }),
+      );
     }
     const skipHint =
       applyDummyText && skippedProtected > 0
-        ? `（数字・記号を含む${skippedProtected}件のテキストはスキップ）`
+        ? t("main.skipHintProtected", { count: skippedProtected })
         : "";
-    figma.notify(`${parts.join("、")}しました${skipHint}`);
+    figma.notify(
+      t("main.partsApplied", { parts: parts.join(" / "), skipHint }),
+    );
 
     emitDone({
       ok: true,
@@ -661,8 +696,8 @@ async function applyDummyContentInFrame(
       skippedProtected,
     });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "不明なエラー";
-    figma.notify(`エラー: ${msg}`, { error: true });
+    const msg = e instanceof Error ? e.message : t("common.unknownError");
+    figma.notify(t("main.error", { msg }), { error: true });
     emitDone({
       ok: false,
       appliedText: 0,
@@ -678,7 +713,7 @@ async function applyImageDataToSelection(imageData: Uint8Array) {
   const selection = figma.currentPage.selection;
 
   if (selection.length === 0) {
-    figma.notify("ノードを選択してください", { error: true });
+    figma.notify(t("main.selectNode"), { error: true });
     return;
   }
 
@@ -702,14 +737,14 @@ async function applyImageDataToSelection(imageData: Uint8Array) {
     }
 
     if (appliedCount > 0) {
-      figma.notify(`${appliedCount}個のノードに画像を適用しました`);
+      figma.notify(t("main.appliedToNodes", { count: appliedCount }));
     } else {
-      figma.notify("画像を適用できるノードがありませんでした", { error: true });
+      figma.notify(t("main.cannotApplyToNodes"), { error: true });
     }
   } catch (error) {
     const errorMessage =
-      error instanceof Error ? error.message : "不明なエラー";
-    figma.notify(`エラー: ${errorMessage}`, { error: true });
+      error instanceof Error ? error.message : t("common.unknownError");
+    figma.notify(t("main.error", { msg: errorMessage }), { error: true });
   }
 }
 
@@ -757,11 +792,11 @@ async function createRectangleWithImageData(
     figma.currentPage.selection = [rect];
     figma.viewport.scrollAndZoomIntoView([rect]);
 
-    figma.notify("画像を配置しました");
+    figma.notify(t("main.placedImage"));
   } catch (error) {
     const errorMessage =
-      error instanceof Error ? error.message : "不明なエラー";
-    figma.notify(`エラー: ${errorMessage}`, { error: true });
+      error instanceof Error ? error.message : t("common.unknownError");
+    figma.notify(t("main.error", { msg: errorMessage }), { error: true });
   }
 }
 
@@ -1092,8 +1127,7 @@ async function placeImagesInFrame(
   const selection = figma.currentPage.selection;
 
   if (selection.length === 0) {
-    const msg =
-      "画像を適用するフレーム・コンポーネント・シェイプを選択してください";
+    const msg = t("main.selectFrameOrShape");
     notify(msg, true);
     return { appliedCount: 0, errorMessage: msg };
   }
@@ -1128,8 +1162,9 @@ async function placeImagesInFrame(
 
       if (existingImageNodes.length > 0) {
         if (images.length === 0) {
-          notify("画像データがありません", true);
-          return { appliedCount: 0, errorMessage: "画像データがありません" };
+          const msg = t("main.noImageData");
+          notify(msg, true);
+          return { appliedCount: 0, errorMessage: msg };
         }
         let appliedCount = 0;
         if (sequential) {
@@ -1182,12 +1217,11 @@ async function placeImagesInFrame(
             }
           }
         }
-        notify(`${appliedCount}個の既存ノードに画像を適用しました`);
+        notify(t("main.appliedToExistingNodes", { count: appliedCount }));
         return { appliedCount };
       }
 
-      const errMsg =
-        "画像を適用できる要素が見つかりませんでした。画像プレースホルダー（img、画像などの名前が含まれる要素）を用意するか、画像を入れたい Rectangle / コンポーネント / シェイプを直接選択してください。";
+      const errMsg = t("main.noTargetElement");
       notify(errMsg, true);
       return { appliedCount: 0, errorMessage: errMsg };
     }
@@ -1195,8 +1229,9 @@ async function placeImagesInFrame(
     const updatedNodes: SceneNode[] = [];
 
     if (images.length === 0) {
-      notify("画像データがありません", true);
-      return { appliedCount: 0, errorMessage: "画像データがありません" };
+      const msg = t("main.noImageData");
+      notify(msg, true);
+      return { appliedCount: 0, errorMessage: msg };
     }
 
     if (sequential) {
@@ -1262,18 +1297,22 @@ async function placeImagesInFrame(
     if (updatedNodes.length > 0) {
       figma.currentPage.selection = updatedNodes;
       figma.viewport.scrollAndZoomIntoView(updatedNodes);
-      notify(`${updatedNodes.length}個の画像を既存の要素に適用しました`);
+      notify(
+        t("main.imagesAppliedToElements", { count: updatedNodes.length }),
+      );
       return { appliedCount: updatedNodes.length };
     }
-    notify("画像を適用できる要素が見つかりませんでした", true);
+    const cannotMsg = t("main.cannotApplyToElements");
+    notify(cannotMsg, true);
     return {
       appliedCount: 0,
-      errorMessage: "画像を適用できる要素が見つかりませんでした",
+      errorMessage: cannotMsg,
     };
   } catch (error) {
     const errorMessage =
-      error instanceof Error ? error.message : "不明なエラー";
-    notify(`エラー: ${errorMessage}`, true);
-    return { appliedCount: 0, errorMessage: `エラー: ${errorMessage}` };
+      error instanceof Error ? error.message : t("common.unknownError");
+    const errMsg = t("main.error", { msg: errorMessage });
+    notify(errMsg, true);
+    return { appliedCount: 0, errorMessage: errMsg };
   }
 }
