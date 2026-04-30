@@ -33,10 +33,42 @@ export function shouldSkipDummyReplacement(
 
 const DEFAULT_DUMMY_TEMPLATE = "テキスト";
 
+/** サロゲートペアを 1 文字として数える */
+function countCodePoints(s: string): number {
+  let count = 0;
+  for (const _ch of s) {
+    void _ch;
+    count++;
+  }
+  return count;
+}
+
+/** template を必要な文字数までサイクルで繰り返して、ちょうど targetLength 文字にする */
+function buildTemplateOfLength(template: string, targetLength: number): string {
+  if (targetLength <= 0) {
+    return "";
+  }
+  const chars: string[] = [];
+  for (const ch of template) {
+    chars.push(ch);
+  }
+  if (chars.length === 0) {
+    return "";
+  }
+  let result = "";
+  for (let i = 0; i < targetLength; i++) {
+    result += chars[i % chars.length];
+  }
+  return result;
+}
+
 /**
  * 原文をダミーに置き換える文字列を決める。
  * - 数字や記号を含む原文は置換しない（null）。
  * - 空の template は「テキスト」を使う。
+ * - 原文の文字数（コードポイント数）に合わせて、template をサイクルで繰り返して埋める。
+ *   例: original="Hello World"(11), template="あ" → "あああああああああああ"
+ *       original="Hello"(5),       template="ab" → "ababa"
  */
 export function resolveDummyText(
   original: string | undefined | null,
@@ -45,8 +77,13 @@ export function resolveDummyText(
   if (shouldSkipDummyReplacement(original)) {
     return null;
   }
-  const t = String(template ?? "").trim();
-  return t.length > 0 ? t : DEFAULT_DUMMY_TEMPLATE;
+  const trimmed = String(template ?? "").trim();
+  const tpl = trimmed.length > 0 ? trimmed : DEFAULT_DUMMY_TEMPLATE;
+  const originalLength = countCodePoints(String(original ?? ""));
+  if (originalLength <= 0) {
+    return tpl;
+  }
+  return buildTemplateOfLength(tpl, originalLength);
 }
 
 /**

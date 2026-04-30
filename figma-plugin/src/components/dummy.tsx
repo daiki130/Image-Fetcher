@@ -216,7 +216,7 @@ export function Dummy({
                     lineHeight: 1.6,
                   }}
                 >
-                  選択した要素のテキスト要素をこの文字に置き換えます
+                  選択した要素のテキストを、元の文字数のまま指定した文字で埋めます
                 </div>
               </div>
               <Toogle
