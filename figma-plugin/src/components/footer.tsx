@@ -18,7 +18,11 @@ import {
   IconSticky16,
   IconWidget16,
 } from "@create-figma-plugin/ui";
-import { CanvasSelectionNodeSummary, ImageData } from "../types";
+import {
+  CanvasSelectionNodeSummary,
+  DUMMY_TARGET_NODE_TYPES,
+  ImageData,
+} from "../types";
 import { Toogle } from "./toggle";
 import { Button } from "./parts/Button";
 import { useI18n } from "../i18n";
@@ -193,9 +197,100 @@ export function Footer({
           </Button> */}
         </div>
         {(() => {
+          if (tabValue === "Dummy") {
+            const dummyTargets = canvasSelection.filter((n) =>
+              DUMMY_TARGET_NODE_TYPES.has(n.type),
+            );
+            const hasDummyTargets = dummyTargets.length > 0;
+
+            if (hasDummyTargets) {
+              return (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: "4px",
+                    marginTop: "8px",
+                    overflowX: "auto",
+                    overflowY: "hidden",
+                    whiteSpace: "nowrap",
+                  }}
+                  title={dummyTargets
+                    .map((n) => `${n.type}: ${n.name}`)
+                    .join("\n")}
+                >
+                  {dummyTargets.map((node) => (
+                    <div
+                      key={node.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                        flex: "0 0 auto",
+                        height: "24px",
+                        padding: "0 8px 0 4px",
+                        borderRadius: "4px",
+                        background: "var(--figma-color-bg-secondary)",
+                        border:
+                          "1px solid var(--figma-color-border)",
+                        fontSize: "11px",
+                        color: "var(--figma-color-text)",
+                        maxWidth: "180px",
+                        boxSizing: "border-box",
+                      }}
+                    >
+                      <span
+                        style={{
+                          flex: "0 0 auto",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <NodeTypeIcon type={node.type} />
+                      </span>
+                      <span
+                        style={{
+                          flex: "1 1 auto",
+                          minWidth: 0,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {node.name}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              );
+            }
+
+            // 何も選択されていない or 対応していないノードのみ
+            return (
+              <div
+                style={{
+                  fontSize: "11px",
+                  color: "var(--figma-color-text-secondary)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "4px",
+                  overflow: "hidden",
+                  whiteSpace: "nowrap",
+                  height: "24px",
+                  marginTop: "8px",
+                }}
+              >
+                {t("ui.selectDummyTarget")}
+              </div>
+            );
+          }
+
+          // Top タブ
           const isMessageHidden =
-            canvasSelection.length > 0 &&
-            (tabValue === "Dummy" || hasSelectedImages);
+            canvasSelection.length > 0 && hasSelectedImages;
           return (
             <div
               style={{
@@ -222,21 +317,19 @@ export function Footer({
                       .join("\n")
               }
             >
-            {canvasSelection.length === 0 ? (
-              tabValue === "Top"
-                ? hasSelectedImages
+              {canvasSelection.length === 0 ? (
+                hasSelectedImages
                   ? t("ui.selectElement")
                   : t("ui.selectImagesAndElements")
-                : t("ui.selectFrame")
-            ) : (
-              <Fragment>
-                {tabValue === "Top" && !hasSelectedImages && (
-                  <span style={{ flex: "0 0 auto" }}>
-                    {t("ui.selectImage")}
-                  </span>
-                )}
-              </Fragment>
-            )}
+              ) : (
+                <Fragment>
+                  {!hasSelectedImages && (
+                    <span style={{ flex: "0 0 auto" }}>
+                      {t("ui.selectImage")}
+                    </span>
+                  )}
+                </Fragment>
+              )}
             </div>
           );
         })()}

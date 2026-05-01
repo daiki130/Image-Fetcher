@@ -95,6 +95,8 @@ const ja = {
   "ui.selectImagesAndElements": "画像・要素を選択してください",
   "ui.selectElement": "要素を選択してください",
   "ui.selectFrame": "フレームを選択してください",
+  "ui.selectDummyTarget":
+    "フレーム / コンポーネント / グループ / セクションのいずれかを選択してください",
   "ui.selectImage": "画像を選択してください",
   "ui.applyToSelectedNode": "選択ノードに画像を適用",
   "ui.createNewRectangle": "新規レクタングルを作成",
@@ -114,6 +116,8 @@ const ja = {
     "数字や記号を含むテキストは置換しませんでした（該当しないテキストを選択してください）",
   "main.noTextSelected": "テキストレイヤーが選択されていません",
   "main.selectFrame": "フレームを選択してください",
+  "main.selectDummyTarget":
+    "フレーム / コンポーネント / グループ / セクションのいずれかを選択してください",
   "main.dummyOrMaskRequired":
     "Dummy Text か Mask Image のどちらかを ON にしてください",
   "main.skipHintProtected":
@@ -211,6 +215,8 @@ const en: Dict = {
   "ui.selectImagesAndElements": "Please select images and an element",
   "ui.selectElement": "Please select an element",
   "ui.selectFrame": "Please select a frame",
+  "ui.selectDummyTarget":
+    "Please select a frame, component, group, or section",
   "ui.selectImage": "Please select an image",
   "ui.applyToSelectedNode": "Apply image to selected node",
   "ui.createNewRectangle": "Create a new rectangle",
@@ -230,6 +236,8 @@ const en: Dict = {
     "Text containing digits or symbols was not replaced. Please select text that doesn't include them.",
   "main.noTextSelected": "No text layer is selected",
   "main.selectFrame": "Please select a frame",
+  "main.selectDummyTarget":
+    "Please select a frame, component, group, or section",
   "main.dummyOrMaskRequired": "Turn on either Dummy Text or Mask Image",
   "main.skipHintProtected":
     " ({count} text item(s) containing digits or symbols were skipped)",
@@ -330,6 +338,8 @@ const fr: Dict = {
     "Veuillez sélectionner des images et un élément",
   "ui.selectElement": "Veuillez sélectionner un élément",
   "ui.selectFrame": "Veuillez sélectionner un cadre",
+  "ui.selectDummyTarget":
+    "Veuillez sélectionner un cadre, un composant, un groupe ou une section",
   "ui.selectImage": "Veuillez sélectionner une image",
   "ui.applyToSelectedNode": "Appliquer l'image au nœud sélectionné",
   "ui.createNewRectangle": "Créer un nouveau rectangle",
@@ -350,6 +360,8 @@ const fr: Dict = {
     "Les textes contenant des chiffres ou symboles n'ont pas été remplacés (sélectionnez un texte qui n'en contient pas).",
   "main.noTextSelected": "Aucun calque de texte n'est sélectionné",
   "main.selectFrame": "Veuillez sélectionner un cadre",
+  "main.selectDummyTarget":
+    "Veuillez sélectionner un cadre, un composant, un groupe ou une section",
   "main.dummyOrMaskRequired":
     "Activez Dummy Text ou Mask Image",
   "main.skipHintProtected":
@@ -452,6 +464,8 @@ const ko: Dict = {
   "ui.selectImagesAndElements": "이미지와 요소를 선택해 주세요",
   "ui.selectElement": "요소를 선택해 주세요",
   "ui.selectFrame": "프레임을 선택해 주세요",
+  "ui.selectDummyTarget":
+    "프레임 / 컴포넌트 / 그룹 / 섹션 중 하나를 선택해 주세요",
   "ui.selectImage": "이미지를 선택해 주세요",
   "ui.applyToSelectedNode": "선택한 노드에 이미지 적용",
   "ui.createNewRectangle": "새 사각형 만들기",
@@ -472,6 +486,8 @@ const ko: Dict = {
     "숫자나 기호가 포함된 텍스트는 교체하지 않았습니다(해당하지 않는 텍스트를 선택해 주세요).",
   "main.noTextSelected": "텍스트 레이어가 선택되지 않았습니다",
   "main.selectFrame": "프레임을 선택해 주세요",
+  "main.selectDummyTarget":
+    "프레임 / 컴포넌트 / 그룹 / 섹션 중 하나를 선택해 주세요",
   "main.dummyOrMaskRequired":
     "Dummy Text 또는 Mask Image 중 하나를 켜 주세요",
   "main.skipHintProtected":

@@ -15,6 +15,7 @@ import { useState, useEffect, useRef, useMemo } from "preact/hooks";
 import CryptoJS from "crypto-js";
 import {
   CanvasSelectionNodeSummary,
+  DUMMY_TARGET_NODE_TYPES,
   ImageData,
   ImagesLoadedHandler,
 } from "./types";
@@ -2188,7 +2189,9 @@ function Plugin() {
             onApplyAll={handlePlaceAllImagesInFrame}
             applyToSelectionDisabled={selectedRandomIndices.size === 0}
             applyAllDisabled={
-              !canvasSelection.some((n) => n.type === "FRAME") ||
+              !canvasSelection.some((n) =>
+                DUMMY_TARGET_NODE_TYPES.has(n.type),
+              ) ||
               (!dummyApplyDummyText && !dummyApplyMaskImage)
             }
             applyAllLoading={applyButtonLoading}

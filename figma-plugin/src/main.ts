@@ -1,6 +1,10 @@
 // Figma Plugin Main Code
 import { showUI, on, emit } from "@create-figma-plugin/utilities";
-import { CanvasSelectionNodeSummary, ImageData } from "./types";
+import {
+  CanvasSelectionNodeSummary,
+  DUMMY_TARGET_NODE_TYPES,
+  ImageData,
+} from "./types";
 import { resolveDummyText } from "./randomDemoMode";
 import { getSolidColorImageHash } from "./solidColorImage";
 import {
@@ -336,12 +340,12 @@ function collectTextNodesInSubtree(root: SceneNode): TextNode[] {
   return out;
 }
 
-/** フレーム配下のすべてのテキストをダミーに置換（数字・記号を含む原文はスキップ） */
+/** コンテナ配下のすべてのテキストをダミーに置換（数字・記号を含む原文はスキップ） */
 async function applyDummyTextToFrameSubtree(
-  frame: FrameNode,
+  container: SceneNode & ChildrenMixin,
   dummyTextTemplate: string,
 ): Promise<{ replaced: number; skippedProtected: number }> {
-  const texts = collectTextNodesInSubtree(frame);
+  const texts = collectTextNodesInSubtree(container);
   let replaced = 0;
   let skippedProtected = 0;
   for (let i = 0; i < texts.length; i++) {
@@ -436,11 +440,11 @@ function replaceImageFillsWithSolidColorImage(
 }
 
 function applyMaskColorToFrameSubtree(
-  frame: FrameNode,
+  container: SceneNode & ChildrenMixin,
   maskColor: string,
 ): number {
   const rgb = parseMaskColorHex(maskColor);
-  const targetNodes = collectMaskTargetNodes(frame);
+  const targetNodes = collectMaskTargetNodes(container);
   let applied = 0;
   for (const node of targetNodes) {
     if (node.fills === figma.mixed || !Array.isArray(node.fills)) {
@@ -476,7 +480,7 @@ function applyMaskColorToFrameSubtree(
  * 元の画像はノードから取り除かれ、見た目はマスク色のベタ塗りになる。
  */
 function applyMaskColorToImageFills(
-  frame: FrameNode,
+  container: SceneNode & ChildrenMixin,
   maskColor: string,
 ): number {
   const rgb = parseMaskColorHex(maskColor);
@@ -502,7 +506,7 @@ function applyMaskColorToImageFills(
       }
     }
   }
-  visit(frame);
+  visit(container);
   return applied;
 }
 
@@ -598,8 +602,19 @@ async function placeRandomContentInFrame(
   figma.notify(t("main.partsApplied", { parts: parts.join(" / "), skipHint }));
 }
 
+function isDummyTargetContainer(
+  node: SceneNode,
+): node is SceneNode & ChildrenMixin {
+  return DUMMY_TARGET_NODE_TYPES.has(node.type) && "children" in node;
+}
+
 /**
  * Dummy タブ用: 画像の配置は行わず、フラグに応じて Dummy Text / Mask Image のみ適用
+ *
+ * 対応する選択ノードタイプ:
+ *   FRAME / COMPONENT / COMPONENT_SET / INSTANCE / GROUP / SECTION
+ *
+ * 複数の対象が選択されている場合は、選択順にすべてのコンテナへ適用し件数を合算する。
  */
 async function applyDummyContentInFrame(
   dummyTextTemplate: string,
@@ -631,15 +646,14 @@ async function applyDummyContentInFrame(
   }
 
   const selection = figma.currentPage.selection;
-  let targetFrame: FrameNode | null = null;
+  const targetContainers: Array<SceneNode & ChildrenMixin> = [];
   for (const node of selection) {
-    if (node.type === "FRAME") {
-      targetFrame = node;
-      break;
+    if (isDummyTargetContainer(node)) {
+      targetContainers.push(node);
     }
   }
-  if (!targetFrame) {
-    const msg = t("main.selectFrame");
+  if (targetContainers.length === 0) {
+    const msg = t("main.selectDummyTarget");
     figma.notify(msg, { error: true });
     emitDone({
       ok: false,
@@ -654,22 +668,25 @@ async function applyDummyContentInFrame(
   try {
     let textCount = 0;
     let skippedProtected = 0;
-    if (applyDummyText) {
-      const r = await applyDummyTextToFrameSubtree(
-        targetFrame,
-        dummyTextTemplate,
-      );
-      textCount = r.replaced;
-      skippedProtected = r.skippedProtected;
-    }
-
     let appliedMaskCount = 0;
-    if (applyMaskImage) {
-      // 1) 名前が mask/overlay/マスク のノード: 既存 SOLID fill の色を差し替え
-      const namedCount = applyMaskColorToFrameSubtree(targetFrame, maskColor);
-      // 2) IMAGE fill を持つノード: マスクカラーの SOLID を最上層に載せる
-      const imageCount = applyMaskColorToImageFills(targetFrame, maskColor);
-      appliedMaskCount = namedCount + imageCount;
+
+    for (const container of targetContainers) {
+      if (applyDummyText) {
+        const r = await applyDummyTextToFrameSubtree(
+          container,
+          dummyTextTemplate,
+        );
+        textCount += r.replaced;
+        skippedProtected += r.skippedProtected;
+      }
+
+      if (applyMaskImage) {
+        // 1) 名前が mask/overlay/マスク のノード: 既存 SOLID fill の色を差し替え
+        const namedCount = applyMaskColorToFrameSubtree(container, maskColor);
+        // 2) IMAGE fill を持つノード: マスクカラーの SOLID を最上層に載せる
+        const imageCount = applyMaskColorToImageFills(container, maskColor);
+        appliedMaskCount += namedCount + imageCount;
+      }
     }
 
     const parts: string[] = [];
