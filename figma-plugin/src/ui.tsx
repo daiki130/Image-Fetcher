@@ -1433,7 +1433,7 @@ function Plugin() {
   useEffect(() => {
     const hasWideLayout = displayImages.length > 0 || tabValue === "Dummy";
     emit("RESIZE_UI", {
-      width: tabValue === "Dummy" ? 350 : hasWideLayout ? 500 : 350,
+      width: tabValue === "Dummy" ? 400 : hasWideLayout ? 500 : 400,
       // width: tabValue === "Dummy" ? 350 : hasWideLayout ? 500 : 500,
       height: tabValue === "Dummy" ? 400 : hasWideLayout ? 820 : 200,
     });
