@@ -37,11 +37,25 @@ export function LanguagePicker({
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(
     null,
   );
-  /** ツールチップは矢印を中心にトリガー右端に揃えて配置する。 */
+  /**
+   * ツールチップの配置に必要なトリガー位置情報。
+   * - `centerX`        : トリガー中央の絶対 X 座標（中央揃え時の基準）
+   * - `triggerRight`   : トリガー右端の絶対 X 座標（右寄せ時の基準）
+   * - `triggerHalfWidth`: トリガー幅の半分。右寄せ時に矢印を
+   *   トリガー中心に揃えるためのオフセットとして使う。
+   */
   const [tooltipPos, setTooltipPos] = useState<{
     top: number;
     centerX: number;
+    triggerRight: number;
+    triggerHalfWidth: number;
   } | null>(null);
+
+  /**
+   * ラベルが長くツールチップ右側がビューポートからはみ出しがちな言語。
+   * 中央揃えではなく「ツールチップ右端 = トリガー右端」に揃える。
+   */
+  const isWideTooltipLang = lang === "en" || lang === "fr";
 
   // メニュー外クリックで閉じる（メニュー自身は document に直挿しなので
   // トリガー要素 / メニュー要素のいずれにも含まれない場合のみ閉じる）
@@ -104,6 +118,8 @@ export function LanguagePicker({
         top: rect.bottom + TOOLTIP_OFFSET_Y,
         // 矢印を中心に揃えるため、トリガー中央を基準にする
         centerX: rect.left + rect.width / 2,
+        triggerRight: rect.right,
+        triggerHalfWidth: rect.width / 2,
       });
     };
     updateTooltip();
@@ -131,7 +147,7 @@ export function LanguagePicker({
         </IconToggleButton>
       </div>
 
-      {isHovered && !isOpen && tooltipPos && (
+      {/* {isHovered && !isOpen && tooltipPos && (
         <div
           style={{
             position: "fixed",
@@ -149,7 +165,48 @@ export function LanguagePicker({
             arrowOffset="50%"
           />
         </div>
-      )}
+      )} */}
+      {tooltipPos &&
+        (isWideTooltipLang ? (
+          // en / fr など長いラベル向け：ツールチップ右端をトリガー右端に揃え、
+          // ビューポート右側で文字が見切れないようにする。矢印だけは
+          // トリガー中心に来るよう、ツールチップ右端から triggerHalfWidth 戻した位置に配置。
+          <div
+            style={{
+              position: "fixed",
+              top: `${tooltipPos.top}px`,
+              left: `${tooltipPos.triggerRight}px`,
+              transform: "translateX(-100%)",
+              zIndex: 10000,
+              pointerEvents: "none",
+            }}
+          >
+            <Tooltip
+              message={tooltipLabel}
+              arrowPosition="top"
+              arrowOffset={`calc(100% - ${tooltipPos.triggerHalfWidth}px)`}
+            />
+          </div>
+        ) : (
+          // ja / ko 向け：従来通りトリガー中央に揃える
+          <div
+            style={{
+              position: "fixed",
+              top: `${tooltipPos.top}px`,
+              left: `${tooltipPos.centerX}px`,
+              transform: "translateX(-50%)",
+              zIndex: 10000,
+              pointerEvents: "none",
+            }}
+          >
+            <Tooltip
+              message={tooltipLabel}
+              arrowPosition="top"
+              arrowOffset="50%"
+            />
+          </div>
+        ))}
+      
 
       {isOpen && menuPos && (
         <div
