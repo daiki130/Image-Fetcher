@@ -157,7 +157,7 @@ export function Dummy({
           gap: "8px",
         }}
       >
-        <div style={{ fontSize: "13px", fontWeight: "600" }}>
+        <div style={{ fontSize: "13px", fontWeight: "600", padding: "0 4px" }}>
           {t("ui.settings")}
         </div>
 
