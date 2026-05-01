@@ -17,6 +17,8 @@ import {
   // IconVector24,
   IconSticky16,
   IconWidget16,
+  IconGroup16,
+  IconInstance16,
 } from "@create-figma-plugin/ui";
 import {
   CanvasSelectionNodeSummary,
@@ -34,13 +36,13 @@ function NodeTypeIcon({ type }: { type: string }): JSX.Element {
     case "SECTION":
       return <IconSection16 />;
     case "GROUP":
-      return <IconFrame16 />;
+      return <IconGroup16 />;
     case "COMPONENT":
       return <IconComponent16 />;
     case "COMPONENT_SET":
       return <IconComponentSet16 />;
     case "INSTANCE":
-      return <IconComponent16 />;
+      return <IconInstance16 />;
     case "TEXT":
       return <IconText16 />;
     case "RECTANGLE":
@@ -54,11 +56,11 @@ function NodeTypeIcon({ type }: { type: string }): JSX.Element {
     case "STAR":
       return <IconStar16 />;
     case "VECTOR":
-      // return <IconVectorBend16 />;
+    // return <IconVectorBend16 />;
     case "BOOLEAN_OPERATION":
       return <IconBoolean16 />;
     case "SLICE":
-      // return <IconSlice16 />;
+    // return <IconSlice16 />;
     case "STICKY":
       return <IconSticky16 />;
     case "WIDGET":
@@ -277,7 +279,7 @@ export function Footer({
                   alignItems: "center",
                   justifyContent: "center",
                   gap: "4px",
-                  overflow: "hidden",
+                  overflow: "auto",
                   whiteSpace: "nowrap",
                   height: "24px",
                   marginTop: "8px",

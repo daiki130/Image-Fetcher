@@ -96,7 +96,7 @@ const ja = {
   "ui.selectElement": "要素を選択してください",
   "ui.selectFrame": "フレームを選択してください",
   "ui.selectDummyTarget":
-    "フレーム / コンポーネント / グループ / セクションのいずれかを選択してください",
+    "フレーム / コンポーネント / インスタンス / グループ / セクションのいずれかを選択してください",
   "ui.selectImage": "画像を選択してください",
   "ui.applyToSelectedNode": "選択ノードに画像を適用",
   "ui.createNewRectangle": "新規レクタングルを作成",
@@ -117,7 +117,7 @@ const ja = {
   "main.noTextSelected": "テキストレイヤーが選択されていません",
   "main.selectFrame": "フレームを選択してください",
   "main.selectDummyTarget":
-    "フレーム / コンポーネント / グループ / セクションのいずれかを選択してください",
+    "フレーム / コンポーネント / インスタンス / グループ / セクションのいずれかを選択してください",
   "main.dummyOrMaskRequired":
     "Dummy Text か Mask Image のどちらかを ON にしてください",
   "main.skipHintProtected":
@@ -216,7 +216,7 @@ const en: Dict = {
   "ui.selectElement": "Please select an element",
   "ui.selectFrame": "Please select a frame",
   "ui.selectDummyTarget":
-    "Please select a frame, component, group, or section",
+    "Please select a frame, component, instance, group, or section",
   "ui.selectImage": "Please select an image",
   "ui.applyToSelectedNode": "Apply image to selected node",
   "ui.createNewRectangle": "Create a new rectangle",
@@ -237,7 +237,7 @@ const en: Dict = {
   "main.noTextSelected": "No text layer is selected",
   "main.selectFrame": "Please select a frame",
   "main.selectDummyTarget":
-    "Please select a frame, component, group, or section",
+    "Please select a frame, component, instance, group, or section",
   "main.dummyOrMaskRequired": "Turn on either Dummy Text or Mask Image",
   "main.skipHintProtected":
     " ({count} text item(s) containing digits or symbols were skipped)",
@@ -339,7 +339,7 @@ const fr: Dict = {
   "ui.selectElement": "Veuillez sélectionner un élément",
   "ui.selectFrame": "Veuillez sélectionner un cadre",
   "ui.selectDummyTarget":
-    "Veuillez sélectionner un cadre, un composant, un groupe ou une section",
+    "Veuillez sélectionner un cadre, un composant, une instance, un groupe ou une section",
   "ui.selectImage": "Veuillez sélectionner une image",
   "ui.applyToSelectedNode": "Appliquer l'image au nœud sélectionné",
   "ui.createNewRectangle": "Créer un nouveau rectangle",
@@ -361,7 +361,7 @@ const fr: Dict = {
   "main.noTextSelected": "Aucun calque de texte n'est sélectionné",
   "main.selectFrame": "Veuillez sélectionner un cadre",
   "main.selectDummyTarget":
-    "Veuillez sélectionner un cadre, un composant, un groupe ou une section",
+    "Veuillez sélectionner un cadre, un composant, une instance, un groupe ou une section",
   "main.dummyOrMaskRequired":
     "Activez Dummy Text ou Mask Image",
   "main.skipHintProtected":
@@ -465,7 +465,7 @@ const ko: Dict = {
   "ui.selectElement": "요소를 선택해 주세요",
   "ui.selectFrame": "프레임을 선택해 주세요",
   "ui.selectDummyTarget":
-    "프레임 / 컴포넌트 / 그룹 / 섹션 중 하나를 선택해 주세요",
+    "프레임 / 컴포넌트 / 인스턴스 / 그룹 / 섹션 중 하나를 선택해 주세요",
   "ui.selectImage": "이미지를 선택해 주세요",
   "ui.applyToSelectedNode": "선택한 노드에 이미지 적용",
   "ui.createNewRectangle": "새 사각형 만들기",
@@ -487,7 +487,7 @@ const ko: Dict = {
   "main.noTextSelected": "텍스트 레이어가 선택되지 않았습니다",
   "main.selectFrame": "프레임을 선택해 주세요",
   "main.selectDummyTarget":
-    "프레임 / 컴포넌트 / 그룹 / 섹션 중 하나를 선택해 주세요",
+    "프레임 / 컴포넌트 / 인스턴스 / 그룹 / 섹션 중 하나를 선택해 주세요",
   "main.dummyOrMaskRequired":
     "Dummy Text 또는 Mask Image 중 하나를 켜 주세요",
   "main.skipHintProtected":
