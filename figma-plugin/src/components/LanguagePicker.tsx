@@ -55,7 +55,8 @@ export function LanguagePicker({
    * ラベルが長くツールチップ右側がビューポートからはみ出しがちな言語。
    * 中央揃えではなく「ツールチップ右端 = トリガー右端」に揃える。
    */
-  const isWideTooltipLang = lang === "en" || lang === "fr";
+  const isWideTooltipLang =
+    lang === "en" || lang === "fr" || lang === "pt" || lang === "de";
 
   // メニュー外クリックで閉じる（メニュー自身は document に直挿しなので
   // トリガー要素 / メニュー要素のいずれにも含まれない場合のみ閉じる）
@@ -168,7 +169,7 @@ export function LanguagePicker({
       )} */}
       {tooltipPos &&
         (isWideTooltipLang ? (
-          // en / fr など長いラベル向け：ツールチップ右端をトリガー右端に揃え、
+          // en / fr / pt / de など長いラベル向け：ツールチップ右端をトリガー右端に揃え、
           // ビューポート右側で文字が見切れないようにする。矢印だけは
           // トリガー中心に来るよう、ツールチップ右端から triggerHalfWidth 戻した位置に配置。
           <div

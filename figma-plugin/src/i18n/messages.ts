@@ -5,7 +5,7 @@
  * テンプレ変数は `{name}` 形式で記述し、`translate()` の引数 `params` で差し込む。
  */
 
-export const SUPPORTED_LANGS = ["ja", "en", "fr", "ko"] as const;
+export const SUPPORTED_LANGS = ["ja", "en", "fr", "ko", "pt", "de"] as const;
 export type Lang = (typeof SUPPORTED_LANGS)[number];
 
 export const DEFAULT_LANG: Lang = "ja";
@@ -16,6 +16,8 @@ export const LANG_LABELS: Record<Lang, string> = {
   en: "English",
   fr: "Français",
   ko: "한국어",
+  pt: "Português (Brasil)",
+  de: "Deutsch",
 };
 
 /**
@@ -518,7 +520,266 @@ const ko: Dict = {
   "main.error": "오류: {msg}",
 };
 
-export const MESSAGES: Record<Lang, Dict> = { ja, en, fr, ko };
+const pt: Dict = {
+  "common.apply": "Aplicar",
+  "common.remove": "Remover",
+  "common.all": "Tudo",
+  "common.search": "Buscar",
+  "common.top": "Top",
+  "common.dummy": "Dummy",
+  "common.images": "imagens",
+  "common.unknownError": "Erro desconhecido",
+
+  "ui.imageAddedToFigma": "Imagem adicionada ao Figma",
+  "ui.savedImagesLoaded": "{n} imagem(ns) salva(s) carregada(s)",
+  "ui.pleaseEnterData": "Insira os dados",
+  "ui.decryptingData": "Descriptografando dados…",
+  "ui.dataDecryptionFailed":
+    "Falha ao descriptografar os dados. Verifique se o arquivo está no formato correto.",
+  "ui.decryptionError": "Erro de descriptografia: {msg}",
+  "ui.invalidImageArray": "Forneça uma matriz de imagens válida",
+  "ui.imagesAdded": "{added} imagem(ns) adicionada(s) (total: {total})",
+  "ui.imagesAlreadyAdded":
+    "Todas as imagens já foram adicionadas (total: {total})",
+  "ui.dataLoadError": "Erro ao carregar dados: {msg}",
+  "ui.applyingToFrame": "Aplicando ao frame…",
+  "ui.applyFailed": "Falha ao aplicar",
+  "ui.error": "Erro: {msg}",
+  "ui.selectImagesForFrame":
+    "Selecione as imagens para colocar no frame",
+  "ui.noImagesToPlace": "Nenhuma imagem para colocar",
+  "ui.processingImage": "Processando imagem…",
+  "ui.processingImageProgress": "Processando imagem… ({i}/{total})",
+  "ui.imagesPlacedInFrame": "{count} imagem(ns) colocada(s) no frame",
+  "ui.noImagesToApply": "Nenhuma imagem pôde ser colocada",
+  "ui.convertingBase64": "Convertendo dados base64…",
+  "ui.downloadingImage": "Baixando imagem…",
+  "ui.convertingWebpToPng": "Convertendo WebP em PNG…",
+  "ui.onlyImageFetcherFiles":
+    "Somente arquivos .imagefetcher são aceitos",
+  "ui.readingFile": "Lendo arquivo…",
+  "ui.fileEmpty": "O arquivo está vazio",
+  "ui.fileReadFailed": "Falha ao ler o arquivo: {msg}",
+  "ui.serviceImagesDeleted":
+    "{count} imagem(ns) excluída(s) de {service}",
+  "ui.noImagesToDelete": "Nenhuma imagem encontrada para excluir",
+  "ui.imagesDeselected": "{count} imagem(ns) desmarcada(s)",
+  "ui.imagesSelected": "{count} imagem(ns) selecionada(s)",
+
+  "ui.loadingData": "Carregando dados…",
+  "ui.dropAreaLine1": "Arraste e solte ou clique para",
+  "ui.dropAreaLine2": " enviar um arquivo ",
+  "ui.dropAreaSuffix": "",
+  "ui.selectAllImages": "Selecionar todas as imagens",
+  "ui.searchPlaceholder": "Buscar",
+  "ui.imagesCountLabel": "{count} imagens",
+  "ui.noSearchMatch": "Nenhuma imagem corresponde à sua busca",
+  "ui.noImagesToShow": "Nenhuma imagem para exibir",
+  "ui.matchAspectRatio": "Manter proporção",
+  "ui.applying": "Aplicando…",
+  "ui.progressItems": "{current} de {total}",
+  "ui.progressDone": " processada(s)",
+  "ui.progressContinuing": " (continuando…)",
+  "ui.applyImageLoadingTitle": "Carregando aplicação de imagem",
+  "ui.dummyTextLabel": "Texto dummy",
+  "ui.dummyTextDesc":
+    "Substitui o texto dos elementos selecionados pelo caractere especificado, mantendo a contagem original de caracteres.",
+  "ui.dummyTextPlaceholder": "Texto",
+  "ui.maskImageLabel": "Imagem de máscara",
+  "ui.maskImageDesc":
+    "Aplica uma máscara às imagens dos elementos selecionados.",
+  "ui.settings": "Configurações",
+  "ui.noImageSizes": "Nenhum tamanho de imagem disponível",
+  "ui.sizeTooltip": "Tamanho",
+  "ui.selectImagesAndElements":
+    "Selecione imagens e um elemento",
+  "ui.selectElement": "Selecione um elemento",
+  "ui.selectFrame": "Selecione um frame",
+  "ui.selectDummyTarget":
+    "Selecione um frame, componente, instância, grupo ou seção",
+  "ui.selectImage": "Selecione uma imagem",
+  "ui.applyToSelectedNode": "Aplicar imagem ao nó selecionado",
+  "ui.createNewRectangle": "Criar um novo retângulo",
+  "ui.appliedTextItems": "{count} texto(s)",
+  "ui.appliedMaskItems": "{count} área(s) de máscara",
+  "ui.skippedProtected":
+    " ({count} item(ns) com dígitos ou símbolos foram ignorados)",
+  "ui.appliedSummary": "Aplicado: {parts}{skipHint}",
+  "ui.languageMenu": "Idioma",
+
+  "main.imagesSaved": "{count} imagem(ns) salva(s)",
+  "main.saveError": "Erro ao salvar: {msg}",
+  "main.loadError": "Erro ao carregar: {msg}",
+  "main.selectNode": "Selecione um nó",
+  "main.dummyTextReplaced":
+    "{count} texto(s) substituído(s) por dummy",
+  "main.dummyTextSkipped":
+    "Textos com dígitos ou símbolos não foram substituídos (selecione textos que não os contenham).",
+  "main.noTextSelected": "Nenhuma camada de texto selecionada",
+  "main.selectFrame": "Selecione um frame",
+  "main.selectDummyTarget":
+    "Selecione um frame, componente, instância, grupo ou seção",
+  "main.dummyOrMaskRequired":
+    "Ative Dummy Text ou Mask Image",
+  "main.skipHintProtected":
+    " ({count} texto(s) com dígitos ou símbolos foram ignorados)",
+  "main.partsTextDummyReplaced":
+    "{count} texto(s) substituído(s) por dummy",
+  "main.partsMaskColorApplied":
+    "cor de máscara aplicada em {count} área(s)",
+  "main.partsImageApplied": "imagens aplicadas em {count} área(s)",
+  "main.partsApplied": "{parts}{skipHint}",
+  "main.partsAppliedWithFailure":
+    "{parts}. Não foi possível aplicar as imagens ({error})",
+  "main.noImageData": "Nenhum dado de imagem",
+  "main.selectFrameOrShape":
+    "Selecione um frame, componente ou forma para aplicar as imagens",
+  "main.appliedToExistingNodes":
+    "Imagens aplicadas a {count} nó(s) existente(s)",
+  "main.noTargetElement":
+    "Nenhum elemento encontrado para aplicar imagens. Prepare um placeholder de imagem (elemento cujo nome contenha 'img', '画像' etc.) ou selecione diretamente um Rectangle, componente ou forma.",
+  "main.imagesAppliedToElements":
+    "{count} imagem(ns) aplicada(s) aos elementos existentes",
+  "main.cannotApplyToElements":
+    "Nenhum elemento encontrado para aplicar imagens",
+  "main.placedImage": "Imagem posicionada",
+  "main.appliedToNodes": "Imagens aplicadas a {count} nó(s)",
+  "main.cannotApplyToNodes":
+    "Nenhum nó disponível para aplicar imagens",
+  "main.error": "Erro: {msg}",
+};
+
+const de: Dict = {
+  "common.apply": "Anwenden",
+  "common.remove": "Entfernen",
+  "common.all": "Alle",
+  "common.search": "Suchen",
+  "common.top": "Top",
+  "common.dummy": "Dummy",
+  "common.images": "Bilder",
+  "common.unknownError": "Unbekannter Fehler",
+
+  "ui.imageAddedToFigma": "Bild zu Figma hinzugefügt",
+  "ui.savedImagesLoaded": "{n} gespeicherte(s) Bild(er) geladen",
+  "ui.pleaseEnterData": "Bitte Daten eingeben",
+  "ui.decryptingData": "Daten werden entschlüsselt…",
+  "ui.dataDecryptionFailed":
+    "Entschlüsselung der Daten fehlgeschlagen. Bitte prüfe, ob die Datei das richtige Format hat.",
+  "ui.decryptionError": "Entschlüsselungsfehler: {msg}",
+  "ui.invalidImageArray": "Bitte ein gültiges Bild-Array angeben",
+  "ui.imagesAdded": "{added} Bild(er) hinzugefügt (insgesamt: {total})",
+  "ui.imagesAlreadyAdded":
+    "Alle Bilder sind bereits hinzugefügt (insgesamt: {total})",
+  "ui.dataLoadError": "Fehler beim Laden der Daten: {msg}",
+  "ui.applyingToFrame": "Wird auf Frame angewendet…",
+  "ui.applyFailed": "Anwenden fehlgeschlagen",
+  "ui.error": "Fehler: {msg}",
+  "ui.selectImagesForFrame":
+    "Bitte Bilder auswählen, die in den Frame eingefügt werden sollen",
+  "ui.noImagesToPlace": "Keine Bilder zum Platzieren",
+  "ui.processingImage": "Bild wird verarbeitet…",
+  "ui.processingImageProgress": "Bild wird verarbeitet… ({i}/{total})",
+  "ui.imagesPlacedInFrame": "{count} Bild(er) im Frame platziert",
+  "ui.noImagesToApply": "Es konnten keine Bilder platziert werden",
+  "ui.convertingBase64": "base64-Daten werden konvertiert…",
+  "ui.downloadingImage": "Bild wird heruntergeladen…",
+  "ui.convertingWebpToPng": "WebP wird in PNG konvertiert…",
+  "ui.onlyImageFetcherFiles":
+    "Es werden nur .imagefetcher-Dateien unterstützt",
+  "ui.readingFile": "Datei wird gelesen…",
+  "ui.fileEmpty": "Die Datei ist leer",
+  "ui.fileReadFailed": "Datei konnte nicht gelesen werden: {msg}",
+  "ui.serviceImagesDeleted":
+    "{count} Bild(er) aus {service} gelöscht",
+  "ui.noImagesToDelete": "Keine Bilder zum Löschen gefunden",
+  "ui.imagesDeselected": "Auswahl von {count} Bild(ern) aufgehoben",
+  "ui.imagesSelected": "{count} Bild(er) ausgewählt",
+
+  "ui.loadingData": "Daten werden geladen…",
+  "ui.dropAreaLine1": "Per Drag & Drop oder Klick",
+  "ui.dropAreaLine2": " eine Datei ",
+  "ui.dropAreaSuffix": " hochladen",
+  "ui.selectAllImages": "Alle Bilder auswählen",
+  "ui.searchPlaceholder": "Suchen",
+  "ui.imagesCountLabel": "{count} Bilder",
+  "ui.noSearchMatch": "Keine Bilder entsprechen deiner Suche",
+  "ui.noImagesToShow": "Keine Bilder zum Anzeigen",
+  "ui.matchAspectRatio": "Seitenverhältnis beibehalten",
+  "ui.applying": "Wird angewendet…",
+  "ui.progressItems": "{current} von {total}",
+  "ui.progressDone": " verarbeitet",
+  "ui.progressContinuing": " (wird fortgesetzt…)",
+  "ui.applyImageLoadingTitle": "Bildanwendung lädt",
+  "ui.dummyTextLabel": "Dummy-Text",
+  "ui.dummyTextDesc":
+    "Ersetzt den Text der ausgewählten Elemente durch das angegebene Zeichen und behält dabei die ursprüngliche Zeichenanzahl bei.",
+  "ui.dummyTextPlaceholder": "Text",
+  "ui.maskImageLabel": "Maskenbild",
+  "ui.maskImageDesc":
+    "Wendet eine Maske auf die Bilder der ausgewählten Elemente an.",
+  "ui.settings": "Einstellungen",
+  "ui.noImageSizes": "Keine Bildgrößen verfügbar",
+  "ui.sizeTooltip": "Größe",
+  "ui.selectImagesAndElements":
+    "Bitte Bilder und ein Element auswählen",
+  "ui.selectElement": "Bitte ein Element auswählen",
+  "ui.selectFrame": "Bitte einen Frame auswählen",
+  "ui.selectDummyTarget":
+    "Bitte einen Frame, eine Komponente, Instanz, Gruppe oder Sektion auswählen",
+  "ui.selectImage": "Bitte ein Bild auswählen",
+  "ui.applyToSelectedNode":
+    "Bild auf ausgewählten Knoten anwenden",
+  "ui.createNewRectangle": "Neues Rechteck erstellen",
+  "ui.appliedTextItems": "{count} Text(e)",
+  "ui.appliedMaskItems": "{count} Maskenbereich(e)",
+  "ui.skippedProtected":
+    " ({count} Element(e) mit Ziffern oder Symbolen wurden übersprungen)",
+  "ui.appliedSummary": "{parts} angewendet{skipHint}",
+  "ui.languageMenu": "Sprache",
+
+  "main.imagesSaved": "{count} Bild(er) gespeichert",
+  "main.saveError": "Speicherfehler: {msg}",
+  "main.loadError": "Ladefehler: {msg}",
+  "main.selectNode": "Bitte einen Knoten auswählen",
+  "main.dummyTextReplaced":
+    "{count} Text(e) durch Dummy-Text ersetzt",
+  "main.dummyTextSkipped":
+    "Texte mit Ziffern oder Symbolen wurden nicht ersetzt (bitte Texte ohne diese auswählen).",
+  "main.noTextSelected": "Keine Textebene ausgewählt",
+  "main.selectFrame": "Bitte einen Frame auswählen",
+  "main.selectDummyTarget":
+    "Bitte einen Frame, eine Komponente, Instanz, Gruppe oder Sektion auswählen",
+  "main.dummyOrMaskRequired":
+    "Bitte Dummy Text oder Mask Image aktivieren",
+  "main.skipHintProtected":
+    " ({count} Text(e) mit Ziffern oder Symbolen übersprungen)",
+  "main.partsTextDummyReplaced":
+    "{count} Text(e) durch Dummy ersetzt",
+  "main.partsMaskColorApplied":
+    "Maskenfarbe auf {count} Bereich(e) angewendet",
+  "main.partsImageApplied": "Bilder auf {count} Bereich(e) angewendet",
+  "main.partsApplied": "{parts}{skipHint}",
+  "main.partsAppliedWithFailure":
+    "{parts}. Bilder konnten nicht angewendet werden ({error})",
+  "main.noImageData": "Keine Bilddaten",
+  "main.selectFrameOrShape":
+    "Bitte einen Frame, eine Komponente oder Form auswählen, um Bilder anzuwenden",
+  "main.appliedToExistingNodes":
+    "Bilder auf {count} bestehende(n) Knoten angewendet",
+  "main.noTargetElement":
+    "Es wurde kein Element gefunden, auf das Bilder angewendet werden können. Bereite einen Bild-Platzhalter vor (Element mit 'img', '画像' o. ä. im Namen) oder wähle direkt ein Rectangle / eine Komponente / Form aus.",
+  "main.imagesAppliedToElements":
+    "{count} Bild(er) auf bestehende Elemente angewendet",
+  "main.cannotApplyToElements":
+    "Kein Element gefunden, auf das Bilder angewendet werden können",
+  "main.placedImage": "Bild platziert",
+  "main.appliedToNodes": "Bilder auf {count} Knoten angewendet",
+  "main.cannotApplyToNodes":
+    "Keine Knoten zum Anwenden der Bilder vorhanden",
+  "main.error": "Fehler: {msg}",
+};
+
+export const MESSAGES: Record<Lang, Dict> = { ja, en, fr, ko, pt, de };
 
 /**
  * UI / main の双方から使える翻訳関数。
@@ -551,5 +812,9 @@ export function dateLocale(lang: Lang): string {
       return "fr-FR";
     case "ko":
       return "ko-KR";
+    case "pt":
+      return "pt-BR";
+    case "de":
+      return "de-DE";
   }
 }
