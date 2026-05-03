@@ -21,6 +21,19 @@ export const LANG_LABELS: Record<Lang, string> = {
 };
 
 /**
+ * Dummy タブ表示時のプラグイン UI 高さ（px）。
+ * 言語によりラベル折り返し量が変わるため、`lang` ごとに調整できる。
+ */
+export const DUMMY_TAB_UI_HEIGHT_BY_LANG: Record<Lang, number> = {
+  ja: 400,
+  en: 400,
+  fr: 400,
+  ko: 400,
+  pt: 415,
+  de: 433,
+};
+
+/**
  * 各キーの翻訳テーブル。
  * `Translations` 型から、利用可能なキーを TypeScript で補完できる。
  */

@@ -29,7 +29,7 @@ import { Dummy } from "./components/dummy";
 import { Footer } from "./components/footer";
 import { ApplyImageLoadingModal } from "./components/ApplyImageLoadingModal";
 import { LanguagePicker } from "./components/LanguagePicker";
-import { useI18n } from "./i18n";
+import { DUMMY_TAB_UI_HEIGHT_BY_LANG, useI18n } from "./i18n";
 // import "./styles.css";
 
 // ImageData は types.ts からインポート
@@ -1436,9 +1436,14 @@ function Plugin() {
     emit("RESIZE_UI", {
       width: tabValue === "Dummy" ? 400 : hasWideLayout ? 500 : 400,
       // width: tabValue === "Dummy" ? 350 : hasWideLayout ? 500 : 500,
-      height: tabValue === "Dummy" ? 400 : hasWideLayout ? 820 : 200,
+      height:
+        tabValue === "Dummy"
+          ? DUMMY_TAB_UI_HEIGHT_BY_LANG[lang]
+          : hasWideLayout
+            ? 820
+            : 200,
     });
-  }, [imagesToDisplay.length, tabValue]);
+  }, [imagesToDisplay.length, tabValue, lang]);
 
   useEffect(() => {
     emit("selectionchange", { dummyApplyDummyText });

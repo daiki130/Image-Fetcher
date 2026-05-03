@@ -145,9 +145,8 @@ export function Dummy({
         display: "flex",
         flexDirection: "column",
         width: "100%",
-        padding: "var(--space-small) var(--space-extra-small)",
-        background: "var(--figma-color-bg-secondary)",
-        height: "295px",
+        padding: "var(--space-small) var(--space-extra-small) 107px",
+        background: "var(--figma-color-bg-secondary)"
       }}
     >
       <div

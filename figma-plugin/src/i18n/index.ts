@@ -24,6 +24,7 @@ import {
 
 export {
   DEFAULT_LANG,
+  DUMMY_TAB_UI_HEIGHT_BY_LANG,
   LANG_LABELS,
   SUPPORTED_LANGS,
   dateLocale,
