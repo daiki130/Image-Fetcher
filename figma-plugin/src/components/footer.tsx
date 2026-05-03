@@ -230,12 +230,11 @@ export function Footer({
                         alignItems: "center",
                         gap: "4px",
                         flex: "0 0 auto",
-                        height: "24px",
+                        height: "30px",
                         padding: "0 8px 0 4px",
                         borderRadius: "4px",
                         background: "var(--figma-color-bg-secondary)",
-                        border:
-                          "1px solid var(--figma-color-border)",
+                        border: "1px solid var(--figma-color-border)",
                         fontSize: "11px",
                         color: "var(--figma-color-text)",
                         maxWidth: "180px",
@@ -280,9 +279,10 @@ export function Footer({
                   justifyContent: "center",
                   gap: "4px",
                   overflow: "auto",
-                  whiteSpace: "nowrap",
-                  height: "24px",
+                  // whiteSpace: "nowrap",
+                  height: "30px",
                   marginTop: "8px",
+                  textAlign: "center",
                 }}
               >
                 {t("ui.selectDummyTarget")}
@@ -320,9 +320,11 @@ export function Footer({
               }
             >
               {canvasSelection.length === 0 ? (
-                hasSelectedImages
-                  ? t("ui.selectElement")
-                  : t("ui.selectImagesAndElements")
+                hasSelectedImages ? (
+                  t("ui.selectElement")
+                ) : (
+                  t("ui.selectImagesAndElements")
+                )
               ) : (
                 <Fragment>
                   {!hasSelectedImages && (
