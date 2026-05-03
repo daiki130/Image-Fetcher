@@ -17,10 +17,17 @@ import {
   // IconVector24,
   IconSticky16,
   IconWidget16,
+  IconGroup16,
+  IconInstance16,
 } from "@create-figma-plugin/ui";
-import { CanvasSelectionNodeSummary, ImageData } from "../types";
+import {
+  CanvasSelectionNodeSummary,
+  DUMMY_TARGET_NODE_TYPES,
+  ImageData,
+} from "../types";
 import { Toogle } from "./toggle";
 import { Button } from "./parts/Button";
+import { useI18n } from "../i18n";
 
 function NodeTypeIcon({ type }: { type: string }): JSX.Element {
   switch (type) {
@@ -29,13 +36,13 @@ function NodeTypeIcon({ type }: { type: string }): JSX.Element {
     case "SECTION":
       return <IconSection16 />;
     case "GROUP":
-      return <IconFrame16 />;
+      return <IconGroup16 />;
     case "COMPONENT":
       return <IconComponent16 />;
     case "COMPONENT_SET":
       return <IconComponentSet16 />;
     case "INSTANCE":
-      return <IconComponent16 />;
+      return <IconInstance16 />;
     case "TEXT":
       return <IconText16 />;
     case "RECTANGLE":
@@ -49,11 +56,11 @@ function NodeTypeIcon({ type }: { type: string }): JSX.Element {
     case "STAR":
       return <IconStar16 />;
     case "VECTOR":
-      // return <IconVectorBend16 />;
+    // return <IconVectorBend16 />;
     case "BOOLEAN_OPERATION":
       return <IconBoolean16 />;
     case "SLICE":
-      // return <IconSlice16 />;
+    // return <IconSlice16 />;
     case "STICKY":
       return <IconSticky16 />;
     case "WIDGET":
@@ -95,6 +102,7 @@ export function Footer({
   canvasSelection,
   hasSelectedImages,
 }: FooterProps) {
+  const { t } = useI18n();
   return (
     <div
       style={{
@@ -145,7 +153,7 @@ export function Footer({
               }}
             >
               <div>
-                <Text>Match aspect ratio</Text>
+                <Text>{t("ui.matchAspectRatio")}</Text>
               </div>
               <Toogle
                 value={matchAspectRatioForFrame}
@@ -170,7 +178,7 @@ export function Footer({
                 : "var(--figma-color-bg-brand)",
             }}
           >
-            Apply
+            {t("common.apply")}
           </Button>
 
           {/* <Button
@@ -191,9 +199,100 @@ export function Footer({
           </Button> */}
         </div>
         {(() => {
+          if (tabValue === "Dummy") {
+            const dummyTargets = canvasSelection.filter((n) =>
+              DUMMY_TARGET_NODE_TYPES.has(n.type),
+            );
+            const hasDummyTargets = dummyTargets.length > 0;
+
+            if (hasDummyTargets) {
+              return (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: "4px",
+                    marginTop: "8px",
+                    overflowX: "auto",
+                    overflowY: "hidden",
+                    whiteSpace: "nowrap",
+                  }}
+                  title={dummyTargets
+                    .map((n) => `${n.type}: ${n.name}`)
+                    .join("\n")}
+                >
+                  {dummyTargets.map((node) => (
+                    <div
+                      key={node.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                        flex: "0 0 auto",
+                        height: "30px",
+                        padding: "0 8px 0 4px",
+                        borderRadius: "4px",
+                        background: "var(--figma-color-bg-secondary)",
+                        border: "1px solid var(--figma-color-border)",
+                        fontSize: "11px",
+                        color: "var(--figma-color-text)",
+                        maxWidth: "180px",
+                        boxSizing: "border-box",
+                      }}
+                    >
+                      <span
+                        style={{
+                          flex: "0 0 auto",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <NodeTypeIcon type={node.type} />
+                      </span>
+                      <span
+                        style={{
+                          flex: "1 1 auto",
+                          minWidth: 0,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {node.name}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              );
+            }
+
+            // 何も選択されていない or 対応していないノードのみ
+            return (
+              <div
+                style={{
+                  fontSize: "11px",
+                  color: "var(--figma-color-text-secondary)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "4px",
+                  overflow: "auto",
+                  // whiteSpace: "nowrap",
+                  height: "30px",
+                  marginTop: "8px",
+                  textAlign: "center",
+                }}
+              >
+                {t("ui.selectDummyTarget")}
+              </div>
+            );
+          }
+
+          // Top タブ
           const isMessageHidden =
-            canvasSelection.length > 0 &&
-            (tabValue === "Dummy" || hasSelectedImages);
+            canvasSelection.length > 0 && hasSelectedImages;
           return (
             <div
               style={{
@@ -220,21 +319,21 @@ export function Footer({
                       .join("\n")
               }
             >
-            {canvasSelection.length === 0 ? (
-              tabValue === "Top"
-                ? hasSelectedImages
-                  ? "要素を選択してください"
-                  : "画像・要素を選択してください"
-                : "フレームを選択してください"
-            ) : (
-              <Fragment>
-                {tabValue === "Top" && !hasSelectedImages && (
-                  <span style={{ flex: "0 0 auto" }}>
-                    画像を選択してください
-                  </span>
-                )}
-              </Fragment>
-            )}
+              {canvasSelection.length === 0 ? (
+                hasSelectedImages ? (
+                  t("ui.selectElement")
+                ) : (
+                  t("ui.selectImagesAndElements")
+                )
+              ) : (
+                <Fragment>
+                  {!hasSelectedImages && (
+                    <span style={{ flex: "0 0 auto" }}>
+                      {t("ui.selectImage")}
+                    </span>
+                  )}
+                </Fragment>
+              )}
             </div>
           );
         })()}

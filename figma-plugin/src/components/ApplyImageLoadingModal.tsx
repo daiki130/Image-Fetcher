@@ -1,4 +1,5 @@
 import { h, Fragment } from "preact";
+import { useI18n } from "../i18n";
 
 const NAMES = [
   "Hero",
@@ -251,6 +252,7 @@ export function ApplyImageLoadingModal({
   visible,
   progress,
 }: ApplyImageLoadingModalProps) {
+  const { t } = useI18n();
   if (!visible) {
     return null;
   }
@@ -351,7 +353,7 @@ export function ApplyImageLoadingModal({
               border: 0,
             }}
           >
-            画像適用ローディング
+            {t("ui.applyImageLoadingTitle")}
           </h2>
           <div
             style={{
@@ -379,7 +381,7 @@ export function ApplyImageLoadingModal({
                 color: "var(--figma-color-text)",
               }}
             >
-              Applying...
+              {t("ui.applying")}
             </div>
             <div
               style={{
@@ -407,7 +409,12 @@ export function ApplyImageLoadingModal({
             <div
               role="status"
               aria-live="polite"
-              aria-label={`${progress.total}件中${progress.current}件が処理完了`}
+              aria-label={
+                t("ui.progressItems", {
+                  total: progress.total,
+                  current: progress.current,
+                }) + t("ui.progressDone")
+              }
               style={{
                 marginBottom: "12px",
                 padding: "8px 10px",
@@ -421,12 +428,16 @@ export function ApplyImageLoadingModal({
               }}
             >
               <span style={{ fontWeight: 600 }}>
-                {progress.total} 件中 {progress.current} 件
+                {t("ui.progressItems", {
+                  total: progress.total,
+                  current: progress.current,
+                })}
               </span>
               <span style={{ color: "var(--figma-color-text-secondary)" }}>
-                {" "}
-                が処理完了
-                {progress.current < progress.total ? "（続けて処理中…）" : ""}
+                {t("ui.progressDone")}
+                {progress.current < progress.total
+                  ? t("ui.progressContinuing")
+                  : ""}
               </span>
             </div>
           )}

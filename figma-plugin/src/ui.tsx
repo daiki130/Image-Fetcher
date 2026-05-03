@@ -15,6 +15,7 @@ import { useState, useEffect, useRef, useMemo } from "preact/hooks";
 import CryptoJS from "crypto-js";
 import {
   CanvasSelectionNodeSummary,
+  DUMMY_TARGET_NODE_TYPES,
   ImageData,
   ImagesLoadedHandler,
 } from "./types";
@@ -27,6 +28,8 @@ import { Loading } from "./components/loading";
 import { Dummy } from "./components/dummy";
 import { Footer } from "./components/footer";
 import { ApplyImageLoadingModal } from "./components/ApplyImageLoadingModal";
+import { LanguagePicker } from "./components/LanguagePicker";
+import { useI18n } from "./i18n";
 // import "./styles.css";
 
 // ImageData は types.ts からインポート
@@ -275,6 +278,7 @@ declare global {
 }
 
 function Plugin() {
+  const { lang, setLang, t } = useI18n();
   const [jsonInput, setJsonInput] = useState("");
   const [images, setImages] = useState<ImageData[]>([]);
   const [displayImages, setDisplayImages] = useState<ImageData[]>([]); // Topタブで表示する画像（「データを読み込む」で追加したもののみ）
@@ -411,7 +415,7 @@ function Plugin() {
           );
           emit("DROP_IMAGE", window.draggedImageData);
           window.draggedImageData = undefined;
-          showStatus("画像をFigmaに追加しました", "success");
+          showStatus(t("ui.imageAddedToFigma"), "success");
         } else {
           console.log("No dragged image data found");
         }
@@ -437,7 +441,7 @@ function Plugin() {
       if (loadedImages && loadedImages.length > 0) {
         setImages(loadedImages);
         showStatus(
-          `${loadedImages.length}個の保存された画像を読み込みました`,
+          t("ui.savedImagesLoaded", { n: loadedImages.length }),
           "success",
         );
       }
@@ -511,7 +515,7 @@ function Plugin() {
   const handleLoadData = async (data?: string) => {
     const dataToProcess = data || jsonInput;
     if (!dataToProcess.trim()) {
-      showStatus("データを入力してください", "error");
+      showStatus(t("ui.pleaseEnterData"), "error");
       return;
     }
 
@@ -526,7 +530,7 @@ function Plugin() {
       // 暗号化されている場合は復号化
       if (isEncrypted(dataToParse)) {
         await updateProgress(10);
-        showStatus("データを復号化中...", "info");
+        showStatus(t("ui.decryptingData"), "info");
         console.log("Attempting to decrypt data, length:", dataToParse.length);
 
         try {
@@ -589,7 +593,10 @@ function Plugin() {
                 setTimeout(() => {
                   setIsLoading(false);
                   showStatus(
-                    `${parsed.length}個の画像を追加しました（合計: ${merged.length}個）`,
+                    t("ui.imagesAdded", {
+                      added: parsed.length,
+                      total: merged.length,
+                    }),
                     "success",
                   );
                 }, 300);
@@ -602,10 +609,7 @@ function Plugin() {
               );
             }
             setIsLoading(false);
-            showStatus(
-              "データの復号化に失敗しました。ファイルが正しい形式か確認してください",
-              "error",
-            );
+            showStatus(t("ui.dataDecryptionFailed"), "error");
             return;
           }
 
@@ -618,11 +622,12 @@ function Plugin() {
           console.error("Decryption error:", decryptError);
           setIsLoading(false);
           showStatus(
-            `復号化エラー: ${
-              decryptError instanceof Error
-                ? decryptError.message
-                : "不明なエラー"
-            }`,
+            t("ui.decryptionError", {
+              msg:
+                decryptError instanceof Error
+                  ? decryptError.message
+                  : t("common.unknownError"),
+            }),
             "error",
           );
           return;
@@ -634,7 +639,7 @@ function Plugin() {
 
       if (!Array.isArray(parsed) || parsed.length === 0) {
         setIsLoading(false);
-        showStatus("有効な画像配列を入力してください", "error");
+        showStatus(t("ui.invalidImageArray"), "error");
         return;
       }
 
@@ -691,12 +696,15 @@ function Plugin() {
         setIsLoading(false);
         if (addedCount > 0) {
           showStatus(
-            `${addedCount}個の画像を追加しました（合計: ${merged.length}個）`,
+            t("ui.imagesAdded", {
+              added: addedCount,
+              total: merged.length,
+            }),
             "success",
           );
         } else {
           showStatus(
-            `すべての画像は既に追加されています（合計: ${merged.length}個）`,
+            t("ui.imagesAlreadyAdded", { total: merged.length }),
             "info",
           );
         }
@@ -704,8 +712,8 @@ function Plugin() {
     } catch (error) {
       setIsLoading(false);
       const errorMessage =
-        error instanceof Error ? error.message : "不明なエラー";
-      showStatus(`データ読み込みエラー: ${errorMessage}`, "error");
+        error instanceof Error ? error.message : t("common.unknownError");
+      showStatus(t("ui.dataLoadError", { msg: errorMessage }), "error");
     }
   };
 
@@ -832,7 +840,7 @@ function Plugin() {
     // Dummy タブは画像配置を行わず、applyDummyText / applyMaskImage のフラグに応じて
     // テキスト置換・マスク色適用のみを実行する
     if (tabValue === "Dummy") {
-      showStatus("フレームに適用中...", "info");
+      showStatus(t("ui.applyingToFrame"), "info");
       // モーダルのスキャンライン等のアニメーションが1サイクル以上回るように
       // 最低表示時間を確保する（セル毎の animation-delay が最大 2.6s なので
       // それ以上に設定しないと「止まって見える」セルが出る）
@@ -877,26 +885,36 @@ function Plugin() {
         if (result.ok) {
           const parts: string[] = [];
           if (dummyApplyDummyText) {
-            parts.push(`テキスト${result.appliedText}件`);
+            parts.push(
+              t("ui.appliedTextItems", { count: result.appliedText }),
+            );
           }
           if (dummyApplyMaskImage) {
-            parts.push(`マスク色${result.appliedMask}箇所`);
+            parts.push(
+              t("ui.appliedMaskItems", { count: result.appliedMask }),
+            );
           }
           const skipHint =
             dummyApplyDummyText && result.skippedProtected > 0
-              ? `（数字・記号を含む${result.skippedProtected}件はスキップ）`
+              ? t("ui.skippedProtected", { count: result.skippedProtected })
               : "";
           showStatus(
-            `${parts.join("と")}を適用しました${skipHint}`,
+            t("ui.appliedSummary", {
+              parts: parts.join(" / "),
+              skipHint,
+            }),
             "success",
           );
         } else {
-          showStatus(result.errorMessage ?? "適用に失敗しました", "error");
+          showStatus(
+            result.errorMessage ?? t("ui.applyFailed"),
+            "error",
+          );
         }
       } catch (error) {
         const errorMessage =
-          error instanceof Error ? error.message : "不明なエラー";
-        showStatus(`エラー: ${errorMessage}`, "error");
+          error instanceof Error ? error.message : t("common.unknownError");
+        showStatus(t("ui.error", { msg: errorMessage }), "error");
       } finally {
         setApplyButtonLoading(false);
       }
@@ -905,7 +923,7 @@ function Plugin() {
 
     /** Top タブ用 */
     if (selectedImageIndices.size === 0) {
-      showStatus("フレームに入れる画像を選択してください", "error");
+      showStatus(t("ui.selectImagesForFrame"), "error");
       setApplyButtonLoading(false);
       return;
     }
@@ -924,12 +942,12 @@ function Plugin() {
       .filter((img): img is ImageData => img != null);
 
     if (sourceImages.length === 0) {
-      showStatus("配置する画像がありません", "error");
+      showStatus(t("ui.noImagesToPlace"), "error");
       setApplyButtonLoading(false);
       return;
     }
 
-    showStatus("画像を処理中...", "info");
+    showStatus(t("ui.processingImage"), "info");
 
     try {
       const imagesToPlace: Array<{
@@ -943,7 +961,13 @@ function Plugin() {
 
       for (let i = 0; i < sourceImages.length; i++) {
         const img = sourceImages[i];
-        showStatus(`画像を処理中... (${i + 1}/${sourceImages.length})`, "info");
+        showStatus(
+          t("ui.processingImageProgress", {
+            i: i + 1,
+            total: sourceImages.length,
+          }),
+          "info",
+        );
 
         const imageData = await downloadAndConvertImage(img);
         if (imageData) {
@@ -962,16 +986,16 @@ function Plugin() {
           matchAspectRatio: matchAspectRatioForFrame,
         });
         showStatus(
-          `${imagesToPlace.length}個の画像をフレーム内に配置しました`,
+          t("ui.imagesPlacedInFrame", { count: imagesToPlace.length }),
           "success",
         );
       } else {
-        showStatus("配置できる画像がありませんでした", "error");
+        showStatus(t("ui.noImagesToApply"), "error");
       }
     } catch (error) {
       const errorMessage =
-        error instanceof Error ? error.message : "不明なエラー";
-      showStatus(`エラー: ${errorMessage}`, "error");
+        error instanceof Error ? error.message : t("common.unknownError");
+      showStatus(t("ui.error", { msg: errorMessage }), "error");
     } finally {
       setApplyButtonLoading(false);
       setApplyPlaceProgress(null);
@@ -987,7 +1011,7 @@ function Plugin() {
 
       // base64データがある場合はそれを優先的に使用(CORS回避)
       if (image.base64) {
-        showStatus("base64データを変換中...", "info");
+        showStatus(t("ui.convertingBase64"), "info");
         const base64Data = image.base64.split(",")[1];
         const binaryString = atob(base64Data);
         const bytes = new Uint8Array(binaryString.length);
@@ -999,7 +1023,7 @@ function Plugin() {
         blob = new Blob([bytes], { type: mimeType });
       } else {
         // base64がない場合は直接fetch
-        showStatus("画像をダウンロード中...", "info");
+        showStatus(t("ui.downloadingImage"), "info");
         const response = await fetch(image.src);
 
         if (!response.ok) {
@@ -1014,7 +1038,7 @@ function Plugin() {
         image.src.toLowerCase().includes(".webp") ||
         blob.type === "image/webp"
       ) {
-        showStatus("WebPをPNGに変換中...", "info");
+        showStatus(t("ui.convertingWebpToPng"), "info");
         return await convertWebPToPNG(blob);
       }
 
@@ -1024,8 +1048,8 @@ function Plugin() {
     } catch (error) {
       console.error("Download error:", error);
       const errorMessage =
-        error instanceof Error ? error.message : "不明なエラー";
-      showStatus(`エラー: ${errorMessage}`, "error");
+        error instanceof Error ? error.message : t("common.unknownError");
+      showStatus(t("ui.error", { msg: errorMessage }), "error");
       return null;
     }
   };
@@ -1104,11 +1128,14 @@ function Plugin() {
       setDisplayImages(filteredDisplayImages);
       emit("SAVE_IMAGES", filteredImages);
       showStatus(
-        `${serviceName}の${deletedCount}個の画像を削除しました`,
+        t("ui.serviceImagesDeleted", {
+          service: serviceName,
+          count: deletedCount,
+        }),
         "success",
       );
     } else {
-      showStatus("削除する画像が見つかりませんでした", "error");
+      showStatus(t("ui.noImagesToDelete"), "error");
     }
   };
 
@@ -1206,12 +1233,12 @@ function Plugin() {
     // .imagefetcherファイルのみを受け付ける
     const fileName = file.name.toLowerCase();
     if (!fileName.endsWith(".imagefetcher")) {
-      showStatus(".imagefetcherファイルのみ読み込めます", "error");
+      showStatus(t("ui.onlyImageFetcherFiles"), "error");
       return;
     }
 
     try {
-      showStatus("ファイルを読み込み中...", "info");
+      showStatus(t("ui.readingFile"), "info");
       const text = await file.text();
 
       // ファイルの内容を確認（デバッグ用）
@@ -1222,7 +1249,7 @@ function Plugin() {
       const cleanedText = text.replace(/^\uFEFF/, "").trim();
 
       if (!cleanedText || cleanedText.length === 0) {
-        showStatus("ファイルが空です", "error");
+        showStatus(t("ui.fileEmpty"), "error");
         return;
       }
 
@@ -1233,9 +1260,12 @@ function Plugin() {
     } catch (error) {
       console.error("File read error:", error);
       showStatus(
-        `ファイルの読み込みに失敗しました: ${
-          error instanceof Error ? error.message : "不明なエラー"
-        }`,
+        t("ui.fileReadFailed", {
+          msg:
+            error instanceof Error
+              ? error.message
+              : t("common.unknownError"),
+        }),
         "error",
       );
     }
@@ -1404,7 +1434,7 @@ function Plugin() {
   useEffect(() => {
     const hasWideLayout = displayImages.length > 0 || tabValue === "Dummy";
     emit("RESIZE_UI", {
-      width: tabValue === "Dummy" ? 350 : hasWideLayout ? 500 : 350,
+      width: tabValue === "Dummy" ? 400 : hasWideLayout ? 500 : 400,
       // width: tabValue === "Dummy" ? 350 : hasWideLayout ? 500 : 500,
       height: tabValue === "Dummy" ? 400 : hasWideLayout ? 820 : 200,
     });
@@ -1471,7 +1501,7 @@ function Plugin() {
     );
     setNewlyAddedIndex(null);
     showStatus(
-      `${indicesToRemove.size}件の画像の選択を解除しました`,
+      t("ui.imagesDeselected", { count: indicesToRemove.size }),
       "success",
     );
   };
@@ -1504,7 +1534,7 @@ function Plugin() {
       setTimeout(() => setNewlyAddedIndex(null), 500);
     }
 
-    showStatus(`${addedCount}件の画像を選択しました`, "success");
+    showStatus(t("ui.imagesSelected", { count: addedCount }), "success");
   };
 
   const handleSelectAllCheckboxValueChange = (checked: boolean) => {
@@ -1561,7 +1591,10 @@ function Plugin() {
               minWidth: "200px",
             }}
           >
-            <Loading message="Loading data..." progress={loadingProgress} />
+            <Loading
+              message={t("ui.loadingData")}
+              progress={loadingProgress}
+            />
           </div>
         </div>
       )}
@@ -1656,25 +1689,33 @@ function Plugin() {
             ))}
           </div>
 
-          {tabValue === "Top" &&
-            displayImages.length > 0 &&
-            (() => {
-              // ユニークなサービス名とfavicon（検索で絞り込んでも一覧は displayImages ベース）
-              const uniqueServices = new Map<string, string>();
-              displayImages.forEach((img) => {
-                const serviceName = img.service || "Unknown";
-                if (!uniqueServices.has(serviceName) && img.favicon) {
-                  uniqueServices.set(serviceName, img.favicon);
-                }
-              });
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              marginLeft: "auto",
+            }}
+          >
+            {tabValue === "Top" &&
+              displayImages.length > 0 &&
+              (() => {
+                // ユニークなサービス名とfavicon（検索で絞り込んでも一覧は displayImages ベース）
+                const uniqueServices = new Map<string, string>();
+                displayImages.forEach((img) => {
+                  const serviceName = img.service || "Unknown";
+                  if (!uniqueServices.has(serviceName) && img.favicon) {
+                    uniqueServices.set(serviceName, img.favicon);
+                  }
+                });
 
-              return (
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                  }}
-                >
+                return (
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                    }}
+                  >
                   {Array.from(uniqueServices.entries()).map(
                     ([serviceName, favicon]) => (
                       <div
@@ -1724,26 +1765,32 @@ function Plugin() {
                               backgroundColor: "var(--figma-color-bg)",
                             }}
                           >
-                            {
-                              displayImages.filter(
-                                (i) => (i.service || "Unknown") === serviceName,
-                              ).length
-                            }{" "}
-                            images
+                            {t("ui.imagesCountLabel", {
+                              count: displayImages.filter(
+                                (i) =>
+                                  (i.service || "Unknown") === serviceName,
+                              ).length,
+                            })}
                           </span>
                         </div>
                         <Button
                           danger
                           onClick={() => handleDeleteService(serviceName)}
                         >
-                          Remove
+                          {t("common.remove")}
                         </Button>
                       </div>
                     ),
                   )}
                 </div>
-              );
-            })()}
+                );
+              })()}
+            <LanguagePicker
+              lang={lang}
+              onChange={setLang}
+              tooltipLabel={t("ui.languageMenu")}
+            />
+          </div>
         </div>
       </div>
       {tabValue === "Top" && (
@@ -1817,9 +1864,9 @@ function Plugin() {
                   input.click();
                 }}
               >
-                Drag-and-drop or click to
+                {t("ui.dropAreaLine1")}
                 <br />
-                upload a{" "}
+                {t("ui.dropAreaLine2")}
                 <span
                   style={{
                     padding: "4px",
@@ -1828,8 +1875,8 @@ function Plugin() {
                   }}
                 >
                   .imagefetcher
-                </span>{" "}
-                file
+                </span>
+                {t("ui.dropAreaSuffix")}
               </div>
             )}
             {displayImages.length > 0 &&
@@ -1873,7 +1920,7 @@ function Plugin() {
                           onValueChange={handleSelectAllCheckboxValueChange}
                           disabled={imagesToDisplay?.length === 0}
                         >
-                          <Text>Select all images</Text>
+                          <Text>{t("ui.selectAllImages")}</Text>
                         </Checkbox>
                       </div>
                       <div
@@ -1885,7 +1932,7 @@ function Plugin() {
                       >
                         <SearchTextbox
                           onInput={handleSearchInput}
-                          placeholder="Search"
+                          placeholder={t("ui.searchPlaceholder")}
                           value={searchValue}
                         />
                         <div
@@ -1921,7 +1968,7 @@ function Plugin() {
                                 }}
                               >
                                 <Tooltip
-                                  message="Size"
+                                  message={t("ui.sizeTooltip")}
                                   arrowPosition="top"
                                   arrowOffset="74%"
                                 />
@@ -2008,8 +2055,8 @@ function Plugin() {
                       }}
                     >
                       {searchValue.trim()
-                        ? "検索に一致する画像がありません"
-                        : "表示する画像がありません"}
+                        ? t("ui.noSearchMatch")
+                        : t("ui.noImagesToShow")}
                     </div>
                   )}
                   {imagesToDisplay.map((img, index) => {
@@ -2142,7 +2189,9 @@ function Plugin() {
             onApplyAll={handlePlaceAllImagesInFrame}
             applyToSelectionDisabled={selectedRandomIndices.size === 0}
             applyAllDisabled={
-              !canvasSelection.some((n) => n.type === "FRAME") ||
+              !canvasSelection.some((n) =>
+                DUMMY_TARGET_NODE_TYPES.has(n.type),
+              ) ||
               (!dummyApplyDummyText && !dummyApplyMaskImage)
             }
             applyAllLoading={applyButtonLoading}

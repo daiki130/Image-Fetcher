@@ -100,6 +100,19 @@ export type CanvasSelectionNodeSummary = {
   type: string;
 };
 
+/**
+ * Dummy タブで Apply の対象にできるコンテナ系ノードタイプ。
+ * UI 側の Apply ボタン活性判定・チップ表示と、main 側の選択判定で共有する。
+ */
+export const DUMMY_TARGET_NODE_TYPES: ReadonlySet<string> = new Set<string>([
+  "FRAME",
+  "COMPONENT",
+  "COMPONENT_SET",
+  "INSTANCE",
+  "GROUP",
+  "SECTION",
+]);
+
 export interface CanvasSelectionChangedHandler extends EventHandler {
   name: "CANVAS_SELECTION_CHANGED";
   handler: (data: { nodes: CanvasSelectionNodeSummary[] }) => void;
