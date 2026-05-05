@@ -121,6 +121,18 @@ const ja = {
   "ui.appliedSummary": "{parts}を適用しました{skipHint}",
   "ui.languageMenu": "言語",
 
+  // Image Settings (画像プレースホルダー検出キーワードの編集)
+  "ui.imageKeywordsTooltip": "画像プレースホルダー設定",
+  "ui.imageKeywordsTitle": "画像レイヤー名のキーワード",
+  "ui.imageKeywordsDesc":
+    "レイヤー名にここで指定したキーワードが含まれる要素を、画像プレースホルダーとして検出します。",
+  "ui.imageKeywordsPlaceholder": "例: hero, banner",
+  "ui.imageKeywordsAdd": "追加",
+  "ui.imageKeywordsReset": "デフォルトに戻す",
+  "ui.imageKeywordsRemove": "削除",
+  "ui.imageKeywordsEmpty":
+    "キーワードがありません。デフォルトに戻すか、新しいキーワードを追加してください。",
+
   // main.ts（figma.notify 用）
   "main.imagesSaved": "{count}個の画像を保存しました",
   "main.saveError": "保存エラー: {msg}",
@@ -241,6 +253,17 @@ const en: Dict = {
     " ({count} item(s) containing digits or symbols were skipped)",
   "ui.appliedSummary": "Applied {parts}{skipHint}",
   "ui.languageMenu": "Language",
+
+  "ui.imageKeywordsTooltip": "Image placeholder settings",
+  "ui.imageKeywordsTitle": "Image layer name keywords",
+  "ui.imageKeywordsDesc":
+    "Layers whose name contains any of these keywords are detected as image placeholders.",
+  "ui.imageKeywordsPlaceholder": "e.g. hero, banner",
+  "ui.imageKeywordsAdd": "Add",
+  "ui.imageKeywordsReset": "Reset to default",
+  "ui.imageKeywordsRemove": "Remove",
+  "ui.imageKeywordsEmpty":
+    "No keywords. Reset to default or add a new keyword.",
 
   "main.imagesSaved": "Saved {count} image(s)",
   "main.saveError": "Save error: {msg}",
@@ -364,6 +387,17 @@ const fr: Dict = {
     " ({count} élément(s) contenant des chiffres ou symboles ignoré(s))",
   "ui.appliedSummary": "Appliqué : {parts}{skipHint}",
   "ui.languageMenu": "Langue",
+
+  "ui.imageKeywordsTooltip": "Réglages de l'espace réservé d'image",
+  "ui.imageKeywordsTitle": "Mots-clés des noms de calques d'image",
+  "ui.imageKeywordsDesc":
+    "Les calques dont le nom contient l'un de ces mots-clés sont détectés comme espaces réservés d'image.",
+  "ui.imageKeywordsPlaceholder": "ex. : hero, banner",
+  "ui.imageKeywordsAdd": "Ajouter",
+  "ui.imageKeywordsReset": "Restaurer par défaut",
+  "ui.imageKeywordsRemove": "Supprimer",
+  "ui.imageKeywordsEmpty":
+    "Aucun mot-clé. Restaurez les valeurs par défaut ou ajoutez-en un.",
 
   "main.imagesSaved": "{count} image(s) enregistrée(s)",
   "main.saveError": "Erreur d'enregistrement : {msg}",
@@ -490,6 +524,17 @@ const ko: Dict = {
     "(숫자·기호가 포함된 {count}건은 건너뜀)",
   "ui.appliedSummary": "{parts}을(를) 적용했습니다{skipHint}",
   "ui.languageMenu": "언어",
+
+  "ui.imageKeywordsTooltip": "이미지 플레이스홀더 설정",
+  "ui.imageKeywordsTitle": "이미지 레이어 이름 키워드",
+  "ui.imageKeywordsDesc":
+    "여기에 지정한 키워드가 이름에 포함된 레이어를 이미지 플레이스홀더로 감지합니다.",
+  "ui.imageKeywordsPlaceholder": "예: hero, banner",
+  "ui.imageKeywordsAdd": "추가",
+  "ui.imageKeywordsReset": "기본값으로 되돌리기",
+  "ui.imageKeywordsRemove": "삭제",
+  "ui.imageKeywordsEmpty":
+    "키워드가 없습니다. 기본값으로 되돌리거나 새 키워드를 추가하세요.",
 
   "main.imagesSaved": "이미지 {count}개를 저장했습니다",
   "main.saveError": "저장 오류: {msg}",
@@ -620,6 +665,17 @@ const pt: Dict = {
   "ui.appliedSummary": "Aplicado: {parts}{skipHint}",
   "ui.languageMenu": "Idioma",
 
+  "ui.imageKeywordsTooltip": "Configurações de placeholder de imagem",
+  "ui.imageKeywordsTitle": "Palavras-chave de nomes de camada de imagem",
+  "ui.imageKeywordsDesc":
+    "Camadas cujo nome contém alguma dessas palavras-chave são detectadas como placeholders de imagem.",
+  "ui.imageKeywordsPlaceholder": "ex.: hero, banner",
+  "ui.imageKeywordsAdd": "Adicionar",
+  "ui.imageKeywordsReset": "Restaurar padrão",
+  "ui.imageKeywordsRemove": "Remover",
+  "ui.imageKeywordsEmpty":
+    "Nenhuma palavra-chave. Restaure o padrão ou adicione uma nova.",
+
   "main.imagesSaved": "{count} imagem(ns) salva(s)",
   "main.saveError": "Erro ao salvar: {msg}",
   "main.loadError": "Erro ao carregar: {msg}",
@@ -749,6 +805,17 @@ const de: Dict = {
     " ({count} Element(e) mit Ziffern oder Symbolen wurden übersprungen)",
   "ui.appliedSummary": "{parts} angewendet{skipHint}",
   "ui.languageMenu": "Sprache",
+
+  "ui.imageKeywordsTooltip": "Bild-Platzhalter-Einstellungen",
+  "ui.imageKeywordsTitle": "Schlüsselwörter für Bild-Ebenennamen",
+  "ui.imageKeywordsDesc":
+    "Ebenen, deren Name eines dieser Schlüsselwörter enthält, werden als Bild-Platzhalter erkannt.",
+  "ui.imageKeywordsPlaceholder": "z. B. hero, banner",
+  "ui.imageKeywordsAdd": "Hinzufügen",
+  "ui.imageKeywordsReset": "Standard wiederherstellen",
+  "ui.imageKeywordsRemove": "Entfernen",
+  "ui.imageKeywordsEmpty":
+    "Keine Schlüsselwörter. Standard wiederherstellen oder ein neues hinzufügen.",
 
   "main.imagesSaved": "{count} Bild(er) gespeichert",
   "main.saveError": "Speicherfehler: {msg}",

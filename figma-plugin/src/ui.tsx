@@ -29,7 +29,12 @@ import { Dummy } from "./components/dummy";
 import { Footer } from "./components/footer";
 import { ApplyImageLoadingModal } from "./components/ApplyImageLoadingModal";
 import { LanguagePicker } from "./components/LanguagePicker";
+import { ImageSettingsPicker } from "./components/parts/ImageSettingsPicker";
 import { DUMMY_TAB_UI_HEIGHT_BY_LANG, useI18n } from "./i18n";
+import {
+  DEFAULT_IMAGE_NAME_KEYWORDS,
+  sanitizeImageNameKeywords,
+} from "./imageNameKeywords";
 // import "./styles.css";
 
 // ImageData は types.ts からインポート
@@ -434,6 +439,37 @@ function Plugin() {
   useEffect(() => {
     emit("LOAD_IMAGES");
   }, []);
+
+  /**
+   * 画像プレースホルダー検出に使う「レイヤー名キーワード」一覧。
+   * 起動時に main 経由で `figma.clientStorage` から読み込み、変更があれば保存する。
+   * デフォルトはコード内 5 件（"img" / "画像" / "image" / "picture" / "photo"）。
+   */
+  const [imageNameKeywords, setImageNameKeywordsState] = useState<string[]>(
+    () => [...DEFAULT_IMAGE_NAME_KEYWORDS],
+  );
+
+  useEffect(() => {
+    const handler = (loaded: unknown) => {
+      if (Array.isArray(loaded)) {
+        const sanitized = sanitizeImageNameKeywords(loaded);
+        setImageNameKeywordsState(
+          sanitized.length > 0
+            ? sanitized
+            : [...DEFAULT_IMAGE_NAME_KEYWORDS],
+        );
+      }
+    };
+    on("IMAGE_NAME_KEYWORDS_LOADED", handler);
+    emit("LOAD_IMAGE_NAME_KEYWORDS");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleImageNameKeywordsChange = (next: string[]) => {
+    const sanitized = sanitizeImageNameKeywords(next);
+    setImageNameKeywordsState(sanitized);
+    emit("SAVE_IMAGE_NAME_KEYWORDS", { keywords: sanitized });
+  };
 
   // main.ts から画像データを受け取る
   useEffect(() => {
@@ -1790,6 +1826,10 @@ function Plugin() {
                 </div>
                 );
               })()}
+            <ImageSettingsPicker
+              keywords={imageNameKeywords}
+              onChange={handleImageNameKeywordsChange}
+            />
             <LanguagePicker
               lang={lang}
               onChange={setLang}

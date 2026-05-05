@@ -13,8 +13,21 @@ import {
   TranslationKey,
   translate,
 } from "./i18n/messages";
+import {
+  DEFAULT_IMAGE_NAME_KEYWORDS,
+  IMAGE_NAME_KEYWORDS_STORAGE_KEY,
+  sanitizeImageNameKeywords,
+} from "./imageNameKeywords";
 
 const STORAGE_KEY = "savedImages";
+
+/**
+ * 画像プレースホルダー判定に使うキーワード（lowercase 済み）。
+ * - 起動時に `figma.clientStorage` から読み込む。
+ * - UI から `SAVE_IMAGE_NAME_KEYWORDS` を受信したら更新＆永続化。
+ * - 保存値が空配列の場合はデフォルトに戻す（事故防止）。
+ */
+let currentImageNameKeywords: string[] = [...DEFAULT_IMAGE_NAME_KEYWORDS];
 
 // UIサイズ管理用の変数
 let currentUIWidth = 400;
@@ -34,6 +47,66 @@ export default function () {
   on("SET_LANGUAGE", (data: { lang: Lang }) => {
     if (data && typeof data.lang === "string") {
       currentLang = data.lang;
+    }
+  });
+
+  // 起動時に保存済みのキーワード一覧を復元
+  void (async () => {
+    try {
+      const stored = (await figma.clientStorage.getAsync(
+        IMAGE_NAME_KEYWORDS_STORAGE_KEY,
+      )) as unknown;
+      if (Array.isArray(stored)) {
+        const sanitized = sanitizeImageNameKeywords(stored);
+        if (sanitized.length > 0) {
+          currentImageNameKeywords = sanitized;
+        }
+      }
+    } catch (error) {
+      console.error("画像キーワード読み込みエラー:", error);
+    }
+  })();
+
+  // UI から画像キーワード一覧を取得するリクエストを受け取る
+  on("LOAD_IMAGE_NAME_KEYWORDS", async () => {
+    try {
+      const stored = (await figma.clientStorage.getAsync(
+        IMAGE_NAME_KEYWORDS_STORAGE_KEY,
+      )) as unknown;
+      let keywords: string[];
+      if (Array.isArray(stored)) {
+        const sanitized = sanitizeImageNameKeywords(stored);
+        keywords =
+          sanitized.length > 0
+            ? sanitized
+            : [...DEFAULT_IMAGE_NAME_KEYWORDS];
+      } else {
+        keywords = [...DEFAULT_IMAGE_NAME_KEYWORDS];
+      }
+      currentImageNameKeywords = keywords;
+      emit("IMAGE_NAME_KEYWORDS_LOADED", keywords);
+    } catch (error) {
+      console.error("画像キーワード読み込みエラー:", error);
+      emit("IMAGE_NAME_KEYWORDS_LOADED", [...DEFAULT_IMAGE_NAME_KEYWORDS]);
+    }
+  });
+
+  // UI から画像キーワード一覧の保存リクエストを受け取る
+  on("SAVE_IMAGE_NAME_KEYWORDS", async (data: { keywords: string[] }) => {
+    try {
+      const sanitized = Array.isArray(data?.keywords)
+        ? sanitizeImageNameKeywords(data.keywords)
+        : [];
+      const next =
+        sanitized.length > 0 ? sanitized : [...DEFAULT_IMAGE_NAME_KEYWORDS];
+      currentImageNameKeywords = next;
+      await figma.clientStorage.setAsync(
+        IMAGE_NAME_KEYWORDS_STORAGE_KEY,
+        next,
+      );
+      emit("IMAGE_NAME_KEYWORDS_LOADED", next);
+    } catch (error) {
+      console.error("画像キーワード保存エラー:", error);
     }
   });
 
@@ -1028,13 +1101,13 @@ function findImagePlaceholdersIn(
 
       if (nodeWithSize.width > 50 && nodeWithSize.height > 50) {
         // レイヤー名をチェック（大文字小文字を区別しない）
+        // currentImageNameKeywords は ImageSettingsPicker から保存される
+        // ユーザー設定。空配列なら名前ヒットは発生せず、
+        // 既存 IMAGE fill のフォールバックのみが働く。
         const nodeName = node.name.toLowerCase();
-        const hasImageName =
-          nodeName.includes("img") ||
-          nodeName.includes("画像") ||
-          // nodeName.includes("image") ||
-          nodeName.includes("picture") ||
-          nodeName.includes("photo");
+        const hasImageName = currentImageNameKeywords.some((kw) =>
+          nodeName.includes(kw),
+        );
 
         // 既に画像が含まれているかチェック
         let hasImageFill = false;
