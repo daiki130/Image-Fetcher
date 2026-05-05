@@ -54,7 +54,7 @@ export function Tooltip({
       <div
         style={{
           display: "inline-flex",
-          maxWidth: "200px",
+          maxWidth: "400px",
           alignItems: "center",
           justifyContent: "center",
           borderRadius: "5px",
