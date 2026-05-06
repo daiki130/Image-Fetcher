@@ -2,12 +2,13 @@ import {
   render,
   Button,
   Checkbox,
-  Container,
   Text,
   IconLanguageSmall24,
+  IconTrash24,
   IconSizeSmall24,
   IconToggleButton,
   SearchTextbox,
+  IconButton,
 } from "@create-figma-plugin/ui";
 import { emit, on, MIXED_BOOLEAN } from "@create-figma-plugin/utilities";
 import { h, Fragment, JSX } from "preact";
@@ -1787,12 +1788,12 @@ function Plugin() {
                           />
                           <div
                             style={{
-                              fontSize: "13px",
+                              fontSize: "12px",
                               color: "var(--figma-color-text)",
                               overflow: "hidden",
                               textOverflow: "ellipsis",
                               whiteSpace: "nowrap",
-                              maxWidth: "140px",
+                              maxWidth: "110px",
                             }}
                           >
                             {serviceName}
