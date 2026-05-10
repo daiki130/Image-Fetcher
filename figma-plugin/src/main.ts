@@ -14,6 +14,8 @@ import {
   translate,
 } from "./i18n/messages";
 import {
+  APPLY_TO_EXISTING_IMAGES_STORAGE_KEY,
+  DEFAULT_APPLY_TO_EXISTING_IMAGES,
   DEFAULT_IMAGE_NAME_KEYWORDS,
   IMAGE_NAME_KEYWORDS_STORAGE_KEY,
   sanitizeImageNameKeywords,
@@ -28,6 +30,15 @@ const STORAGE_KEY = "savedImages";
  * - 保存値が空配列の場合はデフォルトに戻す（事故防止）。
  */
 let currentImageNameKeywords: string[] = [...DEFAULT_IMAGE_NAME_KEYWORDS];
+
+/**
+ * 「既に画像が含まれている要素にも反映する」設定。
+ * - true (default): レイヤー名がキーワードに合致しなくても、IMAGE Fill を持つ
+ *   ノードは差し替え対象に含める（従来の挙動）。
+ * - false         : 既存 IMAGE Fill だけを根拠にした検出を行わず、
+ *   キーワード一致したノードだけを対象にする。
+ */
+let currentApplyToExistingImages: boolean = DEFAULT_APPLY_TO_EXISTING_IMAGES;
 
 // UIサイズ管理用の変数
 let currentUIWidth = 400;
@@ -64,6 +75,20 @@ export default function () {
       }
     } catch (error) {
       console.error("画像キーワード読み込みエラー:", error);
+    }
+  })();
+
+  // 起動時に「既存画像に反映する」設定を復元
+  void (async () => {
+    try {
+      const stored = (await figma.clientStorage.getAsync(
+        APPLY_TO_EXISTING_IMAGES_STORAGE_KEY,
+      )) as unknown;
+      if (typeof stored === "boolean") {
+        currentApplyToExistingImages = stored;
+      }
+    } catch (error) {
+      console.error("既存画像反映設定の読み込みエラー:", error);
     }
   })();
 
@@ -107,6 +132,40 @@ export default function () {
       emit("IMAGE_NAME_KEYWORDS_LOADED", next);
     } catch (error) {
       console.error("画像キーワード保存エラー:", error);
+    }
+  });
+
+  // UI から「既存画像に反映する」設定の取得リクエストを受け取る
+  on("LOAD_APPLY_TO_EXISTING_IMAGES", async () => {
+    try {
+      const stored = (await figma.clientStorage.getAsync(
+        APPLY_TO_EXISTING_IMAGES_STORAGE_KEY,
+      )) as unknown;
+      const value =
+        typeof stored === "boolean" ? stored : DEFAULT_APPLY_TO_EXISTING_IMAGES;
+      currentApplyToExistingImages = value;
+      emit("APPLY_TO_EXISTING_IMAGES_LOADED", value);
+    } catch (error) {
+      console.error("既存画像反映設定の読み込みエラー:", error);
+      emit("APPLY_TO_EXISTING_IMAGES_LOADED", DEFAULT_APPLY_TO_EXISTING_IMAGES);
+    }
+  });
+
+  // UI から「既存画像に反映する」設定の保存リクエストを受け取る
+  on("SAVE_APPLY_TO_EXISTING_IMAGES", async (data: { value: boolean }) => {
+    try {
+      const next =
+        typeof data?.value === "boolean"
+          ? data.value
+          : DEFAULT_APPLY_TO_EXISTING_IMAGES;
+      currentApplyToExistingImages = next;
+      await figma.clientStorage.setAsync(
+        APPLY_TO_EXISTING_IMAGES_STORAGE_KEY,
+        next,
+      );
+      emit("APPLY_TO_EXISTING_IMAGES_LOADED", next);
+    } catch (error) {
+      console.error("既存画像反映設定の保存エラー:", error);
     }
   });
 
@@ -1110,8 +1169,10 @@ function findImagePlaceholdersIn(
         );
 
         // 既に画像が含まれているかチェック
+        // currentApplyToExistingImages が false の場合は判定自体をスキップし、
+        // 名前ヒットしないノードはプレースホルダー扱いしない。
         let hasImageFill = false;
-        if ("fills" in node) {
+        if (currentApplyToExistingImages && "fills" in node) {
           hasImageFill =
             Array.isArray(node.fills) &&
             node.fills.some(
@@ -1227,27 +1288,30 @@ async function placeImagesInFrame(
 
     if (placeholders.length === 0) {
       // 選択ノード配下から既存の画像 fill を持つノードを収集し、その差し替え先を探す
+      // （ユーザー設定で OFF にされている場合はフォールバック自体を行わない）
       const existingImageNodes: SceneNode[] = [];
-      const findImageNodes = (node: SceneNode) => {
-        if (
-          (node.type === "RECTANGLE" ||
-            node.type === "FRAME" ||
-            node.type === "COMPONENT" ||
-            node.type === "INSTANCE") &&
-          "fills" in node &&
-          Array.isArray(node.fills) &&
-          node.fills.some((fill) => fill.type === "IMAGE")
-        ) {
-          existingImageNodes.push(node);
-        }
-        if ("children" in node) {
-          for (const child of node.children) {
-            findImageNodes(child);
+      if (currentApplyToExistingImages) {
+        const findImageNodes = (node: SceneNode) => {
+          if (
+            (node.type === "RECTANGLE" ||
+              node.type === "FRAME" ||
+              node.type === "COMPONENT" ||
+              node.type === "INSTANCE") &&
+            "fills" in node &&
+            Array.isArray(node.fills) &&
+            node.fills.some((fill) => fill.type === "IMAGE")
+          ) {
+            existingImageNodes.push(node);
           }
+          if ("children" in node) {
+            for (const child of node.children) {
+              findImageNodes(child);
+            }
+          }
+        };
+        for (const root of selection) {
+          findImageNodes(root);
         }
-      };
-      for (const root of selection) {
-        findImageNodes(root);
       }
 
       if (existingImageNodes.length > 0) {

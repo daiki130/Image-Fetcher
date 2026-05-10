@@ -132,6 +132,8 @@ const ja = {
   "ui.imageKeywordsRemove": "削除",
   "ui.imageKeywordsEmpty":
     "キーワードがありません。デフォルトに戻すか、新しいキーワードを追加してください。",
+  "ui.applyToExistingImagesDesc":
+    "既に画像が含まれている要素にも反映する",
 
   // main.ts（figma.notify 用）
   "main.imagesSaved": "{count}個の画像を保存しました",
@@ -264,6 +266,8 @@ const en: Dict = {
   "ui.imageKeywordsRemove": "Remove",
   "ui.imageKeywordsEmpty":
     "No keywords. Reset to default or add a new keyword.",
+  "ui.applyToExistingImagesDesc":
+    "Also apply to elements that already contain an image",
 
   "main.imagesSaved": "Saved {count} image(s)",
   "main.saveError": "Save error: {msg}",
@@ -398,6 +402,8 @@ const fr: Dict = {
   "ui.imageKeywordsRemove": "Supprimer",
   "ui.imageKeywordsEmpty":
     "Aucun mot-clé. Restaurez les valeurs par défaut ou ajoutez-en un.",
+  "ui.applyToExistingImagesDesc":
+    "Appliquer aussi aux éléments contenant déjà une image",
 
   "main.imagesSaved": "{count} image(s) enregistrée(s)",
   "main.saveError": "Erreur d'enregistrement : {msg}",
@@ -535,6 +541,8 @@ const ko: Dict = {
   "ui.imageKeywordsRemove": "삭제",
   "ui.imageKeywordsEmpty":
     "키워드가 없습니다. 기본값으로 되돌리거나 새 키워드를 추가하세요.",
+  "ui.applyToExistingImagesDesc":
+    "이미 이미지가 포함된 요소에도 적용",
 
   "main.imagesSaved": "이미지 {count}개를 저장했습니다",
   "main.saveError": "저장 오류: {msg}",
@@ -675,6 +683,8 @@ const pt: Dict = {
   "ui.imageKeywordsRemove": "Remover",
   "ui.imageKeywordsEmpty":
     "Nenhuma palavra-chave. Restaure o padrão ou adicione uma nova.",
+  "ui.applyToExistingImagesDesc":
+    "Aplicar também a elementos que já contêm uma imagem",
 
   "main.imagesSaved": "{count} imagem(ns) salva(s)",
   "main.saveError": "Erro ao salvar: {msg}",
@@ -816,6 +826,8 @@ const de: Dict = {
   "ui.imageKeywordsRemove": "Entfernen",
   "ui.imageKeywordsEmpty":
     "Keine Schlüsselwörter. Standard wiederherstellen oder ein neues hinzufügen.",
+  "ui.applyToExistingImagesDesc":
+    "Auch auf Elemente anwenden, die bereits ein Bild enthalten",
 
   "main.imagesSaved": "{count} Bild(er) gespeichert",
   "main.saveError": "Speicherfehler: {msg}",

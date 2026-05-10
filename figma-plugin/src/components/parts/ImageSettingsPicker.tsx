@@ -1,5 +1,11 @@
 import { h, Fragment, JSX } from "preact";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "preact/hooks";
 import {
   IconToggleButton,
   IconAdjustSmall24,
@@ -14,12 +20,21 @@ import {
   normalizeImageNameKeyword,
   sanitizeImageNameKeywords,
 } from "../../imageNameKeywords";
+import { Toogle } from "../toggle";
 
 interface ImageSettingsPickerProps {
   /** 現在のキーワード一覧（lowercase 済み） */
   keywords: string[];
   /** ユーザーが追加 / 削除 / リセットしたときに呼ばれる。値は lowercase 済みの一意配列 */
   onChange: (keywords: string[]) => void;
+  /**
+   * 「既に画像が含まれている要素にも反映する」設定の現在値。
+   * true: 既存 IMAGE Fill のみを根拠にしたノードも差し替え対象とする。
+   * false: ユーザー指定キーワードに合致するノードのみを対象とする。
+   */
+  applyToExistingImages: boolean;
+  /** 上記トグルの変更ハンドラ。 */
+  onApplyToExistingImagesChange: (next: boolean) => void;
 }
 
 const MENU_WIDTH = 280;
@@ -36,6 +51,8 @@ const TOOLTIP_OFFSET_Y = 6;
 export function ImageSettingsPicker({
   keywords,
   onChange,
+  applyToExistingImages,
+  onApplyToExistingImagesChange,
 }: ImageSettingsPickerProps) {
   const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
@@ -236,167 +253,233 @@ export function ImageSettingsPicker({
             zIndex: 10001,
             background: "#1E1E1E",
             borderRadius: "13px",
-            padding: "12px",
+            padding: "12px 0",
             width: `${MENU_WIDTH}px`,
             boxShadow:
               "0px 0px 0.5px 0px rgba(30, 25, 25, 0.15), 0px 5px 12px 0px rgba(0, 0, 0, 0.13), 0px 1px 3px 0px rgba(0, 0, 0, 0.10)",
-            display: "flex",
-            flexDirection: "column",
-            gap: "10px",
             color: "#fff",
             fontFamily: "var(--font-family-primary)",
+            display: "flex",
+            flexDirection: "column",
+            gap: "8px",
           }}
         >
-          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-            <div
-              style={{
-                fontSize: "11px",
-                fontWeight: "600",
-                lineHeight: "16px",
-              }}
-            >
-              {t("ui.imageKeywordsTitle")}
-            </div>
-            <div
-              style={{
-                fontSize: "11px",
-                lineHeight: "15px",
-                color: "rgba(255, 255, 255, 0.65)",
-                textWrap: "auto",
-              }}
-            >
-              {t("ui.imageKeywordsDesc")}
-            </div>
-          </div>
-
+          {/* Image Keywords */}
           <div
             style={{
+              padding: "0 16px",
               display: "flex",
-              gap: "6px",
-              alignItems: "center",
+              flexDirection: "column",
+              gap: "10px",
             }}
           >
-            <input
-              ref={inputRef}
-              type="text"
-              value={inputValue}
-              placeholder={t("ui.imageKeywordsPlaceholder")}
-              onInput={handleInput}
-              onKeyDown={handleInputKeyDown}
-              style={{
-                flex: "1 1 auto",
-                minWidth: 0,
-                height: "28px",
-                borderRadius: "6px",
-                border: "1px solid rgba(255, 255, 255, 0.18)",
-                background: "rgba(255, 255, 255, 0.06)",
-                padding: "0 8px",
-                color: "#fff",
-                fontSize: "11px",
-                outline: "none",
-                fontFamily: "var(--font-family-primary)",
-              }}
-            />
-            <button
-              type="button"
-              onClick={handleAdd}
-              disabled={normalizeImageNameKeyword(inputValue).length === 0}
-              title={t("ui.imageKeywordsAdd")}
-              style={{
-                height: "28px",
-                minWidth: "28px",
-                padding: "0 8px",
-                borderRadius: "6px",
-                border: "none",
-                background:
-                  normalizeImageNameKeyword(inputValue).length === 0
-                    ? "rgba(255, 255, 255, 0.08)"
-                    : "var(--figma-color-bg-brand)",
-                color: "#fff",
-                cursor:
-                  normalizeImageNameKeyword(inputValue).length === 0
-                    ? "default"
-                    : "pointer",
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "2px",
-                fontSize: "11px",
-                fontWeight: "500",
-                opacity:
-                  normalizeImageNameKeyword(inputValue).length === 0
-                    ? 0.6
-                    : 1,
-              }}
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "4px" }}
             >
-              <IconPlus16 />
-            </button>
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: "6px",
-              maxHeight: "180px",
-              overflowY: "auto",
-              minHeight: "32px",
-            }}
-          >
-            {safeKeywords.length === 0 ? (
+              <div
+                style={{
+                  fontSize: "11px",
+                  fontWeight: "600",
+                  lineHeight: "16px",
+                }}
+              >
+                {t("ui.imageKeywordsTitle")}
+              </div>
               <div
                 style={{
                   fontSize: "11px",
                   lineHeight: "15px",
-                  color: "rgba(255, 255, 255, 0.55)",
-                  padding: "4px 0",
+                  color: "rgba(255, 255, 255, 0.65)",
+                  textWrap: "auto",
                 }}
               >
-                {t("ui.imageKeywordsEmpty")}
+                {t("ui.imageKeywordsDesc")}
               </div>
-            ) : (
-              safeKeywords.map((kw) => (
-                <KeywordChip
-                  key={kw}
-                  label={kw}
-                  removeLabel={t("ui.imageKeywordsRemove")}
-                  onRemove={() => handleRemove(kw)}
-                />
-              ))
-            )}
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                gap: "6px",
+                alignItems: "center",
+              }}
+            >
+              <input
+                ref={inputRef}
+                type="text"
+                value={inputValue}
+                placeholder={t("ui.imageKeywordsPlaceholder")}
+                onInput={handleInput}
+                onKeyDown={handleInputKeyDown}
+                style={{
+                  flex: "1 1 auto",
+                  minWidth: 0,
+                  height: "28px",
+                  borderRadius: "6px",
+                  border: "1px solid rgba(255, 255, 255, 0.18)",
+                  background: "rgba(255, 255, 255, 0.06)",
+                  padding: "0 8px",
+                  color: "#fff",
+                  fontSize: "11px",
+                  outline: "none",
+                  fontFamily: "var(--font-family-primary)",
+                }}
+              />
+              <button
+                type="button"
+                onClick={handleAdd}
+                disabled={normalizeImageNameKeyword(inputValue).length === 0}
+                title={t("ui.imageKeywordsAdd")}
+                style={{
+                  height: "28px",
+                  minWidth: "28px",
+                  padding: "0 8px",
+                  borderRadius: "6px",
+                  border: "none",
+                  background:
+                    normalizeImageNameKeyword(inputValue).length === 0
+                      ? "rgba(255, 255, 255, 0.08)"
+                      : "var(--figma-color-bg-brand)",
+                  color: "#fff",
+                  cursor:
+                    normalizeImageNameKeyword(inputValue).length === 0
+                      ? "default"
+                      : "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "2px",
+                  fontSize: "11px",
+                  fontWeight: "500",
+                  opacity:
+                    normalizeImageNameKeyword(inputValue).length === 0
+                      ? 0.6
+                      : 1,
+                }}
+              >
+                <IconPlus16 />
+              </button>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "6px",
+                maxHeight: "180px",
+                overflowY: "auto",
+                minHeight: "32px",
+              }}
+            >
+              {safeKeywords.length === 0 ? (
+                <div
+                  style={{
+                    fontSize: "11px",
+                    lineHeight: "15px",
+                    color: "rgba(255, 255, 255, 0.55)",
+                    padding: "4px 0",
+                  }}
+                >
+                  {t("ui.imageKeywordsEmpty")}
+                </div>
+              ) : (
+                safeKeywords.map((kw) => (
+                  <KeywordChip
+                    key={kw}
+                    label={kw}
+                    removeLabel={t("ui.imageKeywordsRemove")}
+                    onRemove={() => handleRemove(kw)}
+                  />
+                ))
+              )}
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                // borderTop: "1px solid rgba(255, 255, 255, 0.1)",
+                // paddingTop: "8px",
+              }}
+            >
+              <button
+                type="button"
+                onClick={handleReset}
+                disabled={isDefaultEqual}
+                style={{
+                  height: "26px",
+                  padding: "0 8px",
+                  borderRadius: "6px",
+                  border: "1px solid rgba(255, 255, 255, 0.18)",
+                  background: "transparent",
+                  color: isDefaultEqual ? "rgba(255, 255, 255, 0.4)" : "#fff",
+                  cursor: isDefaultEqual ? "default" : "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  fontSize: "11px",
+                  fontWeight: "500",
+                  fontFamily: "var(--font-family-primary)",
+                }}
+              >
+                <IconReset16 />
+                <span>{t("ui.imageKeywordsReset")}</span>
+              </button>
+            </div>
           </div>
 
+          {/* Divider */}
+          <div>
+            <hr
+              style={{
+                border: "none",
+                margin: 0,
+                width: "100%",
+                height: "1px",
+                background: "rgba(255, 255, 255, 0.18)",
+              }}
+            />
+          </div>
+
+          {/* Dummy Text */}
           <div
             style={{
               display: "flex",
-              justifyContent: "flex-end",
-              borderTop: "1px solid rgba(255, 255, 255, 0.1)",
-              paddingTop: "8px",
+              gap: "12px",
+              padding: "0 16px",
+              alignItems: "center",
+              width: "100%",
+              boxSizing: "border-box",
+              justifyContent: "space-between",
+              
             }}
           >
-            <button
-              type="button"
-              onClick={handleReset}
-              disabled={isDefaultEqual}
+            <div
               style={{
-                height: "26px",
-                padding: "0 8px",
-                borderRadius: "6px",
-                border: "1px solid rgba(255, 255, 255, 0.18)",
-                background: "transparent",
-                color: isDefaultEqual ? "rgba(255, 255, 255, 0.4)" : "#fff",
-                cursor: isDefaultEqual ? "default" : "pointer",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "4px",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
                 fontSize: "11px",
-                fontWeight: "500",
-                fontFamily: "var(--font-family-primary)",
+                color: "#fff",
               }}
             >
-              <IconReset16 />
-              <span>{t("ui.imageKeywordsReset")}</span>
-            </button>
+              <div
+                style={{
+                  fontFamily: 'Inter, "Noto Sans JP", system-ui, sans-serif',
+                  color: "#fff",
+                  fontWeight: 400,
+                  minHeight: "20px",
+                  lineHeight: 1.6,
+                  textWrap: "auto",
+                }}
+              >
+                {t("ui.applyToExistingImagesDesc")}
+              </div>
+            </div>
+            <Toogle
+              value={applyToExistingImages}
+              onChange={onApplyToExistingImagesChange}
+            />
           </div>
         </div>
       )}

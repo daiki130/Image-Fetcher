@@ -20,6 +20,17 @@ export const DEFAULT_IMAGE_NAME_KEYWORDS: ReadonlyArray<string> = [
 /** figma.clientStorage に保存するときのキー */
 export const IMAGE_NAME_KEYWORDS_STORAGE_KEY = "imageNameKeywords";
 
+/**
+ * 「既に画像が含まれている要素にも反映する」設定の永続化キー / デフォルト値。
+ *
+ * - ON  (default): レイヤー名がキーワードに一致しなくても、既に IMAGE Fill が
+ *   入っているノードは画像差し替え対象として扱う（従来の挙動）。
+ * - OFF           : 既存 IMAGE Fill だけを根拠にした検出を行わず、
+ *   ユーザー指定キーワードに合致するノードのみを対象とする。
+ */
+export const APPLY_TO_EXISTING_IMAGES_STORAGE_KEY = "applyToExistingImages";
+export const DEFAULT_APPLY_TO_EXISTING_IMAGES = true;
+
 /** 入力値を比較用に正規化（trim + lowercase） */
 export function normalizeImageNameKeyword(raw: string): string {
   return raw.trim().toLowerCase();

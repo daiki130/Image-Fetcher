@@ -33,6 +33,7 @@ import { LanguagePicker } from "./components/LanguagePicker";
 import { ImageSettingsPicker } from "./components/parts/ImageSettingsPicker";
 import { DUMMY_TAB_UI_HEIGHT_BY_LANG, useI18n } from "./i18n";
 import {
+  DEFAULT_APPLY_TO_EXISTING_IMAGES,
   DEFAULT_IMAGE_NAME_KEYWORDS,
   sanitizeImageNameKeywords,
 } from "./imageNameKeywords";
@@ -468,6 +469,29 @@ function Plugin() {
     const sanitized = sanitizeImageNameKeywords(next);
     setImageNameKeywordsState(sanitized);
     emit("SAVE_IMAGE_NAME_KEYWORDS", { keywords: sanitized });
+  };
+
+  /**
+   * 「既に画像が含まれている要素にも反映する」設定。
+   * 起動時に main 経由で `figma.clientStorage` から読み込む。
+   */
+  const [applyToExistingImages, setApplyToExistingImagesState] =
+    useState<boolean>(DEFAULT_APPLY_TO_EXISTING_IMAGES);
+
+  useEffect(() => {
+    const handler = (loaded: unknown) => {
+      if (typeof loaded === "boolean") {
+        setApplyToExistingImagesState(loaded);
+      }
+    };
+    on("APPLY_TO_EXISTING_IMAGES_LOADED", handler);
+    emit("LOAD_APPLY_TO_EXISTING_IMAGES");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleApplyToExistingImagesChange = (next: boolean) => {
+    setApplyToExistingImagesState(next);
+    emit("SAVE_APPLY_TO_EXISTING_IMAGES", { value: next });
   };
 
   // main.ts から画像データを受け取る
@@ -1816,6 +1840,8 @@ function Plugin() {
             <ImageSettingsPicker
               keywords={imageNameKeywords}
               onChange={handleImageNameKeywordsChange}
+              applyToExistingImages={applyToExistingImages}
+              onApplyToExistingImagesChange={handleApplyToExistingImagesChange}
             />
             <LanguagePicker
               lang={lang}
