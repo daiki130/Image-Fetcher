@@ -2,12 +2,13 @@ import {
   render,
   Button,
   Checkbox,
-  Container,
   Text,
   IconLanguageSmall24,
+  IconTrash24,
   IconSizeSmall24,
   IconToggleButton,
   SearchTextbox,
+  IconButton,
 } from "@create-figma-plugin/ui";
 import { emit, on, MIXED_BOOLEAN } from "@create-figma-plugin/utilities";
 import { h, Fragment, JSX } from "preact";
@@ -29,7 +30,13 @@ import { Dummy } from "./components/dummy";
 import { Footer } from "./components/footer";
 import { ApplyImageLoadingModal } from "./components/ApplyImageLoadingModal";
 import { LanguagePicker } from "./components/LanguagePicker";
+import { ImageSettingsPicker } from "./components/parts/ImageSettingsPicker";
 import { DUMMY_TAB_UI_HEIGHT_BY_LANG, useI18n } from "./i18n";
+import {
+  DEFAULT_APPLY_TO_EXISTING_IMAGES,
+  DEFAULT_IMAGE_NAME_KEYWORDS,
+  sanitizeImageNameKeywords,
+} from "./imageNameKeywords";
 // import "./styles.css";
 
 // ImageData は types.ts からインポート
@@ -434,6 +441,58 @@ function Plugin() {
   useEffect(() => {
     emit("LOAD_IMAGES");
   }, []);
+
+  /**
+   * 画像プレースホルダー検出に使う「レイヤー名キーワード」一覧。
+   * 起動時に main 経由で `figma.clientStorage` から読み込み、変更があれば保存する。
+   * デフォルトはコード内 5 件（"img" / "画像" / "image" / "picture" / "photo"）。
+   */
+  const [imageNameKeywords, setImageNameKeywordsState] = useState<string[]>(
+    () => [...DEFAULT_IMAGE_NAME_KEYWORDS],
+  );
+
+  useEffect(() => {
+    const handler = (loaded: unknown) => {
+      if (Array.isArray(loaded)) {
+        const sanitized = sanitizeImageNameKeywords(loaded);
+        setImageNameKeywordsState(
+          sanitized.length > 0 ? sanitized : [...DEFAULT_IMAGE_NAME_KEYWORDS],
+        );
+      }
+    };
+    on("IMAGE_NAME_KEYWORDS_LOADED", handler);
+    emit("LOAD_IMAGE_NAME_KEYWORDS");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleImageNameKeywordsChange = (next: string[]) => {
+    const sanitized = sanitizeImageNameKeywords(next);
+    setImageNameKeywordsState(sanitized);
+    emit("SAVE_IMAGE_NAME_KEYWORDS", { keywords: sanitized });
+  };
+
+  /**
+   * 「既に画像が含まれている要素にも反映する」設定。
+   * 起動時に main 経由で `figma.clientStorage` から読み込む。
+   */
+  const [applyToExistingImages, setApplyToExistingImagesState] =
+    useState<boolean>(DEFAULT_APPLY_TO_EXISTING_IMAGES);
+
+  useEffect(() => {
+    const handler = (loaded: unknown) => {
+      if (typeof loaded === "boolean") {
+        setApplyToExistingImagesState(loaded);
+      }
+    };
+    on("APPLY_TO_EXISTING_IMAGES_LOADED", handler);
+    emit("LOAD_APPLY_TO_EXISTING_IMAGES");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleApplyToExistingImagesChange = (next: boolean) => {
+    setApplyToExistingImagesState(next);
+    emit("SAVE_APPLY_TO_EXISTING_IMAGES", { value: next });
+  };
 
   // main.ts から画像データを受け取る
   useEffect(() => {
@@ -885,14 +944,10 @@ function Plugin() {
         if (result.ok) {
           const parts: string[] = [];
           if (dummyApplyDummyText) {
-            parts.push(
-              t("ui.appliedTextItems", { count: result.appliedText }),
-            );
+            parts.push(t("ui.appliedTextItems", { count: result.appliedText }));
           }
           if (dummyApplyMaskImage) {
-            parts.push(
-              t("ui.appliedMaskItems", { count: result.appliedMask }),
-            );
+            parts.push(t("ui.appliedMaskItems", { count: result.appliedMask }));
           }
           const skipHint =
             dummyApplyDummyText && result.skippedProtected > 0
@@ -906,10 +961,7 @@ function Plugin() {
             "success",
           );
         } else {
-          showStatus(
-            result.errorMessage ?? t("ui.applyFailed"),
-            "error",
-          );
+          showStatus(result.errorMessage ?? t("ui.applyFailed"), "error");
         }
       } catch (error) {
         const errorMessage =
@@ -1262,9 +1314,7 @@ function Plugin() {
       showStatus(
         t("ui.fileReadFailed", {
           msg:
-            error instanceof Error
-              ? error.message
-              : t("common.unknownError"),
+            error instanceof Error ? error.message : t("common.unknownError"),
         }),
         "error",
       );
@@ -1441,7 +1491,7 @@ function Plugin() {
           ? DUMMY_TAB_UI_HEIGHT_BY_LANG[lang]
           : hasWideLayout
             ? 820
-            : 200,
+            : 300,
     });
   }, [imagesToDisplay.length, tabValue, lang]);
 
@@ -1596,10 +1646,7 @@ function Plugin() {
               minWidth: "200px",
             }}
           >
-            <Loading
-              message={t("ui.loadingData")}
-              progress={loadingProgress}
-            />
+            <Loading message={t("ui.loadingData")} progress={loadingProgress} />
           </div>
         </div>
       )}
@@ -1721,75 +1768,81 @@ function Plugin() {
                       justifyContent: "space-between",
                     }}
                   >
-                  {Array.from(uniqueServices.entries()).map(
-                    ([serviceName, favicon]) => (
-                      <div
-                        key={serviceName}
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          borderRadius: "6px",
-                          backgroundColor: "var(--figma-color-bg-secondary)",
-                          padding: "4px 8px",
-                          height: "34px",
-                          gap: "8px",
-                          border: "0.05px solid var(--figma-color-border)",
-                        }}
-                      >
+                    {Array.from(uniqueServices.entries()).map(
+                      ([serviceName, favicon]) => (
                         <div
+                          key={serviceName}
                           style={{
                             display: "flex",
+                            justifyContent: "space-between",
                             alignItems: "center",
+                            borderRadius: "6px",
+                            backgroundColor: "var(--figma-color-bg-secondary)",
+                            padding: "4px 8px",
+                            height: "34px",
                             gap: "8px",
+                            border: "0.05px solid var(--figma-color-border)",
                           }}
                         >
-                          <ServiceLogo
-                            serviceName={serviceName}
-                            favicon={favicon}
-                            size={20}
-                          />
                           <div
                             style={{
-                              fontSize: "13px",
-                              color: "var(--figma-color-text)",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                              maxWidth: "140px",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "8px",
                             }}
                           >
-                            {serviceName}
+                            <ServiceLogo
+                              serviceName={serviceName}
+                              favicon={favicon}
+                              size={20}
+                            />
+                            <div
+                              style={{
+                                fontSize: "12px",
+                                color: "var(--figma-color-text)",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                                maxWidth: "110px",
+                              }}
+                            >
+                              {serviceName}
+                            </div>
+                            <span
+                              style={{
+                                fontSize: "10px",
+                                borderRadius: "4px",
+                                padding: "2px 8px",
+                                border: "1px solid var(--figma-color-border)",
+                                backgroundColor: "var(--figma-color-bg)",
+                              }}
+                            >
+                              {t("ui.imagesCountLabel", {
+                                count: displayImages.filter(
+                                  (i) =>
+                                    (i.service || "Unknown") === serviceName,
+                                ).length,
+                              })}
+                            </span>
                           </div>
-                          <span
-                            style={{
-                              fontSize: "10px",
-                              borderRadius: "4px",
-                              padding: "2px 8px",
-                              border: "1px solid var(--figma-color-border)",
-                              backgroundColor: "var(--figma-color-bg)",
-                            }}
+                          <Button
+                            danger
+                            onClick={() => handleDeleteService(serviceName)}
                           >
-                            {t("ui.imagesCountLabel", {
-                              count: displayImages.filter(
-                                (i) =>
-                                  (i.service || "Unknown") === serviceName,
-                              ).length,
-                            })}
-                          </span>
+                            {t("common.remove")}
+                          </Button>
                         </div>
-                        <Button
-                          danger
-                          onClick={() => handleDeleteService(serviceName)}
-                        >
-                          {t("common.remove")}
-                        </Button>
-                      </div>
-                    ),
-                  )}
-                </div>
+                      ),
+                    )}
+                  </div>
                 );
               })()}
+            <ImageSettingsPicker
+              keywords={imageNameKeywords}
+              onChange={handleImageNameKeywordsChange}
+              applyToExistingImages={applyToExistingImages}
+              onApplyToExistingImagesChange={handleApplyToExistingImagesChange}
+            />
             <LanguagePicker
               lang={lang}
               onChange={setLang}
@@ -1802,7 +1855,7 @@ function Plugin() {
         <div>
           <div
             style={{
-              padding: "var(--space-extra-small)",
+              padding: "var(--space-small)",
               borderRight: "1px solid var(--figma-color-border)",
               position: "sticky",
               top: 0,
@@ -1823,7 +1876,7 @@ function Plugin() {
                 style={{
                   border: `2px dashed var(--figma-color-border)`,
                   borderRadius: "12px",
-                  padding: "40px 20px",
+                  padding: "86px 20px",
                   textAlign: "center",
                   cursor: "pointer",
                   position: "relative",
@@ -1875,8 +1928,11 @@ function Plugin() {
                 <span
                   style={{
                     padding: "4px",
-                    background: "var(--figma-color-bg-secondary)",
+                    background:
+                      "color-mix(in srgb, var(--figma-color-bg-brand) 12%, transparent)",
                     borderRadius: "4px",
+                    color: "var(--figma-color-bg-brand)",
+                    cursor: "pointer",
                   }}
                 >
                   .imagefetcher
@@ -2136,9 +2192,7 @@ function Plugin() {
                 applyAllDisabled={
                   displayImages.length === 0 ||
                   selectedImageIndices.size === 0 ||
-                  !canvasSelection.some((n) =>
-                    APPLYABLE_NODE_TYPES.has(n.type),
-                  )
+                  !canvasSelection.some((n) => APPLYABLE_NODE_TYPES.has(n.type))
                 }
                 applyAllLoading={applyButtonLoading}
                 canvasSelection={canvasSelection}
