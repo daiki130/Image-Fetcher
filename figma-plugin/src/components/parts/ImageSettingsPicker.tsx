@@ -261,7 +261,7 @@ export function ImageSettingsPicker({
             fontFamily: "var(--font-family-primary)",
             display: "flex",
             flexDirection: "column",
-            gap: "8px",
+            gap: "12px",
           }}
         >
           {/* Image Keywords */}
@@ -446,12 +446,14 @@ export function ImageSettingsPicker({
             style={{
               display: "flex",
               gap: "12px",
-              padding: "0 16px",
+              padding: "6px 8px",
               alignItems: "center",
-              width: "100%",
               boxSizing: "border-box",
               justifyContent: "space-between",
-              
+              background: "rgba(255, 255, 255, 0.06)",
+              borderRadius: "8px",
+              margin: "0 12px",
+              width: "auto",
             }}
           >
             <div
