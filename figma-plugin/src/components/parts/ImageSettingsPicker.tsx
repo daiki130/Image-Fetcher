@@ -267,7 +267,7 @@ export function ImageSettingsPicker({
           {/* Image Keywords */}
           <div
             style={{
-              padding: "0 16px",
+              padding: "0 12px",
               display: "flex",
               flexDirection: "column",
               gap: "10px",
@@ -281,6 +281,8 @@ export function ImageSettingsPicker({
                   fontSize: "11px",
                   fontWeight: "600",
                   lineHeight: "16px",
+                  textWrap: "auto",
+                  wordBreak: "break-word",
                 }}
               >
                 {t("ui.imageKeywordsTitle")}
@@ -450,8 +452,9 @@ export function ImageSettingsPicker({
               alignItems: "center",
               boxSizing: "border-box",
               justifyContent: "space-between",
-              background: "rgba(255, 255, 255, 0.06)",
-              borderRadius: "8px",
+              background: "#383838",
+              border: "0.01px solid #444444",
+              borderRadius: "6px",
               margin: "0 12px",
               width: "auto",
             }}
