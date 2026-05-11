@@ -1,17 +1,20 @@
 /**
  * UI 側の i18n ランタイム。
  *
- * - 起動時に localStorage の保存値、なければ navigator.language から言語を判定する。
+ * - 起動時はまず `navigator.language` から推定した言語を仮の初期値として表示する。
+ * - 同時に main.ts に対して `LOAD_LANGUAGE` を送信し、`figma.clientStorage` に
+ *   保存済みの言語があれば `LANGUAGE_LOADED` で受け取って上書きする。
+ * - 言語が変わるたびに main.ts へ次の 2 種類のメッセージを送る:
+ *     - `SET_LANGUAGE`  : main 側の `figma.notify` 等の現在言語を同期するためのもの
+ *     - `SAVE_LANGUAGE` : `figma.clientStorage` に保存させるためのリクエスト
  * - 現在言語はモジュールスコープのグローバルストアに保持し、すべての `useI18n()`
  *   呼び出し側はそのストアを購読する。これにより 1 箇所で言語を切り替えれば
  *   Footer / Dummy / SettingsMenu / ApplyImageLoadingModal 等すべてのコンポーネントが
  *   同時に再レンダリングされる。
- * - 言語が変わるたびに main.ts 側へ `SET_LANGUAGE` を emit するので、
- *   figma.notify 等でも翻訳済みの文言を表示できる。
  */
 
 import { useEffect, useState, useCallback } from "preact/hooks";
-import { emit } from "@create-figma-plugin/utilities";
+import { emit, on } from "@create-figma-plugin/utilities";
 import {
   DEFAULT_LANG,
   Lang,
@@ -31,8 +34,6 @@ export {
   translate,
 } from "./messages";
 export type { Lang, TranslationKey } from "./messages";
-
-const STORAGE_KEY = "image-fetcher-lang";
 
 /** ブラウザ設定（`navigator.language`）から対応言語を推定する。未対応ならデフォルト。 */
 function detectFromNavigator(): Lang {
@@ -60,61 +61,64 @@ function detectFromNavigator(): Lang {
   return DEFAULT_LANG;
 }
 
-/** 起動直後に確定した言語を返す（localStorage > navigator.language > default） */
-function getInitialLang(): Lang {
-  try {
-    if (typeof localStorage !== "undefined") {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved && (SUPPORTED_LANGS as ReadonlyArray<string>).includes(saved)) {
-        return saved as Lang;
-      }
-    }
-  } catch {
-    /* ignore */
-  }
-  return detectFromNavigator();
-}
-
-/** localStorage への永続化（失敗しても黙って無視） */
-function persist(lang: Lang) {
-  try {
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem(STORAGE_KEY, lang);
-    }
-  } catch {
-    /* ignore */
-  }
+function isSupportedLang(value: unknown): value is Lang {
+  return (
+    typeof value === "string" &&
+    (SUPPORTED_LANGS as ReadonlyArray<string>).indexOf(value) !== -1
+  );
 }
 
 // ─── グローバルストア ──────────────────────────────────────────────
 // すべてのコンポーネントから参照される単一の言語状態。
 // `setLang()` で更新すると、購読中のすべてのコンポーネントへ通知される。
 
-let currentLang: Lang = getInitialLang();
+let currentLang: Lang = detectFromNavigator();
 const subscribers = new Set<(lang: Lang) => void>();
+
+/**
+ * `figma.clientStorage` からの保存値ロードが完了したかどうか。
+ * 完了前にユーザー操作で言語が変更された場合は、その値を優先したいので
+ * 後から来た `LANGUAGE_LOADED` での上書きをスキップする。
+ */
+let hasLoadedFromStorage = false;
+let userChangedBeforeLoad = false;
 
 /** 同期的に現在言語を取得（フック外から参照したい場面用） */
 export function getLang(): Lang {
   return currentLang;
 }
 
+function notifySubscribers(next: Lang) {
+  // 通知中に Set を変更するケースを避けるためコピーしてから呼ぶ
+  for (const fn of Array.from(subscribers)) {
+    fn(next);
+  }
+}
+
 /**
  * 言語を変更し、購読中のすべてのコンポーネントへ通知する。
- * localStorage への永続化と main 側への emit も行う。
+ * main 側への現在言語の同期 (`SET_LANGUAGE`) と、
+ * `figma.clientStorage` への保存リクエスト (`SAVE_LANGUAGE`) も行う。
  */
 export function setLang(next: Lang) {
   if (next === currentLang) return;
   currentLang = next;
-  persist(next);
+  if (!hasLoadedFromStorage) {
+    // 起動直後にユーザーが切り替えた場合は、後続の LANGUAGE_LOADED で
+    // 上書きされないようにフラグを立てる
+    userChangedBeforeLoad = true;
+  }
   try {
     emit("SET_LANGUAGE", { lang: next });
   } catch {
     /* main 未初期化等は無視 */
   }
-  // 通知中に Set を変更するケースを避けるためコピーしてから呼ぶ
-  for (const fn of Array.from(subscribers)) {
-    fn(next);
+  try {
+    emit("SAVE_LANGUAGE", { lang: next });
+  } catch {
+    /* main 未初期化等は無視 */
   }
+  notifySubscribers(next);
 }
 
 function subscribe(fn: (lang: Lang) => void): () => void {
@@ -124,13 +128,34 @@ function subscribe(fn: (lang: Lang) => void): () => void {
   };
 }
 
-// 起動直後に main 側へ初期言語を同期しておく（モジュール読み込み時に1回だけ）。
-// main がまだ on() を登録する前のタイミングでも、UI 側のフックが初回 emit を
-// 行うため重複を許容しても問題ない。
+// 起動直後に main 側へ現在言語（navigator 推定値）を同期しておく。
+// main 側の clientStorage にすでに保存値があれば、後続の LANGUAGE_LOADED で
+// 上書きされる。
 try {
   emit("SET_LANGUAGE", { lang: currentLang });
 } catch {
   /* ignore */
+}
+
+// `figma.clientStorage` の保存値を main 側にロードしてもらう。
+// レスポンスは `LANGUAGE_LOADED` イベントで返ってくる。
+try {
+  on("LANGUAGE_LOADED", (data: { lang: Lang | null }) => {
+    hasLoadedFromStorage = true;
+    if (userChangedBeforeLoad) return;
+    if (!data || !isSupportedLang(data.lang)) return;
+    if (data.lang === currentLang) return;
+    currentLang = data.lang;
+    try {
+      emit("SET_LANGUAGE", { lang: currentLang });
+    } catch {
+      /* ignore */
+    }
+    notifySubscribers(currentLang);
+  });
+  emit("LOAD_LANGUAGE");
+} catch {
+  /* on/emit が使えない環境（テスト等）は無視 */
 }
 
 /**

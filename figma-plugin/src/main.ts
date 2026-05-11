@@ -10,6 +10,7 @@ import { getSolidColorImageHash } from "./solidColorImage";
 import {
   DEFAULT_LANG,
   Lang,
+  SUPPORTED_LANGS,
   TranslationKey,
   translate,
 } from "./i18n/messages";
@@ -22,6 +23,20 @@ import {
 } from "./imageNameKeywords";
 
 const STORAGE_KEY = "savedImages";
+
+/**
+ * 言語設定の永続化キー。
+ * - UI 側の `setLang()` で `SAVE_LANGUAGE` を受信したら `figma.clientStorage` に保存。
+ * - 起動時 / `LOAD_LANGUAGE` 受信時に同キーから読み込み、UI に `LANGUAGE_LOADED` で通知する。
+ */
+const LANGUAGE_STORAGE_KEY = "image-fetcher-lang";
+
+function isSupportedLang(value: unknown): value is Lang {
+  return (
+    typeof value === "string" &&
+    (SUPPORTED_LANGS as ReadonlyArray<string>).indexOf(value) !== -1
+  );
+}
 
 /**
  * 画像プレースホルダー判定に使うキーワード（lowercase 済み）。
@@ -56,10 +71,55 @@ function t(
 
 export default function () {
   on("SET_LANGUAGE", (data: { lang: Lang }) => {
-    if (data && typeof data.lang === "string") {
+    if (data && isSupportedLang(data.lang)) {
       currentLang = data.lang;
     }
   });
+
+  // UI 起動時に保存済み言語のロード要求を受ける
+  on("LOAD_LANGUAGE", async () => {
+    try {
+      const stored = (await figma.clientStorage.getAsync(
+        LANGUAGE_STORAGE_KEY,
+      )) as unknown;
+      if (isSupportedLang(stored)) {
+        currentLang = stored;
+        emit("LANGUAGE_LOADED", { lang: stored });
+      } else {
+        // 未保存ならその旨を返し、UI 側で navigator.language ベースの初期値を採用させる
+        emit("LANGUAGE_LOADED", { lang: null });
+      }
+    } catch (error) {
+      console.error("言語設定読み込みエラー:", error);
+      emit("LANGUAGE_LOADED", { lang: null });
+    }
+  });
+
+  // UI から言語設定の保存リクエストを受け取る
+  on("SAVE_LANGUAGE", async (data: { lang: Lang }) => {
+    try {
+      if (data && isSupportedLang(data.lang)) {
+        await figma.clientStorage.setAsync(LANGUAGE_STORAGE_KEY, data.lang);
+        currentLang = data.lang;
+      }
+    } catch (error) {
+      console.error("言語設定保存エラー:", error);
+    }
+  });
+
+  // 起動時に保存済み言語を復元（UI からのロード要求と並行して、figma.notify 用に main 側でも反映）
+  void (async () => {
+    try {
+      const stored = (await figma.clientStorage.getAsync(
+        LANGUAGE_STORAGE_KEY,
+      )) as unknown;
+      if (isSupportedLang(stored)) {
+        currentLang = stored;
+      }
+    } catch (error) {
+      console.error("言語設定読み込みエラー:", error);
+    }
+  })();
 
   // 起動時に保存済みのキーワード一覧を復元
   void (async () => {
