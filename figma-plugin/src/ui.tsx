@@ -284,6 +284,74 @@ declare global {
   }
 }
 
+const RECENT_IMAGEFETCHER_STORAGE_KEY = "image-fetcher-recent-files";
+const MAX_RECENT_IMAGEFETCHER_FILES = 8;
+/** localStorage 容量対策で、それ以上のファイルは履歴に本文を保存しない */
+const MAX_RECENT_IMAGEFETCHER_RAW_BYTES = 1_800_000;
+
+type RecentImageFetcherEntry = {
+  fileName: string;
+  content: string;
+  loadedAt: number;
+};
+
+/** ファイル入力から読み込んだときのみ handleLoadData に渡す（成功時に履歴へ記録する） */
+type ImageFetcherSourceMeta = { name: string; rawText: string };
+
+function loadRecentImageFetcherEntries(): RecentImageFetcherEntry[] {
+  try {
+    const raw = localStorage.getItem(RECENT_IMAGEFETCHER_STORAGE_KEY);
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed.filter(
+      (item): item is RecentImageFetcherEntry =>
+        !!item &&
+        typeof item.fileName === "string" &&
+        typeof item.content === "string" &&
+        typeof item.loadedAt === "number",
+    );
+  } catch {
+    return [];
+  }
+}
+
+function persistRecentImageFetcherEntries(entries: RecentImageFetcherEntry[]) {
+  try {
+    localStorage.setItem(
+      RECENT_IMAGEFETCHER_STORAGE_KEY,
+      JSON.stringify(entries),
+    );
+  } catch {
+    /* quota exceeded 等は無視 */
+  }
+}
+
+function addRecentImageFetcherEntry(
+  fileName: string,
+  rawText: string,
+): RecentImageFetcherEntry[] {
+  if (
+    typeof fileName !== "string" ||
+    fileName.length === 0 ||
+    rawText.length > MAX_RECENT_IMAGEFETCHER_RAW_BYTES
+  ) {
+    return loadRecentImageFetcherEntries();
+  }
+  const prev = loadRecentImageFetcherEntries();
+  const withoutSameName = prev.filter((e) => e.fileName !== fileName);
+  const next = [
+    { fileName, content: rawText, loadedAt: Date.now() },
+    ...withoutSameName,
+  ].slice(0, MAX_RECENT_IMAGEFETCHER_FILES);
+  persistRecentImageFetcherEntries(next);
+  return next;
+}
+
 function Plugin() {
   const { lang, setLang, t } = useI18n();
   const [jsonInput, setJsonInput] = useState("");
@@ -350,6 +418,11 @@ function Plugin() {
   const [dummyApplyDummyText, setDummyApplyDummyText] = useState(true);
   /** Dummy タブ: Apply 時にマスク色を適用するか */
   const [dummyApplyMaskImage, setDummyApplyMaskImage] = useState(true);
+  /** .imagefetcher を開いた履歴（UI localStorage のみ、本文ごとキャッシュ） */
+  const [recentImageFetcherEntries, setRecentImageFetcherEntries] =
+    useState<RecentImageFetcherEntry[]>(() =>
+      loadRecentImageFetcherEntries(),
+    );
   const [searchValue, setSearchValue] = useState<string>("");
   function handleSearchInput(event: JSX.TargetedEvent<HTMLInputElement>) {
     const newValue = event.currentTarget.value;
@@ -571,7 +644,10 @@ function Plugin() {
   };
 
   // データ読み込み（引数でデータを直接渡すことも可能）
-  const handleLoadData = async (data?: string) => {
+  const handleLoadData = async (
+    data?: string,
+    sourceMeta?: ImageFetcherSourceMeta,
+  ) => {
     const dataToProcess = data || jsonInput;
     if (!dataToProcess.trim()) {
       showStatus(t("ui.pleaseEnterData"), "error");
@@ -648,6 +724,14 @@ function Plugin() {
                 // 画像データを figmaClientStorage に保存
                 emit("SAVE_IMAGES", merged);
                 await updateProgress(100);
+                if (sourceMeta) {
+                  setRecentImageFetcherEntries(
+                    addRecentImageFetcherEntry(
+                      sourceMeta.name,
+                      sourceMeta.rawText,
+                    ),
+                  );
+                }
                 // 状態更新後にメッセージを表示（少し長めの遅延で完了を確認できるように）
                 setTimeout(() => {
                   setIsLoading(false);
@@ -749,6 +833,11 @@ function Plugin() {
       // 画像データを figmaClientStorage に保存
       emit("SAVE_IMAGES", merged);
       await updateProgress(100);
+      if (sourceMeta) {
+        setRecentImageFetcherEntries(
+          addRecentImageFetcherEntry(sourceMeta.name, sourceMeta.rawText),
+        );
+      }
       // 状態更新後にメッセージを表示（少し長めの遅延で完了を確認できるように）
       const addedCount = merged.length - existingImages.length;
       setTimeout(() => {
@@ -1308,7 +1397,10 @@ function Plugin() {
       // ファイルの内容をそのまま設定（表示用）
       setJsonInput(cleanedText);
       // データを直接渡して読み込む（setJsonInputの状態更新を待たない）
-      await handleLoadData(cleanedText);
+      await handleLoadData(cleanedText, {
+        name: file.name,
+        rawText: cleanedText,
+      });
     } catch (error) {
       console.error("File read error:", error);
       showStatus(
@@ -1320,6 +1412,21 @@ function Plugin() {
       );
     }
   }
+
+  const handleOpenRecentImageFetcher = async (
+    entry: RecentImageFetcherEntry,
+  ) => {
+    const cleaned = entry.content.replace(/^\uFEFF/, "").trim();
+    if (!cleaned) {
+      showStatus(t("ui.fileEmpty"), "error");
+      return;
+    }
+    setJsonInput(cleaned);
+    await handleLoadData(cleaned, {
+      name: entry.fileName,
+      rawText: cleaned,
+    });
+  };
 
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const settingsMenuRef = useRef<HTMLDivElement>(null);
@@ -1491,7 +1598,7 @@ function Plugin() {
           ? DUMMY_TAB_UI_HEIGHT_BY_LANG[lang]
           : hasWideLayout
             ? 820
-            : 300,
+            : 360,
     });
   }, [imagesToDisplay.length, tabValue, lang]);
 
@@ -1872,73 +1979,130 @@ function Plugin() {
             }}
           >
             {displayImages.length === 0 && (
-              <div
-                style={{
-                  border: `2px dashed var(--figma-color-border)`,
-                  borderRadius: "12px",
-                  padding: "86px 20px",
-                  textAlign: "center",
-                  cursor: "pointer",
-                  position: "relative",
-                  color: "var(--figma-color-text)",
-                  backgroundColor: "var(--figma-color-bg)",
-                  lineHeight: "2.3",
-                }}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  (e.currentTarget as HTMLElement).style.borderColor =
-                    "var(--figma-color-border-selected)";
-                }}
-                onDragLeave={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  (e.currentTarget as HTMLElement).style.borderColor =
-                    "var(--figma-color-border)";
-                }}
-                onDrop={(e: DragEvent) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  (e.currentTarget as HTMLElement).style.borderColor =
-                    "var(--figma-color-border)";
-                  const dataTransfer = e.dataTransfer;
-                  if (dataTransfer && dataTransfer.files) {
-                    const files = Array.from(dataTransfer.files);
-                    if (files.length > 0) {
-                      handleSelectedFiles(files);
-                    }
-                  }
-                }}
-                onClick={() => {
-                  const input = document.createElement("input");
-                  input.type = "file";
-                  input.accept = ".imagefetcher";
-                  input.onchange = async (e: Event) => {
-                    const files = (e.target as HTMLInputElement).files;
-                    if (files && files.length > 0) {
-                      handleSelectedFiles(Array.from(files));
-                    }
-                  };
-                  input.click();
-                }}
-              >
-                {t("ui.dropAreaLine1")}
-                <br />
-                {t("ui.dropAreaLine2")}
-                <span
+              <>
+                <div
                   style={{
-                    padding: "4px",
-                    background:
-                      "color-mix(in srgb, var(--figma-color-bg-brand) 12%, transparent)",
-                    borderRadius: "4px",
-                    color: "var(--figma-color-bg-brand)",
+                    border: `2px dashed var(--figma-color-border)`,
+                    borderRadius: "12px",
+                    padding: "116px 20px",
+                    textAlign: "center",
                     cursor: "pointer",
+                    position: "relative",
+                    color: "var(--figma-color-text)",
+                    backgroundColor: "var(--figma-color-bg)",
+                    lineHeight: "2.3",
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    (e.currentTarget as HTMLElement).style.borderColor =
+                      "var(--figma-color-border-selected)";
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    (e.currentTarget as HTMLElement).style.borderColor =
+                      "var(--figma-color-border)";
+                  }}
+                  onDrop={(e: DragEvent) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    (e.currentTarget as HTMLElement).style.borderColor =
+                      "var(--figma-color-border)";
+                    const dataTransfer = e.dataTransfer;
+                    if (dataTransfer && dataTransfer.files) {
+                      const files = Array.from(dataTransfer.files);
+                      if (files.length > 0) {
+                        handleSelectedFiles(files);
+                      }
+                    }
+                  }}
+                  onClick={() => {
+                    const input = document.createElement("input");
+                    input.type = "file";
+                    input.accept = ".imagefetcher";
+                    input.onchange = async (e: Event) => {
+                      const files = (e.target as HTMLInputElement).files;
+                      if (files && files.length > 0) {
+                        handleSelectedFiles(Array.from(files));
+                      }
+                    };
+                    input.click();
                   }}
                 >
-                  .imagefetcher
-                </span>
-                {t("ui.dropAreaSuffix")}
-              </div>
+                  {t("ui.dropAreaLine1")}
+                  <br />
+                  {t("ui.dropAreaLine2")}
+                  <span
+                    style={{
+                      padding: "4px",
+                      background:
+                        "color-mix(in srgb, var(--figma-color-bg-brand) 12%, transparent)",
+                      borderRadius: "4px",
+                      color: "var(--figma-color-bg-brand)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    .imagefetcher
+                  </span>
+                  {t("ui.dropAreaSuffix")}
+                </div>
+                {recentImageFetcherEntries.length > 0 && (
+                  <div
+                    style={{
+                      marginTop: "var(--space-medium)",
+                      textAlign: "left",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: "11px",
+                        fontWeight: 600,
+                        color: "var(--figma-color-text-secondary)",
+                        marginBottom: "6px",
+                      }}
+                    >
+                      {t("ui.recentFilesHeading")}
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "6px",
+                      }}
+                    >
+                      {recentImageFetcherEntries.map((entry) => (
+                        <button
+                          key={`${entry.fileName}-${entry.loadedAt}`}
+                          type="button"
+                          onClick={() => {
+                            void handleOpenRecentImageFetcher(entry);
+                          }}
+                          disabled={isLoading}
+                          title={entry.fileName}
+                          style={{
+                            fontSize: "11px",
+                            padding: "4px 10px",
+                            borderRadius: "6px",
+                            border:
+                              "1px solid var(--figma-color-border)",
+                            background: "var(--figma-color-bg)",
+                            color: "var(--figma-color-text)",
+                            cursor: isLoading ? "not-allowed" : "pointer",
+                            maxWidth: "100%",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            opacity: isLoading ? 0.5 : 1,
+                          }}
+                        >
+                          {entry.fileName}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
             {displayImages.length > 0 &&
               (() => {
