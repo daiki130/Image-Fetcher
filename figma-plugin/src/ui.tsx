@@ -1495,12 +1495,6 @@ function Plugin() {
     });
   }, [imagesToDisplay.length, tabValue, lang]);
 
-  useEffect(() => {
-    emit("selectionchange", { dummyApplyDummyText });
-    console.log("dummyApplyDummyText", dummyApplyDummyText);
-    console.log("dummyApplyMaskImage", dummyApplyMaskImage);
-  }, [dummyApplyDummyText, dummyApplyMaskImage]);
-
   const areAllDisplayImagesSelected: boolean =
     imagesToDisplay.length > 0 &&
     imagesToDisplay.every((displayImg) => {
