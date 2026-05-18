@@ -162,9 +162,7 @@ export default function () {
       if (Array.isArray(stored)) {
         const sanitized = sanitizeImageNameKeywords(stored);
         keywords =
-          sanitized.length > 0
-            ? sanitized
-            : [...DEFAULT_IMAGE_NAME_KEYWORDS];
+          sanitized.length > 0 ? sanitized : [...DEFAULT_IMAGE_NAME_KEYWORDS];
       } else {
         keywords = [...DEFAULT_IMAGE_NAME_KEYWORDS];
       }
@@ -185,10 +183,7 @@ export default function () {
       const next =
         sanitized.length > 0 ? sanitized : [...DEFAULT_IMAGE_NAME_KEYWORDS];
       currentImageNameKeywords = next;
-      await figma.clientStorage.setAsync(
-        IMAGE_NAME_KEYWORDS_STORAGE_KEY,
-        next,
-      );
+      await figma.clientStorage.setAsync(IMAGE_NAME_KEYWORDS_STORAGE_KEY, next);
       emit("IMAGE_NAME_KEYWORDS_LOADED", next);
     } catch (error) {
       console.error("画像キーワード保存エラー:", error);
@@ -228,27 +223,6 @@ export default function () {
       console.error("既存画像反映設定の保存エラー:", error);
     }
   });
-
-  // UIから変換済み画像を受け取る
-  on(
-    "APPLY_IMAGE_DATA",
-    async (data: {
-      imageData: Uint8Array;
-      isNewRect?: boolean;
-      width?: number;
-      height?: number;
-    }) => {
-      if (data.isNewRect && data.width && data.height) {
-        await createRectangleWithImageData(
-          data.imageData,
-          data.width,
-          data.height,
-        );
-      } else {
-        await applyImageDataToSelection(data.imageData);
-      }
-    },
-  );
 
   // UIから画像データを保存するリクエストを受け取る
   on("SAVE_IMAGES", async (images: ImageData[]) => {
@@ -383,9 +357,7 @@ export default function () {
       } catch (error) {
         console.error("Error adding image to Figma:", error);
         const errorMessage =
-          error instanceof Error
-            ? error.message
-            : t("common.unknownError");
+          error instanceof Error ? error.message : t("common.unknownError");
         figma.notify(t("main.error", { msg: errorMessage }), { error: true });
       }
     },
@@ -602,6 +574,71 @@ function collectMaskTargetNodes(
 }
 
 /**
+ * ノードに画像を適用する共通ヘルパー。
+ *
+ * - 既存の fills に IMAGE fill が含まれる場合:
+ *     その IMAGE fill の `imageHash` のみを差し替える。
+ *     scaleMode / filters / opacity 等の IMAGE fill 自体のプロパティと、
+ *     重ねられた gradient / solid などの非 IMAGE fill とその重なり順（インデックス）は
+ *     そのまま保持される。
+ *     例: `[IMAGE, GRADIENT_LINEAR, GRADIENT_LINEAR]` の構成では
+ *         画像だけが差し替わり、上に乗っているグラデーションは残る。
+ *
+ * - 既存の fills に IMAGE fill が無いが GRADIENT_* fill を持つ場合:
+ *     既存の fill（gradient を含む全 fill）を温存し、新しい IMAGE fill を
+ *     配列の先頭（= レイヤー最下層）に挿入する。
+ *     これにより gradient がオーバーレイとして上に残り、その下に新画像が入る。
+ *     例: `[GRADIENT_LINEAR]` → `[IMAGE, GRADIENT_LINEAR]`
+ *
+ * - 既存の fills に IMAGE fill も GRADIENT_* fill も無い場合（純粋な名前ベースの
+ *   プレースホルダーや単色 fill のみのノード）:
+ *     従来通り fills を `[IMAGE(FILL)]` で完全置換する。
+ *
+ * 適用に成功したら true を返す。`fills` が mixed のノードは false を返す。
+ */
+function applyImageHashToNode(node: SceneNode, imageHash: string): boolean {
+  if (!("fills" in node) || node.fills === figma.mixed) {
+    return false;
+  }
+  const fills = node.fills;
+  if (!Array.isArray(fills)) {
+    return false;
+  }
+
+  const hasImageFill = fills.some((f) => f.type === "IMAGE");
+
+  if (hasImageFill) {
+    (node as SceneNode & MinimalFillsMixin).fills = fills.map((fill) => {
+      if (fill.type !== "IMAGE") return fill;
+      const next: ImagePaint = { ...fill, imageHash };
+      return next;
+    });
+    return true;
+  }
+
+  const hasGradientFill = fills.some(
+    (f) =>
+      f.type === "GRADIENT_LINEAR" ||
+      f.type === "GRADIENT_RADIAL" ||
+      f.type === "GRADIENT_ANGULAR" ||
+      f.type === "GRADIENT_DIAMOND",
+  );
+
+  const newImageFill: ImagePaint = {
+    type: "IMAGE",
+    imageHash,
+    scaleMode: "FILL",
+  };
+
+  if (hasGradientFill) {
+    (node as SceneNode & MinimalFillsMixin).fills = [newImageFill, ...fills];
+  } else {
+    (node as SceneNode & MinimalFillsMixin).fills = [newImageFill];
+  }
+  return true;
+}
+
+/**
  * fill 配列内の IMAGE fill を「指定色の単色画像」へ差し替える。
  * scaleMode など IMAGE fill のプロパティは保持したまま imageHash のみ入れ替えるため、
  * 元の画像データはノードから取り除かれる。
@@ -760,9 +797,7 @@ async function placeRandomContentInFrame(
       pre.push(t("main.partsTextDummyReplaced", { count: textCount }));
     }
     if (applyMaskImage && appliedMaskCount > 0) {
-      pre.push(
-        t("main.partsMaskColorApplied", { count: appliedMaskCount }),
-      );
+      pre.push(t("main.partsMaskColorApplied", { count: appliedMaskCount }));
     }
     figma.notify(
       pre.length > 0
@@ -788,9 +823,7 @@ async function placeRandomContentInFrame(
   if (applyMaskImage && appliedMaskCount > 0) {
     parts.push(t("main.partsMaskColorApplied", { count: appliedMaskCount }));
   }
-  parts.push(
-    t("main.partsImageApplied", { count: imageResult.appliedCount }),
-  );
+  parts.push(t("main.partsImageApplied", { count: imageResult.appliedCount }));
   figma.notify(t("main.partsApplied", { parts: parts.join(" / "), skipHint }));
 }
 
@@ -886,9 +919,7 @@ async function applyDummyContentInFrame(
       parts.push(t("main.partsTextDummyReplaced", { count: textCount }));
     }
     if (applyMaskImage) {
-      parts.push(
-        t("main.partsMaskColorApplied", { count: appliedMaskCount }),
-      );
+      parts.push(t("main.partsMaskColorApplied", { count: appliedMaskCount }));
     }
     const skipHint =
       applyDummyText && skippedProtected > 0
@@ -914,46 +945,6 @@ async function applyDummyContentInFrame(
       skippedProtected: 0,
       errorMessage: msg,
     });
-  }
-}
-
-// 選択ノードに画像データを適用
-async function applyImageDataToSelection(imageData: Uint8Array) {
-  const selection = figma.currentPage.selection;
-
-  if (selection.length === 0) {
-    figma.notify(t("main.selectNode"), { error: true });
-    return;
-  }
-
-  try {
-    let appliedCount = 0;
-
-    for (const node of selection) {
-      if ("fills" in node && node.fills !== figma.mixed) {
-        const imageHash = figma.createImage(imageData).hash;
-
-        node.fills = [
-          {
-            type: "IMAGE",
-            imageHash: imageHash,
-            scaleMode: "FILL",
-          },
-        ];
-
-        appliedCount++;
-      }
-    }
-
-    if (appliedCount > 0) {
-      figma.notify(t("main.appliedToNodes", { count: appliedCount }));
-    } else {
-      figma.notify(t("main.cannotApplyToNodes"), { error: true });
-    }
-  } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : t("common.unknownError");
-    figma.notify(t("main.error", { msg: errorMessage }), { error: true });
   }
 }
 
@@ -1384,14 +1375,7 @@ async function placeImagesInFrame(
         if (sequential) {
           const imageHash = figma.createImage(images[0].imageData).hash;
           for (const node of existingImageNodes) {
-            if ("fills" in node && node.fills !== figma.mixed) {
-              node.fills = [
-                {
-                  type: "IMAGE",
-                  imageHash,
-                  scaleMode: "FILL",
-                },
-              ];
+            if (applyImageHashToNode(node, imageHash)) {
               appliedCount++;
             }
           }
@@ -1399,15 +1383,8 @@ async function placeImagesInFrame(
           for (let i = 0; i < existingImageNodes.length; i++) {
             const node = existingImageNodes[i];
             const img = images[i % images.length];
-            if ("fills" in node && node.fills !== figma.mixed) {
-              const imageHash = figma.createImage(img.imageData).hash;
-              node.fills = [
-                {
-                  type: "IMAGE",
-                  imageHash: imageHash,
-                  scaleMode: "FILL",
-                },
-              ];
+            const imageHash = figma.createImage(img.imageData).hash;
+            if (applyImageHashToNode(node, imageHash)) {
               appliedCount++;
             }
           }
@@ -1418,15 +1395,8 @@ async function placeImagesInFrame(
             i++
           ) {
             const node = existingImageNodes[i];
-            if ("fills" in node && node.fills !== figma.mixed) {
-              const imageHash = figma.createImage(images[i].imageData).hash;
-              node.fills = [
-                {
-                  type: "IMAGE",
-                  imageHash: imageHash,
-                  scaleMode: "FILL",
-                },
-              ];
+            const imageHash = figma.createImage(images[i].imageData).hash;
+            if (applyImageHashToNode(node, imageHash)) {
               appliedCount++;
             }
           }
@@ -1452,14 +1422,7 @@ async function placeImagesInFrame(
       // Random など: 1枚の画像をすべての img 枠に繰り返し（各枠を画像の塗りで埋める＝FILL）
       const imageHash = figma.createImage(images[0].imageData).hash;
       for (const ph of placeholders) {
-        if ("fills" in ph.node && ph.node.fills !== figma.mixed) {
-          ph.node.fills = [
-            {
-              type: "IMAGE",
-              imageHash,
-              scaleMode: "FILL",
-            },
-          ];
+        if (applyImageHashToNode(ph.node, imageHash)) {
           updatedNodes.push(ph.node);
         }
       }
@@ -1467,15 +1430,8 @@ async function placeImagesInFrame(
       for (let i = 0; i < placeholders.length; i++) {
         const ph = placeholders[i];
         const img = images[i % images.length];
-        if ("fills" in ph.node && ph.node.fills !== figma.mixed) {
-          const imageHash = figma.createImage(img.imageData).hash;
-          ph.node.fills = [
-            {
-              type: "IMAGE",
-              imageHash: imageHash,
-              scaleMode: "FILL",
-            },
-          ];
+        const imageHash = figma.createImage(img.imageData).hash;
+        if (applyImageHashToNode(ph.node, imageHash)) {
           updatedNodes.push(ph.node);
         }
       }
@@ -1490,19 +1446,8 @@ async function placeImagesInFrame(
       for (const pair of pairs) {
         const img = pair.image;
         const placeholder = pair.placeholder;
-
-        if (
-          "fills" in placeholder.node &&
-          placeholder.node.fills !== figma.mixed
-        ) {
-          const imageHash = figma.createImage(img.imageData).hash;
-          placeholder.node.fills = [
-            {
-              type: "IMAGE",
-              imageHash: imageHash,
-              scaleMode: "FILL",
-            },
-          ];
+        const imageHash = figma.createImage(img.imageData).hash;
+        if (applyImageHashToNode(placeholder.node, imageHash)) {
           updatedNodes.push(placeholder.node);
         }
       }
@@ -1511,9 +1456,7 @@ async function placeImagesInFrame(
     if (updatedNodes.length > 0) {
       figma.currentPage.selection = updatedNodes;
       figma.viewport.scrollAndZoomIntoView(updatedNodes);
-      notify(
-        t("main.imagesAppliedToElements", { count: updatedNodes.length }),
-      );
+      notify(t("main.imagesAppliedToElements", { count: updatedNodes.length }));
       return { appliedCount: updatedNodes.length };
     }
     const cannotMsg = t("main.cannotApplyToElements");

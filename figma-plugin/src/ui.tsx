@@ -844,53 +844,6 @@ function Plugin() {
     });
   };
 
-  // 選択ノードに適用（複数選択されている場合は最初の選択を適用）
-  // const handleApplyImage = async () => {
-  //   if (tabValue === "Dummy") {
-  //     if (selectedRandomIndices.size === 0) {
-  //       showStatus("画像を選択してください", "error");
-  //       return;
-  //     }
-  //     const idx = Array.from(selectedRandomIndices).sort((a, b) => a - b)[0];
-  //     const selectedImage = randomDemoImages[idx];
-  //     if (!selectedImage) {
-  //       showStatus("画像を選択してください", "error");
-  //       return;
-  //     }
-  //     const imageData = await downloadAndConvertImage(selectedImage);
-  //     if (imageData) {
-  //       emit("APPLY_IMAGE_DATA", { imageData });
-  //       showStatus("画像を適用しました", "success");
-  //     } else {
-  //       showStatus(
-  //         "画像の処理に失敗しました。画像データを確認してください",
-  //         "error",
-  //       );
-  //     }
-  //     return;
-  //   }
-
-  //   if (selectedImageIndices.size === 0) {
-  //     showStatus("画像を選択してください", "error");
-  //     return;
-  //   }
-
-  //   const firstSelectedIndex = Array.from(selectedImageIndices)[0];
-  //   const selectedImage = images[firstSelectedIndex];
-
-  //   const imageData = await downloadAndConvertImage(selectedImage);
-
-  //   if (imageData) {
-  //     emit("APPLY_IMAGE_DATA", { imageData });
-  //     showStatus("画像を適用しました", "success");
-  //   } else {
-  //     showStatus(
-  //       "画像の処理に失敗しました。画像データを確認してください",
-  //       "error",
-  //     );
-  //   }
-  // };
-
   // フレーム内にすべての画像を自動配置
   const handlePlaceAllImagesInFrame = async () => {
     setApplyButtonLoading(true);
